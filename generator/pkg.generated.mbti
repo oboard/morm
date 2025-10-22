@@ -1,0 +1,14 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/generator"
+
+// Values
+
+// Errors
+
+// Types and methods
+type FieldInfo
+
+// Type aliases
+
+// Traits
+

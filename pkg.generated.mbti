@@ -1,0 +1,253 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm"
+
+// Values
+fn add_column(Table, Column) -> Table
+
+fn add_foreign_key(Table, ForeignKey) -> Table
+
+fn add_index(Table, Index) -> Table
+
+fn auto_increment(Column) -> Column
+
+fn comment(Column, String) -> Column
+
+fn default_value(Column, String) -> Column
+
+fn infer_column_type(Json) -> ColumnType
+
+fn limit(Query, Int) -> Query
+
+fn not_null(Column) -> Column
+
+fn offset(Query, Int) -> Query
+
+fn on_delete_cascade(ForeignKey) -> ForeignKey
+
+fn on_update_cascade(ForeignKey) -> ForeignKey
+
+fn order_by(Query, String) -> Query
+
+fn primary_key(Column) -> Column
+
+fn select_from(String) -> Query
+
+fn select_raw(String, String) -> Query
+
+fn table_comment(Table, String) -> Table
+
+fn table_engine(Table, String) -> Table
+
+fn to_mysql_sql(Query) -> (String, FixedArray[Json])
+
+fn unique(Column) -> Column
+
+fn where_eq(Query, String) -> Query
+
+// Errors
+
+// Types and methods
+pub(all) struct Column {
+  name : String
+  column_type : ColumnType
+  size : Int
+  nullable : Bool
+  default_value : String?
+  auto_increment : Bool
+  primary_key : Bool
+  unique : Bool
+  comment : String
+  charset : String?
+  collation : String?
+}
+fn Column::compare(Self, Self) -> Int // from trait `Compare`
+fn Column::equal(Self, Self) -> Bool // from trait `Eq`
+fn Column::hash(Self) -> Int // from trait `Hash`
+fn Column::hash_combine(Self, Hasher) -> Unit // from trait `Hash`
+fn Column::new(String, ColumnType) -> Self
+#deprecated
+fn Column::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn Column::output(Self, &Logger) -> Unit // from trait `Show`
+fn Column::to_json(Self) -> Json // from trait `ToJson`
+fn Column::to_string(Self) -> String // from trait `Show`
+impl Compare for Column
+impl Eq for Column
+impl Hash for Column
+impl Show for Column
+impl ToJson for Column
+
+pub(all) enum ColumnType {
+  TinyInt
+  SmallInt
+  MediumInt
+  Int
+  BigInt
+  Float
+  Double
+  Decimal(Int, Int)
+  Char(Int)
+  VarChar(Int)
+  Text
+  MediumText
+  LongText
+  Binary(Int)
+  VarBinary(Int)
+  Blob
+  MediumBlob
+  LongBlob
+  Date
+  Time
+  DateTime
+  Timestamp
+  Year
+  Json
+  Boolean
+}
+fn ColumnType::compare(Self, Self) -> Int // from trait `Compare`
+fn ColumnType::equal(Self, Self) -> Bool // from trait `Eq`
+fn ColumnType::hash(Self) -> Int // from trait `Hash`
+fn ColumnType::hash_combine(Self, Hasher) -> Unit // from trait `Hash`
+#deprecated
+fn ColumnType::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn ColumnType::output(Self, &Logger) -> Unit // from trait `Show`
+fn ColumnType::to_json(Self) -> Json // from trait `ToJson`
+fn ColumnType::to_string(Self) -> String // from trait `Show`
+impl Compare for ColumnType
+impl Eq for ColumnType
+impl Hash for ColumnType
+impl Show for ColumnType
+impl ToJson for ColumnType
+
+pub(all) struct DbError {
+  message : String
+}
+fn DbError::output(Self, &Logger) -> Unit // from trait `Show`
+fn DbError::to_json(Self) -> Json // from trait `ToJson`
+fn DbError::to_string(Self) -> String // from trait `Show`
+impl Show for DbError
+impl ToJson for DbError
+
+pub(all) struct ForeignKey {
+  name : String
+  column : String
+  referenced_table : String
+  referenced_column : String
+  on_delete : String
+  on_update : String
+}
+fn ForeignKey::compare(Self, Self) -> Int // from trait `Compare`
+fn ForeignKey::equal(Self, Self) -> Bool // from trait `Eq`
+fn ForeignKey::hash(Self) -> Int // from trait `Hash`
+fn ForeignKey::hash_combine(Self, Hasher) -> Unit // from trait `Hash`
+fn ForeignKey::new(String, String, String, String) -> Self
+#deprecated
+fn ForeignKey::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn ForeignKey::output(Self, &Logger) -> Unit // from trait `Show`
+fn ForeignKey::to_json(Self) -> Json // from trait `ToJson`
+fn ForeignKey::to_string(Self) -> String // from trait `Show`
+impl Compare for ForeignKey
+impl Eq for ForeignKey
+impl Hash for ForeignKey
+impl Show for ForeignKey
+impl ToJson for ForeignKey
+
+pub(all) struct Index {
+  name : String
+  index_type : IndexType
+  columns : FixedArray[String]
+  comment : String
+}
+fn Index::compare(Self, Self) -> Int // from trait `Compare`
+fn Index::equal(Self, Self) -> Bool // from trait `Eq`
+fn Index::hash(Self) -> Int // from trait `Hash`
+fn Index::hash_combine(Self, Hasher) -> Unit // from trait `Hash`
+fn Index::new(String, FixedArray[String]) -> Self
+fn Index::new_primary(FixedArray[String]) -> Self
+fn Index::new_unique(String, FixedArray[String]) -> Self
+#deprecated
+fn Index::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn Index::output(Self, &Logger) -> Unit // from trait `Show`
+fn Index::to_json(Self) -> Json // from trait `ToJson`
+fn Index::to_string(Self) -> String // from trait `Show`
+impl Compare for Index
+impl Eq for Index
+impl Hash for Index
+impl Show for Index
+impl ToJson for Index
+
+pub(all) enum IndexType {
+  Primary
+  Unique
+  Index
+  FullText
+  Spatial
+}
+fn IndexType::compare(Self, Self) -> Int // from trait `Compare`
+fn IndexType::equal(Self, Self) -> Bool // from trait `Eq`
+fn IndexType::hash(Self) -> Int // from trait `Hash`
+fn IndexType::hash_combine(Self, Hasher) -> Unit // from trait `Hash`
+#deprecated
+fn IndexType::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn IndexType::output(Self, &Logger) -> Unit // from trait `Show`
+fn IndexType::to_json(Self) -> Json // from trait `ToJson`
+fn IndexType::to_string(Self) -> String // from trait `Show`
+impl Compare for IndexType
+impl Eq for IndexType
+impl Hash for IndexType
+impl Show for IndexType
+impl ToJson for IndexType
+
+pub struct Query {
+  sql : String
+  has_where : Bool
+}
+fn Query::output(Self, &Logger) -> Unit // from trait `Show`
+fn Query::to_json(Self) -> Json // from trait `ToJson`
+fn Query::to_string(Self) -> String // from trait `Show`
+impl Show for Query
+impl ToJson for Query
+
+pub(all) struct Table {
+  name : String
+  columns : FixedArray[Column]
+  indexes : FixedArray[Index]
+  foreign_keys : FixedArray[ForeignKey]
+  engine : String
+  charset : String
+  collation : String
+  comment : String
+  auto_increment : Int
+}
+fn Table::compare(Self, Self) -> Int // from trait `Compare`
+fn Table::equal(Self, Self) -> Bool // from trait `Eq`
+fn Table::from_json(String, Json) -> Self
+fn Table::hash(Self) -> Int // from trait `Hash`
+fn Table::hash_combine(Self, Hasher) -> Unit // from trait `Hash`
+fn Table::new(String, columns? : FixedArray[Column]) -> Self
+#deprecated
+fn Table::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn Table::output(Self, &Logger) -> Unit // from trait `Show`
+fn Table::to_json(Self) -> Json // from trait `ToJson`
+fn Table::to_string(Self) -> String // from trait `Show`
+impl Compare for Table
+impl Eq for Table
+impl Hash for Table
+impl Show for Table
+impl ToJson for Table
+
+// Type aliases
+pub typealias Result[T, DbError] as DbResult[T]
+
+// Traits
+pub(open) trait Driver {
+  open(Self, String) -> Result[Self, DbError]
+  close(Self) -> Result[Self, DbError]
+  ping(Self) -> Result[Unit, DbError]
+  exec(Self, String, FixedArray[Json]) -> Result[Unit, DbError]
+  query(Self, String, FixedArray[Json]) -> Result[FixedArray[Json], DbError]
+}
+
+pub(open) trait Entity : ToJson {
+  table(Self) -> Table
+}
+

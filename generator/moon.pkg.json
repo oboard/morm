@@ -1,0 +1,11 @@
+{
+  "is-main": true,
+  "import": [
+    "moonbitlang/x/fs",
+    "moonbitlang/parser",
+    "moonbitlang/parser/syntax",
+    "moonbitlang/parser/attribute",
+    "moonbitlang/x/sys",
+    "Yoorkin/ArgParser"
+  ]
+}
