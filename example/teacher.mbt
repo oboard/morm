@@ -3,6 +3,7 @@
 pub(all) struct Teacher {
   #morm.primary_key
   #morm.auto_increment
+  #morm.bigint
   id : Int
   #morm.varchar(length="255")
   name : String

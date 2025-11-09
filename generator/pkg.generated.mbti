@@ -6,7 +6,6 @@ package "oboard/morm/generator"
 // Errors
 
 // Types and methods
-type FieldInfo
 
 // Type aliases
 

@@ -1,1 +1,1 @@
-moon run generator
+moon run generator -- example

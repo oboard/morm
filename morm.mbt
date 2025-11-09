@@ -36,9 +36,10 @@ pub(all) enum ColumnType {
   Year
   // JSON 类型
   Json
+  JsonB
   // 布尔类型
   Boolean
-} derive(Show, ToJson, Eq, Compare, Hash)
+} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
 // 数据库列定义
@@ -54,7 +55,7 @@ pub(all) struct Column {
   comment : String
   charset : String?
   collation : String?
-} derive(Show, ToJson, Eq, Compare, Hash)
+} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
 // 索引类型
@@ -64,7 +65,7 @@ pub(all) enum IndexType {
   Index
   FullText
   Spatial
-} derive(Show, ToJson, Eq, Compare, Hash)
+} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
 // 索引定义
@@ -73,7 +74,7 @@ pub(all) struct Index {
   index_type : IndexType
   columns : FixedArray[String]
   comment : String
-} derive(Show, ToJson, Eq, Compare, Hash)
+} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
 // 外键约束
@@ -84,7 +85,7 @@ pub(all) struct ForeignKey {
   referenced_column : String
   on_delete : String // CASCADE, SET NULL, RESTRICT, NO ACTION
   on_update : String // CASCADE, SET NULL, RESTRICT, NO ACTION
-} derive(Show, ToJson, Eq, Compare, Hash)
+} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
 // 数据库表定义
@@ -98,7 +99,7 @@ pub(all) struct Table {
   collation : String
   comment : String
   auto_increment : Int
-} derive(Show, ToJson, Eq, Compare, Hash)
+} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
 // ---- 列构建器函数 ----
@@ -279,71 +280,13 @@ pub fn infer_column_type(value : Json) -> ColumnType {
 }
 
 ///|
-pub fn Table::from_json(name : String, json : Json) -> Table {
-  match json {
-    Object(obj) => {
-      let columns = Array::new()
-
-      // 解析每个字段为列
-      obj.each(fn(field_name, field_value) {
-        let column_type = infer_column_type(field_value)
-        let column = {
-          name: field_name,
-          column_type,
-          size: match column_type {
-            VarChar(len) => len
-            Char(len) => len
-            Binary(len) => len
-            VarBinary(len) => len
-            _ => 0
-          },
-          nullable: true,
-          default_value: None,
-          auto_increment: false,
-          primary_key: false,
-          unique: false,
-          comment: "",
-          charset: None,
-          collation: None,
-        }
-        columns.push(column)
-      })
-      {
-        name,
-        columns: FixedArray::from_array(columns),
-        indexes: [],
-        foreign_keys: [],
-        engine: "InnoDB",
-        charset: "utf8mb4",
-        collation: "utf8mb4_unicode_ci",
-        comment: "",
-        auto_increment: 1,
-      }
-    }
-    _ =>
-      // 如果不是对象，返回空表
-      {
-        name,
-        columns: [],
-        indexes: [],
-        foreign_keys: [],
-        engine: "InnoDB",
-        charset: "utf8mb4",
-        collation: "utf8mb4_unicode_ci",
-        comment: "",
-        auto_increment: 1,
-      }
-  }
-}
-
-///|
 // ---- DB/Driver error & result types ----
 pub(all) struct DbError {
   message : String
 } derive(Show, ToJson)
 
 ///|
-pub typealias Result[T, DbError] as DbResult[T]
+pub type DbResult[T] = Result[T, DbError]
 
 ///|
 // ---- Driver 接口定义 ----

@@ -6,6 +6,7 @@
     "moonbitlang/parser/syntax",
     "moonbitlang/parser/attribute",
     "moonbitlang/x/sys",
-    "Yoorkin/ArgParser"
+    "Yoorkin/ArgParser",
+    "oboard/morm"
   ]
 }

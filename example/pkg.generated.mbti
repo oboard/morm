@@ -16,8 +16,6 @@ pub(all) struct Student {
   age : Int
   birth_date : String
 }
-fn Student::table(Self) -> @morm.Table // from trait `@morm.Entity`
-fn Student::to_json(Self) -> Json // from trait `ToJson`
 impl ToJson for Student
 impl @morm.Entity for Student
 
@@ -28,8 +26,6 @@ pub(all) struct Teacher {
   age : Int
   birth_date : String
 }
-fn Teacher::table(Self) -> @morm.Table // from trait `@morm.Entity`
-fn Teacher::to_json(Self) -> Json // from trait `ToJson`
 impl ToJson for Teacher
 impl @morm.Entity for Teacher
 
