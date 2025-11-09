@@ -38,3 +38,30 @@ test "generated entity" {
   assert_eq(birth_date_col.name, "birth_date")
   assert_eq(birth_date_col.column_type, DateTime)
 }
+
+///|
+test "generated class with foreign key" {
+  let class_obj = Class::{ id: 10, name: "Math 101", teacher_id: 1 }
+  let table = class_obj.table()
+
+  // 表名
+  assert_eq(table.name, "Class")
+
+  // 列数量（id, name, teacher_id）
+  assert_eq(table.columns.length(), 3)
+
+  // teacher_id 列存在
+  let teacher_id_col = table.columns[2]
+  assert_eq(teacher_id_col.name, "teacher_id")
+  assert_eq(teacher_id_col.column_type, Int)
+  assert_eq(teacher_id_col.nullable, true) // 未标注 not_null
+
+  // 外键约束存在
+  assert_eq(table.foreign_keys.length(), 1)
+  let fk = table.foreign_keys[0]
+  assert_eq(fk.name, "fk_Class_teacher_id")
+  assert_eq(fk.column, "teacher_id")
+  assert_eq(fk.referenced_table, "teacher")
+  assert_eq(fk.referenced_column, "id")
+  assert_eq(fk.on_delete, "CASCADE")
+}

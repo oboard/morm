@@ -10,6 +10,14 @@ import(
 // Errors
 
 // Types and methods
+pub(all) struct Class {
+  id : Int
+  name : String
+  teacher_id : Int
+}
+impl ToJson for Class
+impl @morm.Entity for Class
+
 pub(all) struct Student {
   id : Int
   name : String

@@ -6,6 +6,11 @@ package "oboard/morm/generator"
 // Errors
 
 // Types and methods
+type EntitySpec
+
+type FieldSpec
+
+type ORMAttribute
 
 // Type aliases
 
