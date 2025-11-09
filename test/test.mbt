@@ -20,15 +20,11 @@ test "query" {
   )
   inspect(
     q.to(Oracle),
-    content=(
-      #|SELECT * FROM students WHERE id = 1 AND name = "Alice" ORDER BY id DESC LIMIT 5 OFFSET 5
-    ),
+    content="SELECT * FROM students WHERE id = 1 AND name = 'Alice' ORDER BY id DESC OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY",
   )
   inspect(
     q.to(SqlServer),
-    content=(
-      #|SELECT * FROM students WHERE id = 1 AND name = 'Alice' ORDER BY id DESC LIMIT 5 OFFSET 5
-    ),
+    content="SELECT * FROM students WHERE id = 1 AND name = 'Alice' ORDER BY id DESC OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY",
   )
   inspect(
     q.to(Sqlite3),

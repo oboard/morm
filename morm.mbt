@@ -506,7 +506,7 @@ pub fn Query::to(self : Query, dialect : Dialect) -> String {
         )
       }
       match dialect {
-        Oracle => {
+        Oracle | SqlServer => {
           if self.offset is Some(offset) {
             buf.write_string(" OFFSET ")
             buf.write_string(offset.to_string())
