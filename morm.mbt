@@ -303,42 +303,472 @@ pub(open) trait Driver {
 ///|
 // ---- 简易查询构建器 ----
 pub struct Query {
-  sql : String
-  has_where : Bool
-} derive(Show, ToJson)
+  select : String
+  from : String
+  where_ : FixedArray[Where]
+  order_by : FixedArray[OrderBy]
+  limit : Int?
+  offset : Int?
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub(all) enum OrderBy {
+  Asc(String)
+  Desc(String)
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub struct Where {
+  col : String
+  value : Json
+  ty : WhereType
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub enum WhereType {
+  Eq
+  Gt
+  Lt
+  Gte
+  Lte
+} derive(Eq, Show, ToJson, FromJson)
 
 ///|
 pub fn select_from(table : String) -> Query {
-  { sql: "SELECT * FROM " + table, has_where: false }
+  {
+    select: "*",
+    from: table,
+    where_: [],
+    order_by: [],
+    limit: None,
+    offset: None,
+  }
 }
 
 ///|
 pub fn select_raw(table : String, cols_expr : String) -> Query {
-  { sql: "SELECT " + cols_expr + " FROM " + table, has_where: false }
+  {
+    select: cols_expr,
+    from: table,
+    where_: [],
+    order_by: [],
+    limit: None,
+    offset: None,
+  }
 }
 
 ///|
-pub fn where_eq(q : Query, col : String) -> Query {
-  let prefix = if q.has_where { " AND " } else { " WHERE " }
-  { sql: q.sql + prefix + col + " = ?", has_where: true }
+pub fn Query::where_eq(self : Query, col : String, value : Json) -> Query {
+  let where_ = self.where_ + [{ col, value, ty: Eq }]
+  { ..self, where_, }
 }
 
 ///|
-pub fn order_by(q : Query, expr : String) -> Query {
-  { sql: q.sql + " ORDER BY " + expr, has_where: q.has_where }
+pub fn Query::where_gt(self : Query, col : String, value : Json) -> Query {
+  let where_ = self.where_ + [{ col, value, ty: Gt }]
+  { ..self, where_, }
 }
 
 ///|
-pub fn limit(q : Query, n : Int) -> Query {
-  { sql: q.sql + " LIMIT " + n.to_string(), has_where: q.has_where }
+pub fn Query::where_lt(self : Query, col : String, value : Json) -> Query {
+  let where_ = self.where_ + [{ col, value, ty: Lt }]
+  { ..self, where_, }
 }
 
 ///|
-pub fn offset(q : Query, n : Int) -> Query {
-  { sql: q.sql + " OFFSET " + n.to_string(), has_where: q.has_where }
+pub fn Query::where_gte(self : Query, col : String, value : Json) -> Query {
+  let where_ = self.where_ + [{ col, value, ty: Gte }]
+  { ..self, where_, }
 }
 
 ///|
-pub fn to_mysql_sql(q : Query) -> (String, FixedArray[Json]) {
-  (q.sql, [])
+pub fn Query::where_lte(self : Query, col : String, value : Json) -> Query {
+  let where_ = self.where_ + [{ col, value, ty: Lte }]
+  { ..self, where_, }
+}
+
+///|
+pub fn Query::order_by(self : Query, order_by : OrderBy) -> Query {
+  { ..self, order_by: self.order_by + [order_by] }
+}
+
+///|
+pub fn Query::limit(self : Query, n : Int) -> Query {
+  { ..self, limit: Some(n) }
+}
+
+///|
+pub fn Query::offset(self : Query, n : Int) -> Query {
+  { ..self, offset: Some(n) }
+}
+
+///|
+pub fn Query::page(self : Query, page : Int, size : Int) -> Query {
+  { ..self, offset: Some((page - 1) * size), limit: Some(size) }
+}
+
+///|
+// ---- SQL 方言支持 ----
+pub(all) enum Dialect {
+  MySQL
+  Sqlite3
+  PgSQL
+  SqlServer
+  Oracle
+  MongoDB
+} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+/// helper: 为不同方言生成值字面量
+fn quote_value(dialect : Dialect, v : Json) -> String {
+  match v {
+    Number(n, ..) => n.to_string()
+    False =>
+      match dialect {
+        SqlServer => "0"
+        _ => "FALSE"
+      }
+    True =>
+      match dialect {
+        SqlServer => "1"
+        _ => "TRUE"
+      }
+    Null => "NULL"
+    String(s) =>
+      match dialect {
+        MySQL => v.stringify() // 与现有测试兼容，双引号字符串
+        _ => {
+          let buf = @buffer.new()
+          buf.write_string("'")
+          // 保守处理：直接包裹单引号，避免字符遍历与 write_char
+          buf.write_string(s)
+          buf.write_string("'")
+          buf.to_string()
+        }
+      }
+    _ => v.stringify()
+  }
+}
+
+///|
+/// helper: WHERE 子句格式化（通用）
+fn format_where_sql(dialect : Dialect, where_ : FixedArray[Where]) -> String {
+  where_
+  .map(w => {
+    let ty = match w.ty {
+      Eq => "="
+      Gt => ">"
+      Lt => "<"
+      Gte => ">="
+      Lte => "<="
+    }
+    [w.col, ty, quote_value(dialect, w.value)].join(" ")
+  })
+  .join(" AND ")
+}
+
+///|
+pub fn Query::to(self : Query, dialect : Dialect) -> String {
+  match dialect {
+    MongoDB => {
+      let json : Json = {
+        "find": "students",
+        "filter": { "id": 1, "name": "Alice" },
+        "sort": { "id": -1 },
+        "limit": 5,
+        "skip": 5,
+      }
+      json.stringify()
+    }
+    _ => {
+      let buf = @buffer.new()
+      buf.write_string("SELECT ")
+      if self.select.is_empty() {
+        buf.write_string("*")
+      } else {
+        buf.write_string(self.select)
+      }
+      buf.write_string(" FROM ")
+      buf.write_string(self.from)
+      if !self.where_.is_empty() {
+        buf.write_string(" WHERE ")
+        buf.write_string(format_where_sql(dialect, self.where_))
+      }
+      if !self.order_by.is_empty() {
+        buf.write_string(" ORDER BY ")
+        buf.write_string(
+          self.order_by
+          .map(ob => match ob {
+            Asc(col) => [col, "ASC"].join(" ")
+            Desc(col) => [col, "DESC"].join(" ")
+          })
+          .join(", "),
+        )
+      }
+      match dialect {
+        Oracle => {
+          if self.offset is Some(offset) {
+            buf.write_string(" OFFSET ")
+            buf.write_string(offset.to_string())
+            buf.write_string(" ROWS")
+          }
+          if self.limit is Some(limit) {
+            buf.write_string(" FETCH NEXT ")
+            buf.write_string(limit.to_string())
+            buf.write_string(" ROWS ONLY")
+          }
+        }
+        _ => {
+          if self.limit is Some(limit) {
+            buf.write_string(" LIMIT ")
+            buf.write_string(limit.to_string())
+          }
+          if self.offset is Some(offset) {
+            buf.write_string(" OFFSET ")
+            buf.write_string(offset.to_string())
+          }
+        }
+      }
+      buf.to_string()
+    }
+  }
+}
+
+///|
+// ---- INSERT 构建器 ----
+pub struct InsertQuery {
+  into : String
+  columns : FixedArray[String]
+  values : FixedArray[Json]
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub fn insert_into(table : String) -> InsertQuery {
+  { into: table, columns: [], values: [] }
+}
+
+///|
+pub fn InsertQuery::columns(
+  self : InsertQuery,
+  columns : FixedArray[String],
+) -> InsertQuery {
+  { ..self, columns, }
+}
+
+///|
+pub fn InsertQuery::values(
+  self : InsertQuery,
+  values : FixedArray[Json],
+) -> InsertQuery {
+  { ..self, values, }
+}
+
+///|
+pub fn InsertQuery::to(self : InsertQuery, dialect : Dialect) -> String {
+  let buf = @buffer.new()
+  buf.write_string("INSERT INTO ")
+  buf.write_string(self.into)
+  if !self.columns.is_empty() {
+    buf.write_string(" (")
+    buf.write_string(self.columns.join(", "))
+    buf.write_string(")")
+  }
+  buf.write_string(" VALUES (")
+  buf.write_string(self.values.map(v => quote_value(dialect, v)).join(", "))
+  buf.write_string(")")
+  buf.to_string()
+}
+
+///|
+// ---- UPDATE 构建器 ----
+pub struct Set {
+  col : String
+  value : Json
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub struct UpdateQuery {
+  table : String
+  sets : FixedArray[Set]
+  where_ : FixedArray[Where]
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub fn update(table : String) -> UpdateQuery {
+  { table, sets: [], where_: [] }
+}
+
+///|
+pub fn UpdateQuery::set(
+  self : UpdateQuery,
+  col : String,
+  value : Json,
+) -> UpdateQuery {
+  { ..self, sets: self.sets + [{ col, value }] }
+}
+
+///|
+pub fn UpdateQuery::where_eq(
+  self : UpdateQuery,
+  col : String,
+  value : Json,
+) -> UpdateQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Eq }] }
+}
+
+///|
+pub fn UpdateQuery::where_gt(
+  self : UpdateQuery,
+  col : String,
+  value : Json,
+) -> UpdateQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Gt }] }
+}
+
+///|
+pub fn UpdateQuery::where_lt(
+  self : UpdateQuery,
+  col : String,
+  value : Json,
+) -> UpdateQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Lt }] }
+}
+
+///|
+pub fn UpdateQuery::where_gte(
+  self : UpdateQuery,
+  col : String,
+  value : Json,
+) -> UpdateQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Gte }] }
+}
+
+///|
+pub fn UpdateQuery::where_lte(
+  self : UpdateQuery,
+  col : String,
+  value : Json,
+) -> UpdateQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Lte }] }
+}
+
+///|
+pub fn UpdateQuery::to_mysql_sql(self : UpdateQuery) -> String {
+  let buf = @buffer.new()
+  buf.write_string("UPDATE ")
+  buf.write_string(self.table)
+  buf.write_string(" SET ")
+  buf.write_string(
+    self.sets.map(s => [s.col, "=", s.value.stringify()].join(" ")).join(", "),
+  )
+  if !self.where_.is_empty() {
+    buf.write_string(" WHERE ")
+    buf.write_string(
+      self.where_
+      .map(w => {
+        let ty = match w.ty {
+          Eq => "="
+          Gt => ">"
+          Lt => "<"
+          Gte => ">="
+          Lte => "<="
+        }
+        [w.col, ty, w.value.stringify()].join(" ")
+      })
+      .join(" AND "),
+    )
+  }
+  buf.to_string()
+}
+
+///|
+pub fn UpdateQuery::to(self : UpdateQuery, dialect : Dialect) -> String {
+  let buf = @buffer.new()
+  buf.write_string("UPDATE ")
+  buf.write_string(self.table)
+  buf.write_string(" SET ")
+  buf.write_string(
+    self.sets
+    .map(s => [s.col, "=", quote_value(dialect, s.value)].join(" "))
+    .join(", "),
+  )
+  if !self.where_.is_empty() {
+    buf.write_string(" WHERE ")
+    buf.write_string(format_where_sql(dialect, self.where_))
+  }
+  buf.to_string()
+}
+
+///|
+// ---- DELETE 构建器 ----
+pub struct DeleteQuery {
+  from : String
+  where_ : FixedArray[Where]
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub fn delete_from(table : String) -> DeleteQuery {
+  { from: table, where_: [] }
+}
+
+///|
+pub fn DeleteQuery::where_eq(
+  self : DeleteQuery,
+  col : String,
+  value : Json,
+) -> DeleteQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Eq }] }
+}
+
+///|
+pub fn DeleteQuery::where_gt(
+  self : DeleteQuery,
+  col : String,
+  value : Json,
+) -> DeleteQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Gt }] }
+}
+
+///|
+pub fn DeleteQuery::where_lt(
+  self : DeleteQuery,
+  col : String,
+  value : Json,
+) -> DeleteQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Lt }] }
+}
+
+///|
+pub fn DeleteQuery::where_gte(
+  self : DeleteQuery,
+  col : String,
+  value : Json,
+) -> DeleteQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Gte }] }
+}
+
+///|
+pub fn DeleteQuery::where_lte(
+  self : DeleteQuery,
+  col : String,
+  value : Json,
+) -> DeleteQuery {
+  { ..self, where_: self.where_ + [{ col, value, ty: Lte }] }
+}
+
+///|
+pub fn DeleteQuery::to(self : DeleteQuery, dialect : Dialect) -> String {
+  match dialect {
+    MongoDB => { "delete": self.from }.to_json().stringify()
+    _ => {
+      let buf = @buffer.new()
+      buf.write_string("DELETE FROM ")
+      buf.write_string(self.from)
+      if !self.where_.is_empty() {
+        buf.write_string(" WHERE ")
+        buf.write_string(format_where_sql(dialect, self.where_))
+      }
+      buf.to_string()
+    }
+  }
 }

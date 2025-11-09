@@ -18,19 +18,17 @@ fn comment(Column, String) -> Column
 
 fn default_value(Column, String) -> Column
 
+fn delete_from(String) -> DeleteQuery
+
 fn infer_column_type(Json) -> ColumnType
 
-fn limit(Query, Int) -> Query
+fn insert_into(String) -> InsertQuery
 
 fn not_null(Column) -> Column
-
-fn offset(Query, Int) -> Query
 
 fn on_delete_cascade(ForeignKey) -> ForeignKey
 
 fn on_update_cascade(ForeignKey) -> ForeignKey
-
-fn order_by(Query, String) -> Query
 
 fn primary_key(Column) -> Column
 
@@ -42,11 +40,9 @@ fn table_comment(Table, String) -> Table
 
 fn table_engine(Table, String) -> Table
 
-fn to_mysql_sql(Query) -> (String, FixedArray[Json])
-
 fn unique(Column) -> Column
 
-fn where_eq(Query, String) -> Query
+fn update(String) -> UpdateQuery
 
 // Errors
 
@@ -113,6 +109,36 @@ pub(all) struct DbError {
 impl Show for DbError
 impl ToJson for DbError
 
+pub struct DeleteQuery {
+  from : String
+  where_ : FixedArray[Where]
+}
+fn DeleteQuery::to(Self, Dialect) -> String
+fn DeleteQuery::where_eq(Self, String, Json) -> Self
+fn DeleteQuery::where_gt(Self, String, Json) -> Self
+fn DeleteQuery::where_gte(Self, String, Json) -> Self
+fn DeleteQuery::where_lt(Self, String, Json) -> Self
+fn DeleteQuery::where_lte(Self, String, Json) -> Self
+impl Eq for DeleteQuery
+impl Show for DeleteQuery
+impl ToJson for DeleteQuery
+impl @json.FromJson for DeleteQuery
+
+pub(all) enum Dialect {
+  MySQL
+  Sqlite3
+  PgSQL
+  SqlServer
+  Oracle
+  MongoDB
+}
+impl Compare for Dialect
+impl Eq for Dialect
+impl Hash for Dialect
+impl Show for Dialect
+impl ToJson for Dialect
+impl @json.FromJson for Dialect
+
 pub(all) struct ForeignKey {
   name : String
   column : String
@@ -159,12 +185,59 @@ impl Show for IndexType
 impl ToJson for IndexType
 impl @json.FromJson for IndexType
 
-pub struct Query {
-  sql : String
-  has_where : Bool
+pub struct InsertQuery {
+  into : String
+  columns : FixedArray[String]
+  values : FixedArray[Json]
 }
+fn InsertQuery::columns(Self, FixedArray[String]) -> Self
+fn InsertQuery::to(Self, Dialect) -> String
+fn InsertQuery::values(Self, FixedArray[Json]) -> Self
+impl Eq for InsertQuery
+impl Show for InsertQuery
+impl ToJson for InsertQuery
+impl @json.FromJson for InsertQuery
+
+pub(all) enum OrderBy {
+  Asc(String)
+  Desc(String)
+}
+impl Eq for OrderBy
+impl Show for OrderBy
+impl ToJson for OrderBy
+impl @json.FromJson for OrderBy
+
+pub struct Query {
+  select : String
+  from : String
+  where_ : FixedArray[Where]
+  order_by : FixedArray[OrderBy]
+  limit : Int?
+  offset : Int?
+}
+fn Query::limit(Self, Int) -> Self
+fn Query::offset(Self, Int) -> Self
+fn Query::order_by(Self, OrderBy) -> Self
+fn Query::page(Self, Int, Int) -> Self
+fn Query::to(Self, Dialect) -> String
+fn Query::where_eq(Self, String, Json) -> Self
+fn Query::where_gt(Self, String, Json) -> Self
+fn Query::where_gte(Self, String, Json) -> Self
+fn Query::where_lt(Self, String, Json) -> Self
+fn Query::where_lte(Self, String, Json) -> Self
+impl Eq for Query
 impl Show for Query
 impl ToJson for Query
+impl @json.FromJson for Query
+
+pub struct Set {
+  col : String
+  value : Json
+}
+impl Eq for Set
+impl Show for Set
+impl ToJson for Set
+impl @json.FromJson for Set
 
 pub(all) struct Table {
   name : String
@@ -184,6 +257,46 @@ impl Hash for Table
 impl Show for Table
 impl ToJson for Table
 impl @json.FromJson for Table
+
+pub struct UpdateQuery {
+  table : String
+  sets : FixedArray[Set]
+  where_ : FixedArray[Where]
+}
+fn UpdateQuery::set(Self, String, Json) -> Self
+fn UpdateQuery::to(Self, Dialect) -> String
+fn UpdateQuery::to_mysql_sql(Self) -> String
+fn UpdateQuery::where_eq(Self, String, Json) -> Self
+fn UpdateQuery::where_gt(Self, String, Json) -> Self
+fn UpdateQuery::where_gte(Self, String, Json) -> Self
+fn UpdateQuery::where_lt(Self, String, Json) -> Self
+fn UpdateQuery::where_lte(Self, String, Json) -> Self
+impl Eq for UpdateQuery
+impl Show for UpdateQuery
+impl ToJson for UpdateQuery
+impl @json.FromJson for UpdateQuery
+
+pub struct Where {
+  col : String
+  value : Json
+  ty : WhereType
+}
+impl Eq for Where
+impl Show for Where
+impl ToJson for Where
+impl @json.FromJson for Where
+
+pub enum WhereType {
+  Eq
+  Gt
+  Lt
+  Gte
+  Lte
+}
+impl Eq for WhereType
+impl Show for WhereType
+impl ToJson for WhereType
+impl @json.FromJson for WhereType
 
 // Type aliases
 pub type DbResult[T] = Result[T, DbError]
