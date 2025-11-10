@@ -1,80 +1,7 @@
 ///|
-pub(open) trait Entity: ToJson {
+pub(open) trait Entity: ToJson + @json.FromJson {
   table(Self) -> Table
 }
-
-///|
-// 数据库列类型枚举
-pub(all) enum ColumnType {
-  // 整数类型
-  TinyInt
-  SmallInt
-  MediumInt
-  Int
-  BigInt
-  // 浮点类型
-  Float
-  Double
-  Decimal(Int, Int) // precision, scale
-  // 字符串类型
-  Char(Int) // length
-  VarChar(Int) // length
-  Text
-  MediumText
-  LongText
-  // 二进制类型
-  Binary(Int) // length
-  VarBinary(Int) // length
-  Blob
-  MediumBlob
-  LongBlob
-  // 日期时间类型
-  Date
-  Time
-  DateTime
-  Timestamp
-  Year
-  // JSON 类型
-  Json
-  JsonB
-  // 布尔类型
-  Boolean
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
-
-///|
-// 数据库列定义
-pub(all) struct Column {
-  name : String
-  column_type : ColumnType
-  size : Int
-  nullable : Bool
-  default_value : String?
-  auto_increment : Bool
-  primary_key : Bool
-  unique : Bool
-  comment : String
-  charset : String?
-  collation : String?
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
-
-///|
-// 索引类型
-pub(all) enum IndexType {
-  Primary
-  Unique
-  Index
-  FullText
-  Spatial
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
-
-///|
-// 索引定义
-pub(all) struct Index {
-  name : String
-  index_type : IndexType
-  columns : FixedArray[String]
-  comment : String
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
 // 外键约束
@@ -86,90 +13,6 @@ pub(all) struct ForeignKey {
   on_delete : String // CASCADE, SET NULL, RESTRICT, NO ACTION
   on_update : String // CASCADE, SET NULL, RESTRICT, NO ACTION
 } derive(Show, ToJson, FromJson, Eq, Compare, Hash)
-
-///|
-// 数据库表定义
-pub(all) struct Table {
-  name : String
-  columns : FixedArray[Column]
-  indexes : FixedArray[Index]
-  foreign_keys : FixedArray[ForeignKey]
-  engine : String
-  charset : String
-  collation : String
-  comment : String
-  auto_increment : Int
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
-
-///|
-// ---- 列构建器函数 ----
-pub fn Column::new(name : String, column_type : ColumnType) -> Column {
-  {
-    name,
-    column_type,
-    size: match column_type {
-      VarChar(len) => len
-      Char(len) => len
-      Binary(len) => len
-      VarBinary(len) => len
-      _ => 0
-    },
-    nullable: true,
-    default_value: None,
-    auto_increment: false,
-    primary_key: false,
-    unique: false,
-    comment: "",
-    charset: None,
-    collation: None,
-  }
-}
-
-///|
-pub fn not_null(col : Column) -> Column {
-  { ..col, nullable: false }
-}
-
-///|
-pub fn primary_key(col : Column) -> Column {
-  { ..col, nullable: false, primary_key: true }
-}
-
-///|
-pub fn auto_increment(col : Column) -> Column {
-  { ..col, nullable: false, auto_increment: true, primary_key: true }
-}
-
-///|
-pub fn unique(col : Column) -> Column {
-  { ..col, unique: true }
-}
-
-///|
-pub fn default_value(col : Column, value : String) -> Column {
-  { ..col, default_value: Some(value) }
-}
-
-///|
-pub fn comment(col : Column, text : String) -> Column {
-  { ..col, comment: text }
-}
-
-///|
-// ---- 表构建器函数 ----
-pub fn Table::new(name : String, columns? : FixedArray[Column]) -> Table {
-  {
-    name,
-    columns: columns.unwrap_or([]),
-    indexes: [],
-    foreign_keys: [],
-    engine: "InnoDB",
-    charset: "utf8mb4",
-    collation: "utf8mb4_unicode_ci",
-    comment: "",
-    auto_increment: 1,
-  }
-}
 
 ///|
 pub fn add_column(table : Table, col : Column) -> Table {
@@ -415,7 +258,6 @@ pub(all) enum Dialect {
   PgSQL
   SqlServer
   Oracle
-  MongoDB
 } derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
@@ -469,69 +311,638 @@ fn format_where_sql(dialect : Dialect, where_ : FixedArray[Where]) -> String {
 
 ///|
 pub fn Query::to(self : Query, dialect : Dialect) -> String {
+  let buf = @buffer.new()
+  buf.write_string("SELECT ")
+  if self.select.is_empty() {
+    buf.write_string("*")
+  } else {
+    buf.write_string(self.select)
+  }
+  buf.write_string(" FROM ")
+  buf.write_string(self.from)
+  if !self.where_.is_empty() {
+    buf.write_string(" WHERE ")
+    buf.write_string(format_where_sql(dialect, self.where_))
+  }
+  if !self.order_by.is_empty() {
+    buf.write_string(" ORDER BY ")
+    buf.write_string(
+      self.order_by
+      .map(ob => match ob {
+        Asc(col) => "\{col} ASC"
+        Desc(col) => "\{col} DESC"
+      })
+      .join(", "),
+    )
+  }
   match dialect {
-    MongoDB => {
-      let json : Json = {
-        "find": "students",
-        "filter": { "id": 1, "name": "Alice" },
-        "sort": { "id": -1 },
-        "limit": 5,
-        "skip": 5,
+    Oracle | SqlServer => {
+      if self.offset is Some(offset) {
+        buf.write_string(" OFFSET ")
+        buf.write_string(offset.to_string())
+        buf.write_string(" ROWS")
       }
-      json.stringify()
+      if self.limit is Some(limit) {
+        buf.write_string(" FETCH NEXT ")
+        buf.write_string(limit.to_string())
+        buf.write_string(" ROWS ONLY")
+      }
     }
     _ => {
-      let buf = @buffer.new()
-      buf.write_string("SELECT ")
-      if self.select.is_empty() {
-        buf.write_string("*")
-      } else {
-        buf.write_string(self.select)
+      if self.limit is Some(limit) {
+        buf.write_string(" LIMIT ")
+        buf.write_string(limit.to_string())
       }
-      buf.write_string(" FROM ")
-      buf.write_string(self.from)
-      if !self.where_.is_empty() {
-        buf.write_string(" WHERE ")
-        buf.write_string(format_where_sql(dialect, self.where_))
+      if self.offset is Some(offset) {
+        buf.write_string(" OFFSET ")
+        buf.write_string(offset.to_string())
       }
-      if !self.order_by.is_empty() {
-        buf.write_string(" ORDER BY ")
-        buf.write_string(
-          self.order_by
-          .map(ob => match ob {
-            Asc(col) => [col, "ASC"].join(" ")
-            Desc(col) => [col, "DESC"].join(" ")
-          })
-          .join(", "),
-        )
-      }
-      match dialect {
-        Oracle | SqlServer => {
-          if self.offset is Some(offset) {
-            buf.write_string(" OFFSET ")
-            buf.write_string(offset.to_string())
-            buf.write_string(" ROWS")
-          }
-          if self.limit is Some(limit) {
-            buf.write_string(" FETCH NEXT ")
-            buf.write_string(limit.to_string())
-            buf.write_string(" ROWS ONLY")
-          }
-        }
-        _ => {
-          if self.limit is Some(limit) {
-            buf.write_string(" LIMIT ")
-            buf.write_string(limit.to_string())
-          }
-          if self.offset is Some(offset) {
-            buf.write_string(" OFFSET ")
-            buf.write_string(offset.to_string())
-          }
-        }
-      }
-      buf.to_string()
     }
   }
+  buf.to_string()
+}
+
+///|
+// ---- 事务语句（BEGIN/COMMIT/ROLLBACK） ----
+pub fn begin_tx(dialect : Dialect) -> String {
+  match dialect {
+    MySQL => "START TRANSACTION"
+    PgSQL => "BEGIN"
+    Sqlite3 => "BEGIN"
+    SqlServer => "BEGIN TRANSACTION"
+    Oracle => "" // Oracle 事务隐式开始：在首个 DML 执行时开始
+  }
+}
+
+///|
+pub fn commit_tx(dialect : Dialect) -> String {
+  match dialect {
+    _ => "COMMIT"
+  }
+}
+
+///|
+pub fn rollback_tx(dialect : Dialect) -> String {
+  match dialect {
+    _ => "ROLLBACK"
+  }
+}
+
+///|
+// ---- DDL 类型与列定义映射 ----
+fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
+  match ct {
+    TinyInt =>
+      match dialect {
+        PgSQL => "SMALLINT"
+        SqlServer => "TINYINT"
+        Oracle => "NUMBER(3)"
+        _ => "TINYINT"
+      }
+    SmallInt =>
+      match dialect {
+        Oracle => "NUMBER(5)"
+        PgSQL => "SMALLINT"
+        _ => "SMALLINT"
+      }
+    MediumInt =>
+      match dialect {
+        MySQL => "MEDIUMINT"
+        Oracle => "NUMBER(7)"
+        _ => "INT"
+      }
+    Int =>
+      match dialect {
+        PgSQL => "INTEGER"
+        Oracle => "NUMBER(10)"
+        _ => "INT"
+      }
+    BigInt =>
+      match dialect {
+        Oracle => "NUMBER(19)"
+        _ => "BIGINT"
+      }
+    Float =>
+      match dialect {
+        Oracle => "BINARY_FLOAT"
+        _ => "FLOAT"
+      }
+    Double =>
+      match dialect {
+        PgSQL => "DOUBLE PRECISION"
+        Oracle => "BINARY_DOUBLE"
+        _ => "DOUBLE"
+      }
+    Decimal(p, s) =>
+      match dialect {
+        Oracle => "NUMBER(\{p}, \{s})"
+        _ => "DECIMAL(\{p}, \{s})"
+      }
+    Char(len) => "CHAR(\{len})"
+    VarChar(len) =>
+      match dialect {
+        PgSQL | MySQL | SqlServer => "VARCHAR(\{len})"
+        Sqlite3 => "TEXT"
+        Oracle => "VARCHAR2(\{len})"
+      }
+    Text =>
+      match dialect {
+        Oracle => "CLOB"
+        PgSQL => "TEXT"
+        SqlServer => "NVARCHAR(MAX)"
+        _ => "TEXT"
+      }
+    MediumText =>
+      match dialect {
+        MySQL => "MEDIUMTEXT"
+        _ => "TEXT"
+      }
+    LongText =>
+      match dialect {
+        MySQL => "LONGTEXT"
+        Oracle => "CLOB"
+        _ => "TEXT"
+      }
+    Binary(len) =>
+      match dialect {
+        MySQL => "BINARY(\{len})"
+        SqlServer => "BINARY(\{len})"
+        Oracle => "RAW(\{len})"
+        PgSQL => "BYTEA"
+        _ => "BLOB"
+      }
+    VarBinary(len) =>
+      match dialect {
+        MySQL => "VARBINARY(\{len})"
+        SqlServer => "VARBINARY(\{len})"
+        PgSQL => "BYTEA"
+        Oracle => "RAW(\{len})"
+        _ => "BLOB"
+      }
+    Blob =>
+      match dialect {
+        PgSQL => "BYTEA"
+        SqlServer => "VARBINARY(MAX)"
+        Oracle => "BLOB"
+        _ => "BLOB"
+      }
+    MediumBlob =>
+      match dialect {
+        MySQL => "MEDIUMBLOB"
+        Oracle => "BLOB"
+        _ => "BLOB"
+      }
+    LongBlob =>
+      match dialect {
+        MySQL => "LONGBLOB"
+        Oracle => "BLOB"
+        _ => "BLOB"
+      }
+    Date => "DATE"
+    Time =>
+      match dialect {
+        SqlServer => "TIME"
+        Oracle => "DATE"
+        _ => "TIME"
+      }
+    DateTime =>
+      match dialect {
+        PgSQL => "TIMESTAMP"
+        SqlServer => "DATETIME2"
+        Oracle => "TIMESTAMP"
+        _ => "DATETIME"
+      }
+    Timestamp =>
+      match dialect {
+        PgSQL => "TIMESTAMP"
+        SqlServer => "DATETIME2"
+        Oracle => "TIMESTAMP"
+        _ => "TIMESTAMP"
+      }
+    Year =>
+      match dialect {
+        MySQL => "YEAR"
+        Oracle => "NUMBER(4)"
+        _ => "INT"
+      }
+    Json =>
+      match dialect {
+        PgSQL => "JSON"
+        MySQL => "JSON"
+        SqlServer => "NVARCHAR(MAX)"
+        Oracle => "CLOB"
+        _ => "TEXT"
+      }
+    JsonB =>
+      match dialect {
+        PgSQL => "JSONB"
+        _ => "JSON"
+      }
+    Boolean =>
+      match dialect {
+        PgSQL => "BOOLEAN"
+        MySQL => "TINYINT(1)"
+        Sqlite3 => "INTEGER"
+        SqlServer => "BIT"
+        Oracle => "NUMBER(1)"
+      }
+  }
+}
+
+///|
+fn format_column_def(dialect : Dialect, col : Column) -> String {
+  let ty = map_column_type(dialect, col.column_type)
+  let buf = @buffer.new()
+
+  // PostgreSQL 的自增类型用 SERIAL/BIGSERIAL
+  let ty_final = if col.auto_increment {
+    match dialect {
+      PgSQL =>
+        match col.column_type {
+          BigInt => "BIGSERIAL"
+          _ => "SERIAL"
+        }
+      _ => ty
+    }
+  } else {
+    ty
+  }
+  buf.write_string(col.name)
+  buf.write_string(" ")
+  buf.write_string(ty_final)
+
+  // SQL Server/Oracle/SQLite 的自增修饰
+  if col.auto_increment {
+    match dialect {
+      MySQL => buf.write_string(" AUTO_INCREMENT")
+      SqlServer => buf.write_string(" IDENTITY(1,1)")
+      Oracle => buf.write_string(" GENERATED BY DEFAULT AS IDENTITY")
+      Sqlite3 => () // SQLite: 需要 INTEGER PRIMARY KEY AUTOINCREMENT */ }
+      _ => ()
+    }
+  }
+  if !col.nullable {
+    buf.write_string(" NOT NULL")
+  }
+  if col.primary_key {
+    match dialect {
+      Sqlite3 => buf.write_string(" PRIMARY KEY") // SQLite 允许内联主键
+      _ => buf.write_string(" PRIMARY KEY")
+    }
+  }
+  if col.unique {
+    buf.write_string(" UNIQUE")
+  }
+  if col.default_value is Some(d) {
+    // 保守策略：默认值按原样拼接，避免误加引号破坏表达式
+    buf.write_string(" DEFAULT ")
+    buf.write_string(d)
+  }
+
+  // MySQL 列注释
+  if col.comment != "" {
+    match dialect {
+      MySQL => {
+        buf.write_string(" COMMENT ")
+        buf.write_string("'\{col.comment}'")
+      }
+      _ => ()
+    }
+  }
+
+  // SQLite 的 AUTOINCREMENT 必须与 INTEGER PRIMARY KEY 联用
+  if col.auto_increment && dialect == Sqlite3 {
+    buf.write_string(" AUTOINCREMENT")
+  }
+  buf.to_string()
+}
+
+///|
+// ---- CREATE TABLE 生成 ----
+pub fn Table::to_create_sql(self : Table, dialect : Dialect) -> String {
+  let buf = @buffer.new()
+  buf.write_string("CREATE TABLE ")
+  buf.write_string(self.name)
+  buf.write_string(" (\n  ")
+
+  // 列定义
+  let col_sqls = self.columns.map(c => format_column_def(dialect, c))
+  buf.write_string(col_sqls.join(",\n  "))
+
+  // 表级索引/约束
+  for idx in self.indexes {
+    match idx.index_type {
+      Primary => {
+        buf.write_string(",\n  PRIMARY KEY (")
+        buf.write_string(idx.columns.join(", "))
+        buf.write_string(")")
+      }
+      Unique =>
+        match dialect {
+          MySQL => {
+            buf.write_string(",\n  UNIQUE KEY ")
+            buf.write_string(idx.name)
+            buf.write_string(" (")
+            buf.write_string(idx.columns.join(", "))
+            buf.write_string(")")
+          }
+          _ => {
+            buf.write_string(",\n  UNIQUE (")
+            buf.write_string(idx.columns.join(", "))
+            buf.write_string(")")
+          }
+        }
+      Index | FullText | Spatial => ()
+      // 普通索引/全文/空间索引：部分方言不支持在 CREATE TABLE 中声明
+      // 这里保守不在表定义中加入，交由后续 ALTER/CREATE INDEX 完成
+
+    }
+  }
+
+  // 外键
+  for fk in self.foreign_keys {
+    buf.write_string(",\n  CONSTRAINT ")
+    buf.write_string(fk.name)
+    buf.write_string(" FOREIGN KEY (")
+    buf.write_string(fk.column)
+    buf.write_string(") REFERENCES ")
+    buf.write_string(fk.referenced_table)
+    buf.write_string(" (")
+    buf.write_string(fk.referenced_column)
+    buf.write_string(")")
+    if fk.on_delete != "" {
+      buf.write_string(" ON DELETE ")
+      buf.write_string(fk.on_delete)
+    }
+    if fk.on_update != "" {
+      buf.write_string(" ON UPDATE ")
+      buf.write_string(fk.on_update)
+    }
+  }
+  buf.write_string("\n)")
+
+  // MySQL 表选项
+  match dialect {
+    MySQL => {
+      buf.write_string(" ENGINE=")
+      buf.write_string(self.engine)
+      buf.write_string(" DEFAULT CHARSET=")
+      buf.write_string(self.charset)
+      buf.write_string(" COLLATE=")
+      buf.write_string(self.collation)
+      if self.comment != "" {
+        buf.write_string(" COMMENT=")
+        buf.write_string(["'", self.comment, "'"].join(""))
+      }
+      if self.auto_increment > 1 {
+        buf.write_string(" AUTO_INCREMENT=")
+        buf.write_string(self.auto_increment.to_string())
+      }
+    }
+    _ => ()
+  }
+  buf.to_string()
+}
+
+///|
+// ---- ALTER TABLE 构建器 ----
+pub enum AlterOp {
+  AddColumn(Column)
+  DropColumn(String)
+  ModifyColumn(Column)
+  AddIndex(Index)
+  DropIndex(String)
+  AddForeignKey(ForeignKey)
+  DropForeignKey(String)
+  RenameTable(String)
+  TableComment(String)
+} derive(Show, ToJson, FromJson)
+
+///|
+pub struct AlterTable {
+  table : String
+  ops : FixedArray[AlterOp]
+} derive(Show, ToJson, FromJson)
+
+///|
+pub fn alter_table(name : String) -> AlterTable {
+  { table: name, ops: [] }
+}
+
+///|
+pub fn AlterTable::add_column(self : AlterTable, col : Column) -> AlterTable {
+  { ..self, ops: self.ops + [AddColumn(col)] }
+}
+
+///|
+pub fn AlterTable::drop_column(self : AlterTable, name : String) -> AlterTable {
+  { ..self, ops: self.ops + [DropColumn(name)] }
+}
+
+///|
+pub fn AlterTable::modify_column(self : AlterTable, col : Column) -> AlterTable {
+  { ..self, ops: self.ops + [ModifyColumn(col)] }
+}
+
+///|
+pub fn AlterTable::add_index(self : AlterTable, idx : Index) -> AlterTable {
+  { ..self, ops: self.ops + [AddIndex(idx)] }
+}
+
+///|
+pub fn AlterTable::drop_index(self : AlterTable, name : String) -> AlterTable {
+  { ..self, ops: self.ops + [DropIndex(name)] }
+}
+
+///|
+pub fn AlterTable::add_foreign_key(
+  self : AlterTable,
+  fk : ForeignKey,
+) -> AlterTable {
+  { ..self, ops: self.ops + [AddForeignKey(fk)] }
+}
+
+///|
+pub fn AlterTable::drop_foreign_key(
+  self : AlterTable,
+  name : String,
+) -> AlterTable {
+  { ..self, ops: self.ops + [DropForeignKey(name)] }
+}
+
+///|
+pub fn AlterTable::rename(self : AlterTable, new_name : String) -> AlterTable {
+  { ..self, ops: self.ops + [RenameTable(new_name)] }
+}
+
+///|
+pub fn AlterTable::comment(self : AlterTable, text : String) -> AlterTable {
+  { ..self, ops: self.ops + [TableComment(text)] }
+}
+
+///|
+pub fn AlterTable::to(self : AlterTable, dialect : Dialect) -> String {
+  let stmts = Array::new()
+  for op in self.ops {
+    match op {
+      AddColumn(col) =>
+        stmts.push(
+          "ALTER TABLE \{self.table} ADD COLUMN \{format_column_def(dialect, col)}",
+        )
+      DropColumn(name) => {
+        let s = match dialect {
+          SqlServer => "ALTER TABLE \{self.table} DROP COLUMN \{name}"
+          _ => "ALTER TABLE \{self.table} DROP COLUMN \{name}"
+        }
+        stmts.push(s)
+      }
+      ModifyColumn(col) => {
+        let s = match dialect {
+          MySQL =>
+            [
+              "ALTER TABLE ",
+              self.table,
+              " MODIFY COLUMN ",
+              format_column_def(dialect, col),
+            ].join("")
+          PgSQL =>
+            [
+              "ALTER TABLE ",
+              self.table,
+              " ALTER COLUMN ",
+              col.name,
+              " TYPE ",
+              map_column_type(dialect, col.column_type),
+            ].join("")
+          SqlServer =>
+            [
+              "ALTER TABLE ",
+              self.table,
+              " ALTER COLUMN ",
+              format_column_def(dialect, col),
+            ].join("")
+          Oracle =>
+            [
+              "ALTER TABLE ",
+              self.table,
+              " MODIFY (",
+              format_column_def(dialect, col),
+              ")",
+            ].join("")
+          Sqlite3 =>
+            [
+              "ALTER TABLE ",
+              self.table,
+              " RENAME COLUMN ",
+              col.name,
+              " TO ",
+              col.name,
+            ].join("") // SQLite 对修改列类型支持有限
+        }
+        stmts.push(s)
+      }
+      AddIndex(idx) => {
+        let cols = ["(", idx.columns.join(", "), ")"].join("")
+        let s = match dialect {
+          MySQL =>
+            match idx.index_type {
+              Unique =>
+                "ALTER TABLE \{self.table} ADD UNIQUE INDEX \{idx.name} \{cols}"
+              _ => "ALTER TABLE \{self.table} ADD INDEX \{idx.name} \{cols}"
+            }
+          PgSQL =>
+            match idx.index_type {
+              Unique =>
+                "CREATE UNIQUE INDEX \{idx.name} ON \{self.table} \{cols}"
+              _ => "CREATE INDEX \{idx.name} ON \{self.table} \{cols}"
+            }
+          Sqlite3 =>
+            match idx.index_type {
+              Primary | Index | FullText | Spatial =>
+                abort(
+                  "Sqlite3 does not support primary, index, fulltext, or spatial indexes",
+                )
+              Unique =>
+                if idx.index_type == Unique {
+                  "CREATE UNIQUE INDEX \{idx.name} ON \{self.table} \{cols}"
+                } else {
+                  "CREATE INDEX \{idx.name} ON \{self.table} \{cols}"
+                }
+            }
+          SqlServer =>
+            match idx.index_type {
+              Unique =>
+                "CREATE UNIQUE INDEX \{idx.name} ON \{self.table} \{cols}"
+              _ => "CREATE INDEX \{idx.name} ON \{self.table} \{cols}"
+            }
+          Oracle =>
+            match idx.index_type {
+              Unique =>
+                "CREATE UNIQUE INDEX \{idx.name} ON \{self.table} \{cols}"
+              _ => "CREATE INDEX \{idx.name} ON \{self.table} \{cols}"
+            }
+        }
+        stmts.push(s)
+      }
+      DropIndex(name) => {
+        let s = match dialect {
+          MySQL => "ALTER TABLE \{self.table} DROP INDEX \{name}"
+          SqlServer => "DROP INDEX \{name} ON \{self.table}"
+          Oracle | Sqlite3 | PgSQL => "DROP INDEX \{name}"
+        }
+        stmts.push(s)
+      }
+      AddForeignKey(fk) => {
+        let s = @buffer.new()
+        s.write_string("ALTER TABLE ")
+        s.write_string(self.table)
+        s.write_string(" ADD CONSTRAINT ")
+        s.write_string(fk.name)
+        s.write_string(" FOREIGN KEY (")
+        s.write_string(fk.column)
+        s.write_string(") REFERENCES ")
+        s.write_string(fk.referenced_table)
+        s.write_string(" (")
+        s.write_string(fk.referenced_column)
+        s.write_string(")")
+        if fk.on_delete != "" {
+          s.write_string([" ON DELETE ", fk.on_delete].join(""))
+        }
+        if fk.on_update != "" {
+          s.write_string([" ON UPDATE ", fk.on_update].join(""))
+        }
+        stmts.push(s.to_string())
+      }
+      DropForeignKey(name) => {
+        let s = match dialect {
+          MySQL => "ALTER TABLE \{self.table} DROP FOREIGN KEY \{name}"
+          PgSQL => "ALTER TABLE \{self.table} DROP CONSTRAINT \{name}"
+          _ => "ALTER TABLE \{self.table} DROP CONSTRAINT \{name}"
+        }
+        stmts.push(s)
+      }
+      RenameTable(new_name) => {
+        let s = match dialect {
+          MySQL => "RENAME TABLE \{self.table} TO \{new_name}"
+          PgSQL => "ALTER TABLE \{self.table} RENAME TO \{new_name}"
+          _ => "ALTER TABLE \{self.table} RENAME TO \{new_name}"
+        }
+        stmts.push(s)
+      }
+      TableComment(text) => {
+        let s = match dialect {
+          MySQL => "ALTER TABLE \{self.table} COMMENT = '\{text}'"
+          PgSQL => "COMMENT ON TABLE \{self.table} IS '\{text}'"
+          Oracle => "COMMENT ON TABLE \{self.table} IS '\{text}'"
+          _ => ""
+        }
+        if !s.is_empty() {
+          stmts.push(s)
+        }
+      }
+    }
+  }
+  stmts.join("; ")
 }
 
 ///|
@@ -758,17 +1169,22 @@ pub fn DeleteQuery::where_lte(
 
 ///|
 pub fn DeleteQuery::to(self : DeleteQuery, dialect : Dialect) -> String {
-  match dialect {
-    MongoDB => { "delete": self.from }.to_json().stringify()
-    _ => {
-      let buf = @buffer.new()
-      buf.write_string("DELETE FROM ")
-      buf.write_string(self.from)
-      if !self.where_.is_empty() {
-        buf.write_string(" WHERE ")
-        buf.write_string(format_where_sql(dialect, self.where_))
-      }
-      buf.to_string()
-    }
+  let buf = @buffer.new()
+  buf.write_string("DELETE FROM ")
+  buf.write_string(self.from)
+  if !self.where_.is_empty() {
+    buf.write_string(" WHERE ")
+    buf.write_string(format_where_sql(dialect, self.where_))
   }
+  buf.to_string()
 }
+
+// ///|
+// pub fn[E : Entity] from_result(
+//   entity : E,
+//   result : @engine.QueryResult,
+// ) -> Array[E] {
+//   let res = FixedArray::make(result.rows.length(), entity)
+//   result.rows.each(row => res.append(entity.from_json(row)) catch { _ => () })
+//   res
+// }

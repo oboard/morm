@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/engine"
+
+import(
+  "moonbitlang/core/json"
+)
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct QueryResult {
+  ok : Bool
+  rows_affected : Int
+  rows : FixedArray[Json]
+  error : String?
+}
+impl Eq for QueryResult
+impl Show for QueryResult
+impl ToJson for QueryResult
+impl @json.FromJson for QueryResult
+
+// Type aliases
+
+// Traits
+pub trait Engine {
+  open(Self, String) -> Unit
+  exec(Self, String, Array[Json]) -> QueryResult
+  close(Self) -> Unit
+}
+

@@ -3,6 +3,7 @@ package "oboard/morm"
 
 import(
   "moonbitlang/core/json"
+  "oboard/morm/engine"
 )
 
 // Values
@@ -12,11 +13,13 @@ fn add_foreign_key(Table, ForeignKey) -> Table
 
 fn add_index(Table, Index) -> Table
 
-fn auto_increment(Column) -> Column
+fn alter_table(String) -> AlterTable
 
-fn comment(Column, String) -> Column
+fn[E : @engine.Engine, T : Entity] auto_migrate(E, Array[T]) -> Unit
 
-fn default_value(Column, String) -> Column
+fn begin_tx(Dialect) -> String
+
+fn commit_tx(Dialect) -> String
 
 fn delete_from(String) -> DeleteQuery
 
@@ -24,13 +27,11 @@ fn infer_column_type(Json) -> ColumnType
 
 fn insert_into(String) -> InsertQuery
 
-fn not_null(Column) -> Column
-
 fn on_delete_cascade(ForeignKey) -> ForeignKey
 
 fn on_update_cascade(ForeignKey) -> ForeignKey
 
-fn primary_key(Column) -> Column
+fn rollback_tx(Dialect) -> String
 
 fn select_from(String) -> Query
 
@@ -40,13 +41,44 @@ fn table_comment(Table, String) -> Table
 
 fn table_engine(Table, String) -> Table
 
-fn unique(Column) -> Column
-
 fn update(String) -> UpdateQuery
 
 // Errors
 
 // Types and methods
+pub enum AlterOp {
+  AddColumn(Column)
+  DropColumn(String)
+  ModifyColumn(Column)
+  AddIndex(Index)
+  DropIndex(String)
+  AddForeignKey(ForeignKey)
+  DropForeignKey(String)
+  RenameTable(String)
+  TableComment(String)
+}
+impl Show for AlterOp
+impl ToJson for AlterOp
+impl @json.FromJson for AlterOp
+
+pub struct AlterTable {
+  table : String
+  ops : FixedArray[AlterOp]
+}
+fn AlterTable::add_column(Self, Column) -> Self
+fn AlterTable::add_foreign_key(Self, ForeignKey) -> Self
+fn AlterTable::add_index(Self, Index) -> Self
+fn AlterTable::comment(Self, String) -> Self
+fn AlterTable::drop_column(Self, String) -> Self
+fn AlterTable::drop_foreign_key(Self, String) -> Self
+fn AlterTable::drop_index(Self, String) -> Self
+fn AlterTable::modify_column(Self, Column) -> Self
+fn AlterTable::rename(Self, String) -> Self
+fn AlterTable::to(Self, Dialect) -> String
+impl Show for AlterTable
+impl ToJson for AlterTable
+impl @json.FromJson for AlterTable
+
 pub(all) struct Column {
   name : String
   column_type : ColumnType
@@ -130,7 +162,6 @@ pub(all) enum Dialect {
   PgSQL
   SqlServer
   Oracle
-  MongoDB
 }
 impl Compare for Dialect
 impl Eq for Dialect
@@ -251,6 +282,7 @@ pub(all) struct Table {
   auto_increment : Int
 }
 fn Table::new(String, columns? : FixedArray[Column]) -> Self
+fn Table::to_create_sql(Self, Dialect) -> String
 impl Compare for Table
 impl Eq for Table
 impl Hash for Table
@@ -310,7 +342,7 @@ pub(open) trait Driver {
   query(Self, String, FixedArray[Json]) -> Result[FixedArray[Json], DbError]
 }
 
-pub(open) trait Entity : ToJson {
+pub(open) trait Entity : ToJson + @json.FromJson {
   table(Self) -> Table
 }
 

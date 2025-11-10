@@ -12,4 +12,4 @@ pub(all) struct Teacher {
   age : Int
   #morm.datetime
   birth_date : String
-} derive(ToJson)
+} derive(ToJson, FromJson)

@@ -2,6 +2,7 @@
 package "oboard/morm/example"
 
 import(
+  "moonbitlang/core/json"
   "oboard/morm"
 )
 
@@ -16,6 +17,7 @@ pub(all) struct Class {
   teacher_id : Int
 }
 impl ToJson for Class
+impl @json.FromJson for Class
 impl @morm.Entity for Class
 
 pub(all) struct Student {
@@ -25,6 +27,7 @@ pub(all) struct Student {
   birth_date : String
 }
 impl ToJson for Student
+impl @json.FromJson for Student
 impl @morm.Entity for Student
 
 pub(all) struct Teacher {
@@ -35,6 +38,7 @@ pub(all) struct Teacher {
   birth_date : String
 }
 impl ToJson for Teacher
+impl @json.FromJson for Teacher
 impl @morm.Entity for Teacher
 
 // Type aliases

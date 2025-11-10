@@ -32,10 +32,4 @@ test "query" {
       #|SELECT * FROM students WHERE id = 1 AND name = 'Alice' ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
-  inspect(
-    q.to(MongoDB),
-    content=(
-      #|{"find":"students","filter":{"id":1,"name":"Alice"},"sort":{"id":-1},"limit":5,"skip":5}
-    ),
-  )
 }
