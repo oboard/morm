@@ -1,6 +1,6 @@
 {
   "name": "oboard/morm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "deps": {
     "moonbitlang/x": "0.4.34",
     "moonbitlang/parser": "0.1.11",
@@ -10,6 +10,5 @@
   "repository": "",
   "license": "Apache-2.0",
   "keywords": [],
-  "description": "",
-  "preferred-target": "native"
+  "description": ""
 }

@@ -1,5 +1,9 @@
 {
   "import": [
     "oboard/morm"
+  ],
+  "test-import": [
+    "oboard/morm/engine",
+    "oboard/morm/dialect"
   ]
 }

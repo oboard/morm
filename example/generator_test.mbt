@@ -1,4 +1,41 @@
 ///|
+priv struct MySQLEngine {}
+
+///|
+impl @engine.Engine for MySQLEngine with dialect(_self) -> @dialect.Dialect {
+  MySQL
+}
+
+///|
+impl @engine.Engine for MySQLEngine with open(_self, _url) -> Unit {
+
+}
+
+///|
+impl @engine.Engine for MySQLEngine with close(_self) -> Unit {
+
+}
+
+///|
+impl @engine.Engine for MySQLEngine with exec(
+  _self,
+  sql : String,
+  params : Array[Json],
+) -> @engine.QueryResult {
+  println(sql)
+  println(params)
+  { ok: true, rows_affected: 0, rows: [], error: None }
+}
+
+///|
+test "auto migrate" {
+  let engine = MySQLEngine::{  }
+  engine.open("mysql://root:123456@localhost:3306/test")
+  @morm.auto_migrate(engine, [Student::table()])
+  engine.close()
+}
+
+///|
 test "generated entity" {
   let student = Student::{
     id: 1,

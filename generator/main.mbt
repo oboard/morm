@@ -29,7 +29,7 @@ fn transform_entity_to_table(spec : EntitySpec) -> @morm.Table {
     }
   }
   let mut table = @morm.Table::new(
-    spec.name,
+    spec.table_name,
     columns=FixedArray::from_array(columns),
   )
   for fk in foreign_keys {

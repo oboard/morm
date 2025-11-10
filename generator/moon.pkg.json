@@ -1,5 +1,7 @@
 {
   "is-main": true,
+  "bin-name": "generator",
+  "bin-target": "wasm",
   "import": [
     "moonbitlang/x/fs",
     "moonbitlang/parser",

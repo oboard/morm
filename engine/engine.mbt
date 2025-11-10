@@ -1,5 +1,6 @@
 ///|
-pub trait Engine {
+pub(open) trait Engine {
+  dialect(Self) -> @dialect.Dialect
   ///|
   /// Connect to the database.
   /// The database connection string, e.g. "mysql://user:password@localhost:3306/dbname"
@@ -13,7 +14,7 @@ pub trait Engine {
 }
 
 ///|
-pub struct QueryResult {
+pub(all) struct QueryResult {
   ok : Bool
   rows_affected : Int
   rows : FixedArray[Json]

@@ -1,14 +1,14 @@
 ///|
-pub fn[E : @engine.Engine, T : Entity] auto_migrate(
+pub fn[E : @engine.Engine] auto_migrate(
   engine : E,
-  entities : Array[T],
+  tables : Array[Table],
 ) -> Unit {
   // 保守策略：默认按 MySQL 方言生成；如需其它方言，可扩展接口或由 Engine 暴露。
-  let dialect = Dialect::MySQL
+  let dialect = engine.dialect()
 
   // 逐实体生成 CREATE 与 ALTER 语句并执行
-  for entity in entities {
-    let table = entity.table()
+  for entity in tables {
+    let table = entity
 
     // 1) 尝试创建表（不使用 IF NOT EXISTS，失败时由 Engine/Driver 处理；我们不抛异常）
     let create_sql = table.to_create_sql(dialect)

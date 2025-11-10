@@ -9,6 +9,7 @@ struct FieldSpec {
 ///|
 struct EntitySpec {
   name : String
+  table_name : String
   fields : Array[FieldSpec]
 }
 
@@ -220,16 +221,6 @@ fn find_morm_type_attribute(
 }
 
 ///|
-fn has_attribute(
-  attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
-  attr_name : String,
-) -> Bool {
-  let mut found = false
-  attrs.each(attr => if attr.raw == attr_name { found = true })
-  found
-}
-
-///|
 /// 单次遍历收集常用字段标志，避免重复扫描
 fn collect_field_flags(
   attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
@@ -255,7 +246,17 @@ fn parse_entities_from_ast(
   let specs : Array[EntitySpec] = []
   ast.each(item => if item is @syntax.Impl::TopTypeDef(type_decl) {
     if type_decl is { tycon: name, components: Record(params), attrs, .. } {
-      if !has_attribute(attrs, "#morm.entity") {
+      // 检查并读取 #morm.entity，可选参数 name="..."
+      let orm_attrs = collect_orm_attributes(attrs)
+      let mut has_entity = false
+      let mut table_name = name
+      orm_attrs.each(a => if a.name == "#morm.entity" {
+        has_entity = true
+        if a.value.get("name") is Some(custom_name) {
+          table_name = custom_name
+        }
+      })
+      if !has_entity {
         return
       }
       let fields : Array[FieldSpec] = []
@@ -267,7 +268,7 @@ fn parse_entities_from_ast(
         }
         fields.push({ label, field_type, attrs })
       })
-      specs.push({ name, fields })
+      specs.push({ name, table_name, fields })
     }
   })
   specs

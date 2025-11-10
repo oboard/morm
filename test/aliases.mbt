@@ -1,0 +1,2 @@
+///|
+using @dialect {type Dialect}

@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/dialect"
+
+import(
+  "moonbitlang/core/json"
+)
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Dialect {
+  MySQL
+  Sqlite3
+  PgSQL
+  SqlServer
+  Oracle
+}
+impl Compare for Dialect
+impl Eq for Dialect
+impl Hash for Dialect
+impl Show for Dialect
+impl ToJson for Dialect
+impl @json.FromJson for Dialect
+
+// Type aliases
+
+// Traits
+

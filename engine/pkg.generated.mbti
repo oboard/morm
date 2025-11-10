@@ -3,6 +3,7 @@ package "oboard/morm/engine"
 
 import(
   "moonbitlang/core/json"
+  "oboard/morm/dialect"
 )
 
 // Values
@@ -10,7 +11,7 @@ import(
 // Errors
 
 // Types and methods
-pub struct QueryResult {
+pub(all) struct QueryResult {
   ok : Bool
   rows_affected : Int
   rows : FixedArray[Json]
@@ -24,7 +25,8 @@ impl @json.FromJson for QueryResult
 // Type aliases
 
 // Traits
-pub trait Engine {
+pub(open) trait Engine {
+  dialect(Self) -> @dialect.Dialect
   open(Self, String) -> Unit
   exec(Self, String, Array[Json]) -> QueryResult
   close(Self) -> Unit

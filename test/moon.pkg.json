@@ -1,5 +1,6 @@
 {
   "import": [
-    "oboard/morm"
+    "oboard/morm",
+    "oboard/morm/dialect"
   ]
 }

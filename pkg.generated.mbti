@@ -3,6 +3,7 @@ package "oboard/morm"
 
 import(
   "moonbitlang/core/json"
+  "oboard/morm/dialect"
   "oboard/morm/engine"
 )
 
@@ -15,11 +16,11 @@ fn add_index(Table, Index) -> Table
 
 fn alter_table(String) -> AlterTable
 
-fn[E : @engine.Engine, T : Entity] auto_migrate(E, Array[T]) -> Unit
+fn[E : @engine.Engine] auto_migrate(E, Array[Table]) -> Unit
 
-fn begin_tx(Dialect) -> String
+fn begin_tx(@dialect.Dialect) -> String
 
-fn commit_tx(Dialect) -> String
+fn commit_tx(@dialect.Dialect) -> String
 
 fn delete_from(String) -> DeleteQuery
 
@@ -31,7 +32,7 @@ fn on_delete_cascade(ForeignKey) -> ForeignKey
 
 fn on_update_cascade(ForeignKey) -> ForeignKey
 
-fn rollback_tx(Dialect) -> String
+fn rollback_tx(@dialect.Dialect) -> String
 
 fn select_from(String) -> Query
 
@@ -74,7 +75,7 @@ fn AlterTable::drop_foreign_key(Self, String) -> Self
 fn AlterTable::drop_index(Self, String) -> Self
 fn AlterTable::modify_column(Self, Column) -> Self
 fn AlterTable::rename(Self, String) -> Self
-fn AlterTable::to(Self, Dialect) -> String
+fn AlterTable::to(Self, @dialect.Dialect) -> String
 impl Show for AlterTable
 impl ToJson for AlterTable
 impl @json.FromJson for AlterTable
@@ -145,7 +146,7 @@ pub struct DeleteQuery {
   from : String
   where_ : FixedArray[Where]
 }
-fn DeleteQuery::to(Self, Dialect) -> String
+fn DeleteQuery::to(Self, @dialect.Dialect) -> String
 fn DeleteQuery::where_eq(Self, String, Json) -> Self
 fn DeleteQuery::where_gt(Self, String, Json) -> Self
 fn DeleteQuery::where_gte(Self, String, Json) -> Self
@@ -155,20 +156,6 @@ impl Eq for DeleteQuery
 impl Show for DeleteQuery
 impl ToJson for DeleteQuery
 impl @json.FromJson for DeleteQuery
-
-pub(all) enum Dialect {
-  MySQL
-  Sqlite3
-  PgSQL
-  SqlServer
-  Oracle
-}
-impl Compare for Dialect
-impl Eq for Dialect
-impl Hash for Dialect
-impl Show for Dialect
-impl ToJson for Dialect
-impl @json.FromJson for Dialect
 
 pub(all) struct ForeignKey {
   name : String
@@ -222,7 +209,8 @@ pub struct InsertQuery {
   values : FixedArray[Json]
 }
 fn InsertQuery::columns(Self, FixedArray[String]) -> Self
-fn InsertQuery::to(Self, Dialect) -> String
+fn[E : Entity] InsertQuery::from(Self, E) -> Self
+fn InsertQuery::to(Self, @dialect.Dialect) -> String
 fn InsertQuery::values(Self, FixedArray[Json]) -> Self
 impl Eq for InsertQuery
 impl Show for InsertQuery
@@ -250,7 +238,7 @@ fn Query::limit(Self, Int) -> Self
 fn Query::offset(Self, Int) -> Self
 fn Query::order_by(Self, OrderBy) -> Self
 fn Query::page(Self, Int, Int) -> Self
-fn Query::to(Self, Dialect) -> String
+fn Query::to(Self, @dialect.Dialect) -> String
 fn Query::where_eq(Self, String, Json) -> Self
 fn Query::where_gt(Self, String, Json) -> Self
 fn Query::where_gte(Self, String, Json) -> Self
@@ -282,7 +270,7 @@ pub(all) struct Table {
   auto_increment : Int
 }
 fn Table::new(String, columns? : FixedArray[Column]) -> Self
-fn Table::to_create_sql(Self, Dialect) -> String
+fn Table::to_create_sql(Self, @dialect.Dialect) -> String
 impl Compare for Table
 impl Eq for Table
 impl Hash for Table
@@ -296,7 +284,7 @@ pub struct UpdateQuery {
   where_ : FixedArray[Where]
 }
 fn UpdateQuery::set(Self, String, Json) -> Self
-fn UpdateQuery::to(Self, Dialect) -> String
+fn UpdateQuery::to(Self, @dialect.Dialect) -> String
 fn UpdateQuery::to_mysql_sql(Self) -> String
 fn UpdateQuery::where_eq(Self, String, Json) -> Self
 fn UpdateQuery::where_gt(Self, String, Json) -> Self

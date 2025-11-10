@@ -16,6 +16,7 @@ pub(all) struct Class {
   name : String
   teacher_id : Int
 }
+fn Class::table() -> @morm.Table
 impl ToJson for Class
 impl @json.FromJson for Class
 impl @morm.Entity for Class
@@ -26,6 +27,7 @@ pub(all) struct Student {
   age : Int
   birth_date : String
 }
+fn Student::table() -> @morm.Table
 impl ToJson for Student
 impl @json.FromJson for Student
 impl @morm.Entity for Student
@@ -37,6 +39,7 @@ pub(all) struct Teacher {
   age : Int
   birth_date : String
 }
+fn Teacher::table() -> @morm.Table
 impl ToJson for Teacher
 impl @json.FromJson for Teacher
 impl @morm.Entity for Teacher

@@ -1,5 +1,5 @@
 ///|
-#morm.entity
+#morm.entity(name="student")
 pub(all) struct Student {
   #morm.primary_key
   #morm.auto_increment

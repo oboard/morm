@@ -1,4 +1,7 @@
 ///|
+using @dialect {type Dialect}
+
+///|
 pub(open) trait Entity: ToJson + @json.FromJson {
   table(Self) -> Table
 }
@@ -249,16 +252,6 @@ pub fn Query::offset(self : Query, n : Int) -> Query {
 pub fn Query::page(self : Query, page : Int, size : Int) -> Query {
   { ..self, offset: Some((page - 1) * size), limit: Some(size) }
 }
-
-///|
-// ---- SQL 方言支持 ----
-pub(all) enum Dialect {
-  MySQL
-  Sqlite3
-  PgSQL
-  SqlServer
-  Oracle
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
 /// helper: 为不同方言生成值字面量
