@@ -1,7 +1,7 @@
 {
   "is-main": true,
-  "bin-name": "generator",
-  "bin-target": "wasm",
+  "bin-name": "morm-gen",
+  "bin-target": "js",
   "import": [
     "moonbitlang/x/fs",
     "moonbitlang/parser",

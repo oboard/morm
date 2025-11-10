@@ -43,7 +43,7 @@
 
 ```moonbit
 ///|
-#morm.entity
+#morm.entity(name="class")
 pub(all) struct Class {
   #morm.primary_key
   #morm.auto_increment
@@ -53,7 +53,7 @@ pub(all) struct Class {
   #morm.foreign_key
   #morm.on_delete_cascade
   teacher_id : Int
-} derive(ToJson)
+} derive(ToJson, FromJson)
 ```
 
 生成器运行：

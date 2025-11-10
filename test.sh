@@ -1,1 +1,1 @@
-moon run generator -- example
+moon run generator -- example/entities.mbt -o example/entities.g.mbt

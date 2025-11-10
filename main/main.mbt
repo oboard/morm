@@ -48,35 +48,40 @@ fn generate_entity_impl(name : String, table : @morm.Table) -> String {
 ///|
 fn main {
   let argv = @sys.get_cli_args()
-  let path = @ref.new("")
+  let input_file = @ref.new("")
+  let output_file = @ref.new("")
   let usage =
     #| MoonBit ORM CLI tool for generating database schema from Moonbit files
     #| usage: 
-    #|      morm-generator <path>
+    #|      morm-gen <input_file> -o <output_file>
     #|
-  @ArgParser.parse([], file => path.val = file, usage, argv)
+  @ArgParser.parse(
+    [
+      (
+        "--output-file",
+        "-o",
+        String(file => output_file.val = file),
+        "Output file",
+      ),
+    ],
+    file => input_file.val = file,
+    usage,
+    argv,
+  )
   try {
-    let files = @fs.read_dir(path.val).filter(file => file.has_suffix(".mbt"))
-    println("Files: \{files}")
-    files.each(file => {
-      let (ast, _) = @parser.parse_file("\{path.val}/\{file}")
-      let specs = parse_entities_from_ast(ast)
-      specs.each(spec => {
-        let table = transform_entity_to_table(spec)
-        let code = generate_entity_impl(spec.name, table)
-        let output_file = if file.strip_suffix(".mbt") is Some(base_name) {
-          base_name + ".g.mbt"
-        } else {
-          raise @fs.IOError("File name does not end with .mbt")
-        }
-        @fs.write_string_to_file(
-          "\{path.val}/\{output_file}",
-          code,
-          encoding="utf8",
-        )
-        println("Generated \{output_file} for entity \{spec.name}")
-      })
+    let (ast, _) = @parser.parse_file(input_file.val)
+    let specs = parse_entities_from_ast(ast)
+    let codes : Array[String] = []
+    specs.each(spec => {
+      let table = transform_entity_to_table(spec)
+      let code = generate_entity_impl(spec.name, table)
+      codes.push(code)
     })
+    let code = codes.join("\n\n")
+    @fs.write_string_to_file(output_file.val, code, encoding="utf8")
+    println(
+      "Generated \{output_file.val} for entities: \{specs.map(spec => spec.name)}",
+    )
   } catch {
     @fs.IOError(e) => println("IOError: \{e}")
   }
