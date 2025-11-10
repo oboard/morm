@@ -959,6 +959,17 @@ pub fn insert_into(table : String) -> InsertQuery {
 }
 
 ///|
+pub fn[E : Entity] InsertQuery::from(
+  self : InsertQuery,
+  entity : E,
+) -> InsertQuery {
+  let json = entity.to_json()
+  let columns = entity.table().columns.map(c => c.name)
+  let values = FixedArray::from_iter(json.as_object().unwrap().values())
+  { ..self, columns, values }
+}
+
+///|
 pub fn InsertQuery::columns(
   self : InsertQuery,
   columns : FixedArray[String],

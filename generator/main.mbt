@@ -41,7 +41,8 @@ fn transform_entity_to_table(spec : EntitySpec) -> @morm.Table {
 ///|
 /// 代码生成阶段：从表结构生成实现代码
 fn generate_entity_impl(name : String, table : @morm.Table) -> String {
-  "pub impl @morm.Entity for \{name} with table(_self) -> @morm.Table { try! @json.from_json(\{table.to_json().stringify()}) }"
+  "pub impl @morm.Entity for \{name} with table(_self) -> @morm.Table { \{name}::table() }\n" +
+  "pub fn \{name}::table() -> @morm.Table { try! @json.from_json(\{table.to_json().stringify()}) }"
 }
 
 ///|

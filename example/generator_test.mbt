@@ -6,7 +6,13 @@ test "generated entity" {
     age: 20,
     birth_date: "2003-01-01",
   }
-  let table = student.table()
+  inspect(
+    @morm.insert_into("students").from(student).to(MySQL),
+    content=(
+      #|INSERT INTO students (id, name, age, birth_date) VALUES (1, "Alice", 20, "2003-01-01")
+    ),
+  )
+  let table = Student::table()
 
   // 验证表名
   assert_eq(table.name, "Student")
@@ -42,7 +48,13 @@ test "generated entity" {
 ///|
 test "generated class with foreign key" {
   let class_obj = Class::{ id: 10, name: "Math 101", teacher_id: 1 }
-  let table = class_obj.table()
+  inspect(
+    @morm.insert_into("classes").from(class_obj).to(MySQL),
+    content=(
+      #|INSERT INTO classes (id, name, teacher_id) VALUES (10, "Math 101", 1)
+    ),
+  )
+  let table = Class::table()
 
   // 表名
   assert_eq(table.name, "Class")
