@@ -27,7 +27,7 @@ impl @json.FromJson for QueryResult
 // Traits
 pub(open) trait Engine {
   dialect(Self) -> @dialect.Dialect
-  open(Self, String) -> Unit
+  open(String) -> Self
   exec(Self, String, Array[Json]) -> QueryResult
   close(Self) -> Unit
 }

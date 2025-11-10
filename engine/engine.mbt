@@ -4,7 +4,7 @@ pub(open) trait Engine {
   ///|
   /// Connect to the database.
   /// The database connection string, e.g. "mysql://user:password@localhost:3306/dbname"
-  open(Self, url : String) -> Unit
+  open(url : String) -> Self
   ///|
   /// Execute a SQL statement.
   exec(Self, sql : String, params : Array[Json]) -> QueryResult

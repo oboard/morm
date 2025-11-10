@@ -7,8 +7,8 @@ impl @engine.Engine for MySQLEngine with dialect(_self) -> @dialect.Dialect {
 }
 
 ///|
-impl @engine.Engine for MySQLEngine with open(_self, _url) -> Unit {
-
+impl @engine.Engine for MySQLEngine with open(_url) -> MySQLEngine {
+  MySQLEngine::{  }
 }
 
 ///|
@@ -29,8 +29,7 @@ impl @engine.Engine for MySQLEngine with exec(
 
 ///|
 test "auto migrate" {
-  let engine = MySQLEngine::{  }
-  engine.open("mysql://root:123456@localhost:3306/test")
+  let engine = MySQLEngine::open("mysql://root:123456@localhost:3306/test")
   @morm.auto_migrate(engine, [Student::table()])
   engine.close()
 }
