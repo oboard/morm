@@ -51,7 +51,7 @@ test "generated entity" {
   let table = Student::table()
 
   // 验证表名
-  assert_eq(table.name, "Student")
+  assert_eq(table.name, "student")
 
   // 验证列数量
   assert_eq(table.columns.length(), 4)
@@ -93,7 +93,7 @@ test "generated class with foreign key" {
   let table = Class::table()
 
   // 表名
-  assert_eq(table.name, "Class")
+  assert_eq(table.name, "class")
 
   // 列数量（id, name, teacher_id）
   assert_eq(table.columns.length(), 3)

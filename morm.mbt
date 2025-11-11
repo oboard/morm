@@ -402,11 +402,12 @@ fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
       match dialect {
         MySQL => "MEDIUMINT"
         Oracle => "NUMBER(7)"
+        Sqlite3 => "INTEGER"
         _ => "INT"
       }
     Int =>
       match dialect {
-        PgSQL => "INTEGER"
+        Sqlite3 | PgSQL => "INTEGER"
         Oracle => "NUMBER(10)"
         _ => "INT"
       }
@@ -417,21 +418,28 @@ fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
       }
     Float =>
       match dialect {
+        Sqlite3 => "REAL"
         Oracle => "BINARY_FLOAT"
         _ => "FLOAT"
       }
     Double =>
       match dialect {
+        Sqlite3 => "REAL"
         PgSQL => "DOUBLE PRECISION"
         Oracle => "BINARY_DOUBLE"
         _ => "DOUBLE"
       }
     Decimal(p, s) =>
       match dialect {
+        Sqlite3 => "NUMERIC"
         Oracle => "NUMBER(\{p}, \{s})"
         _ => "DECIMAL(\{p}, \{s})"
       }
-    Char(len) => "CHAR(\{len})"
+    Char(len) =>
+      match dialect {
+        Sqlite3 => "TEXT"
+        _ => "CHAR(\{len})"
+      }
     VarChar(len) =>
       match dialect {
         PgSQL | MySQL | SqlServer => "VARCHAR(\{len})"
@@ -462,7 +470,7 @@ fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
         SqlServer => "BINARY(\{len})"
         Oracle => "RAW(\{len})"
         PgSQL => "BYTEA"
-        _ => "BLOB"
+        Sqlite3 => "BLOB"
       }
     VarBinary(len) =>
       match dialect {
@@ -470,7 +478,7 @@ fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
         SqlServer => "VARBINARY(\{len})"
         PgSQL => "BYTEA"
         Oracle => "RAW(\{len})"
-        _ => "BLOB"
+        Sqlite3 => "BLOB"
       }
     Blob =>
       match dialect {
@@ -491,15 +499,21 @@ fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
         Oracle => "BLOB"
         _ => "BLOB"
       }
-    Date => "DATE"
+    Date =>
+      match dialect {
+        Sqlite3 => "TEXT"
+        _ => "DATE"
+      }
     Time =>
       match dialect {
         SqlServer => "TIME"
         Oracle => "DATE"
+        Sqlite3 => "TEXT"
         _ => "TIME"
       }
     DateTime =>
       match dialect {
+        Sqlite3 => "TEXT"
         PgSQL => "TIMESTAMP"
         SqlServer => "DATETIME2"
         Oracle => "TIMESTAMP"
@@ -507,6 +521,7 @@ fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
       }
     Timestamp =>
       match dialect {
+        Sqlite3 => "TEXT"
         PgSQL => "TIMESTAMP"
         SqlServer => "DATETIME2"
         Oracle => "TIMESTAMP"
@@ -516,6 +531,7 @@ fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
       match dialect {
         MySQL => "YEAR"
         Oracle => "NUMBER(4)"
+        Sqlite3 => "INTEGER"
         _ => "INT"
       }
     Json =>
@@ -529,6 +545,7 @@ fn map_column_type(dialect : Dialect, ct : ColumnType) -> String {
     JsonB =>
       match dialect {
         PgSQL => "JSONB"
+        Sqlite3 => "TEXT"
         _ => "JSON"
       }
     Boolean =>
@@ -1011,6 +1028,18 @@ pub struct UpdateQuery {
 ///|
 pub fn update(table : String) -> UpdateQuery {
   { table, sets: [], where_: [] }
+}
+
+///|
+pub fn[E : Entity] UpdateQuery::from(
+  self : UpdateQuery,
+  entity : E,
+) -> UpdateQuery {
+  let json = entity.to_json()
+  let values = FixedArray::from_iter(
+    json.as_object().unwrap().map((k, v) => Set::{ col: k, value: v }).values(),
+  )
+  { ..self, sets: values }
 }
 
 ///|

@@ -283,6 +283,7 @@ pub struct UpdateQuery {
   sets : FixedArray[Set]
   where_ : FixedArray[Where]
 }
+fn[E : Entity] UpdateQuery::from(Self, E) -> Self
 fn UpdateQuery::set(Self, String, Json) -> Self
 fn UpdateQuery::to(Self, @dialect.Dialect) -> String
 fn UpdateQuery::to_mysql_sql(Self) -> String
