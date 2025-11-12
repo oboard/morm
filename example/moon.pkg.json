@@ -1,6 +1,7 @@
 {
   "import": [
-    "oboard/morm"
+    "oboard/morm",
+    "oboard/morm/engine"
   ],
   "test-import": [
     "oboard/morm/engine",

@@ -1,5 +1,5 @@
 ///|
-pub impl @morm.Entity for Class with table(_self) -> @morm.Table {
+pub impl @oboard/morm.Entity for Class with table(_self) -> @oboard/morm.Table {
   Class::table()
 }
 
@@ -59,7 +59,7 @@ pub fn Class::table() -> @morm.Table {
 }
 
 ///|
-pub impl @morm.Entity for Student with table(_self) -> @morm.Table {
+pub impl @oboard/morm.Entity for Student with table(_self) -> @oboard/morm.Table {
   Student::table()
 }
 
@@ -120,7 +120,7 @@ pub fn Student::table() -> @morm.Table {
 }
 
 ///|
-pub impl @morm.Entity for Teacher with table(_self) -> @morm.Table {
+pub impl @oboard/morm.Entity for Teacher with table(_self) -> @oboard/morm.Table {
   Teacher::table()
 }
 

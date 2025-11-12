@@ -4,6 +4,7 @@ package "oboard/morm/example"
 import(
   "moonbitlang/core/json"
   "oboard/morm"
+  "oboard/morm/engine"
 )
 
 // Values
@@ -27,10 +28,16 @@ pub(all) struct Student {
   age : Int
   birth_date : String
 }
+fn Student::mapper(&@engine.Engine) -> StudentMapper_
 fn Student::table() -> @morm.Table
 impl ToJson for Student
 impl @json.FromJson for Student
 impl @morm.Entity for Student
+
+pub struct StudentMapper_ {
+  engine : &@engine.Engine
+}
+impl StudentMapper for StudentMapper_
 
 pub(all) struct Teacher {
   id : Int
@@ -47,4 +54,9 @@ impl @morm.Entity for Teacher
 // Type aliases
 
 // Traits
+pub trait StudentMapper {
+  find_student_by_id(Self, Int) -> Student?
+  find_student_by_name(Self, String) -> Student?
+  find_students_by_age(Self, Int) -> Array[Student]
+}
 

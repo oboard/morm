@@ -7,7 +7,7 @@ impl @engine.Engine for MySQLEngine with dialect(_self) -> @dialect.Dialect {
 }
 
 ///|
-impl @engine.Engine for MySQLEngine with open(_url) -> MySQLEngine {
+fn MySQLEngine::open(_url : String) -> MySQLEngine {
   MySQLEngine::{  }
 }
 

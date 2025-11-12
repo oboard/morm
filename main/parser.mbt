@@ -97,6 +97,171 @@ fn collect_orm_attributes(
 }
 
 ///|
+/// Mapper 方法规格：方法名、SQL、参数与返回实体名
+struct MapperMethodSpec {
+  name : String
+  sql : String
+  params : Array[(String, String)] // (param_name, type_name)
+  return_entity : String
+  returns_array : Bool
+  returns_option : Bool
+}
+
+///|
+/// Mapper 规格：Trait 名称、实体名、方法列表
+struct MapperSpec {
+  trait_name : String
+  entity_name : String
+  methods : Array[MapperMethodSpec]
+}
+
+///|
+/// 提取 attribute 括号中的内容（不含引号处理）
+fn extract_text_inside_parens(raw : String) -> String? {
+  if raw.find("(") is Some(open_idx) {
+    if raw.find(")") is Some(close_idx) {
+      return Some(try! raw[open_idx + 1:close_idx].to_string())
+    }
+  }
+  None
+}
+
+///|
+/// 提取 attribute 括号内首个引号包裹的字符串
+fn extract_quoted_string_in_parens(raw : String) -> String? {
+  if raw.find("(") is Some(open_idx) {
+    if raw.find(")") is Some(close_idx) {
+      let inner = try! raw[open_idx + 1:close_idx].to_string()
+      if inner.find("\"") is Some(start_idx) {
+        let tail = try! inner[start_idx + 1:].to_string()
+        if tail.find("\"") is Some(end_rel) {
+          return Some(
+            try! inner[start_idx + 1:start_idx + 1 + end_rel].to_string(),
+          )
+        }
+      }
+    }
+  }
+  None
+}
+
+///|
+/// 解析阶段：从 AST 收集 Mapper 规格
+fn parse_mappers_from_ast(
+  ast : @moonbitlang/core/list.List[@moonbitlang/parser/syntax.Impl],
+) -> Array[MapperSpec] {
+  let specs : Array[MapperSpec] = []
+  ast.each(item => if item is @syntax.Impl::TopTrait(trait_decl) {
+    if trait_decl is { name: { name: trait_name, .. }, methods, attrs, .. } {
+      // 读取实体名
+      let mut entity_name_opt : String? = None
+      attrs.each(attr => if attr.raw.has_prefix("#morm.mapper") {
+        entity_name_opt = extract_text_inside_parens(attr.raw)
+      })
+      if entity_name_opt is None {
+        return
+      }
+      let entity_name = entity_name_opt.unwrap()
+
+      // 收集方法
+      let mmethods : Array[MapperMethodSpec] = []
+      methods.each(m => if m
+        is { name: { name: mname, .. }, params, attrs, return_type, .. } {
+        // 提取 SQL
+        let mut sql_opt : String? = None
+        attrs.each(a => if a.raw.has_prefix("#morm.query") {
+          sql_opt = extract_quoted_string_in_parens(a.raw)
+        })
+        if sql_opt is None {
+          return
+        }
+        let sql = sql_opt.unwrap()
+
+        // 提取参数（基于 Parameter 变体，读取 binder.name 与显式类型）
+        let plist : Array[(String, String)] = []
+        params.each(p => match p {
+          Positional(binder={ name: pname, .. }, ty=Some(pty)) => {
+            let tname = match pty {
+              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) => t
+              _ => "String"
+            }
+            plist.push((pname, tname))
+          }
+          Labelled(binder={ name: pname, .. }, ty=Some(pty)) => {
+            let tname = match pty {
+              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) => t
+              _ => "String"
+            }
+            plist.push((pname, tname))
+          }
+          Optional(binder={ name: pname, .. }, ty=Some(pty), ..) => {
+            let tname = match pty {
+              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) => t
+              _ => "String"
+            }
+            plist.push((pname, tname))
+          }
+          QuestionOptional(binder={ name: pname, .. }, ty=Some(pty)) => {
+            let tname = match pty {
+              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) => t
+              _ => "String"
+            }
+            plist.push((pname, tname))
+          }
+          _ => ()
+        })
+
+        // 解析返回类型：Option[Entity] / Array[Entity]
+        let mut returns_array = false
+        let mut returns_option = false
+        let mut ret_entity = entity_name
+        match return_type {
+          Some(
+            Option(
+              ty=Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..),
+              ..
+            )
+          ) => {
+            returns_option = true
+            ret_entity = t
+          }
+          Some(
+            Name(
+              constr_id={ id: Ident(name="Array") | Dot(id="Array", ..), .. },
+              tys~,
+              ..
+            )
+          ) => {
+            // 安全遍历类型参数列表，取首元素作为数组内类型
+            let mut inner_opt : @moonbitlang/parser/syntax.Type? = None
+            tys.each(inner => if inner_opt is None { inner_opt = Some(inner) })
+            if inner_opt is Some(inner_ty) {
+              returns_array = true
+              match inner_ty {
+                Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) =>
+                  ret_entity = t
+                _ => ()
+              }
+            }
+          }
+          _ => ()
+        }
+        mmethods.push({
+          name: mname,
+          sql,
+          params: plist,
+          return_entity: ret_entity,
+          returns_array,
+          returns_option,
+        })
+      })
+      specs.push({ trait_name, entity_name, methods: mmethods })
+    }
+  })
+  specs
+}
+
+///|
 /// 解析字段上的外键属性（仅参数化声明），学习 GORM 风格，不依赖命名约定
 fn parse_foreign_key_for_field(
   current_table : String,

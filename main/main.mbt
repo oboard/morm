@@ -41,8 +41,47 @@ fn transform_entity_to_table(spec : EntitySpec) -> @morm.Table {
 ///|
 /// 代码生成阶段：从表结构生成实现代码
 fn generate_entity_impl(name : String, table : @morm.Table) -> String {
-  "pub impl @morm.Entity for \{name} with table(_self) -> @morm.Table { \{name}::table() }\n" +
+  "pub impl @oboard/morm.Entity for \{name} with table(_self) -> @oboard/morm.Table { \{name}::table() }\n" +
   "pub fn \{name}::table() -> @morm.Table { try! @json.from_json(\{table.to_json().stringify()}) }"
+}
+
+///|
+/// 代码生成阶段：根据 MapperSpec 生成 struct、mapper 函数与方法实现
+fn generate_mapper_code(spec : MapperSpec) -> String {
+  let trait_name = spec.trait_name
+  let entity_name = spec.entity_name
+  let struct_def = "pub struct \{trait_name}_ {\n  engine : &@engine.Engine\n}\n\n"
+  let mapper_fn = "pub fn \{entity_name}::mapper(engine : &@engine.Engine) -> \{trait_name}_ {\n  \{trait_name}_::{ engine, }\n}\n\n"
+  let mut impls = ""
+  for m in spec.methods {
+    let param_sig_parts : Array[String] = []
+    let json_args_parts : Array[String] = []
+    for p in m.params {
+      let (pname, ptype) = p
+      param_sig_parts.push("\{pname} : \{ptype}")
+      json_args_parts.push("\{pname}.to_json()")
+    }
+    let param_sig = if param_sig_parts.length() == 0 {
+      "self"
+    } else {
+      "self, " + param_sig_parts.join(", ")
+    }
+    let json_args = "[" + json_args_parts.join(", ") + "]"
+    // 返回类型字符串
+    let ret_type = if m.returns_array {
+      "Array[\{m.return_entity}]"
+    } else {
+      "\{m.return_entity}?"
+    }
+    let method_header = "pub impl \{trait_name} for \{trait_name}_ with \{m.name}(\n  \{param_sig}\n) -> \{ret_type} {\n"
+    let body = if m.returns_array {
+      "  let results = []\n  for row in self.engine.exec(\"\{m.sql}\", \{json_args}).rows {\n    try! results.push(@json.from_json(row))\n  }\n  results\n}\n\n"
+    } else {
+      "  if self.engine.exec(\"\{m.sql}\", \{json_args}).rows\n    is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  None\n}\n\n"
+    }
+    impls = impls + method_header + body
+  }
+  struct_def + mapper_fn + impls
 }
 
 ///|
@@ -71,17 +110,27 @@ fn main {
   try {
     let (ast, _) = @parser.parse_file(input_file.val)
     let specs = parse_entities_from_ast(ast)
+    let mapper_specs = parse_mappers_from_ast(ast)
     let codes : Array[String] = []
     specs.each(spec => {
       let table = transform_entity_to_table(spec)
       let code = generate_entity_impl(spec.name, table)
       codes.push(code)
     })
+    mapper_specs.each(ms => {
+      let mcode = generate_mapper_code(ms)
+      codes.push(mcode)
+    })
     let code = codes.join("\n\n")
     @fs.write_string_to_file(output_file.val, code, encoding="utf8")
-    println(
-      "Generated \{output_file.val} for entities: \{specs.map(spec => spec.name)}",
-    )
+    let entity_names = specs.map(spec => spec.name)
+    let mapper_names = mapper_specs.map(ms => ms.trait_name)
+    if entity_names.length() > 0 {
+      println("Generated \{output_file.val} for entities: \{entity_names}")
+    }
+    if mapper_names.length() > 0 {
+      println("Generated \{output_file.val} for mappers: \{mapper_names}")
+    }
   } catch {
     @fs.IOError(e) => println("IOError: \{e}")
   }
