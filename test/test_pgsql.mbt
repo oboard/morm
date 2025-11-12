@@ -5,7 +5,7 @@ test "query-sql-pgsql" {
     .where_eq("name", "Alice")
     .order_by(Desc("id"))
     .page(2, 5)
-  let (sql, params) = q.to(PgSQL)
+  let (sql, _) = q.to(PgSQL)
   inspect(
     sql,
     content=(
@@ -17,7 +17,7 @@ test "query-sql-pgsql" {
 ///|
 test "insert-sql-pgsql" {
   let vals : FixedArray[Json] = [1, "Alice", 20, "2000-01-01"]
-  let (sql, params) = @morm.insert_into("students")
+  let (sql, _) = @morm.insert_into("students")
     .columns(["id", "name", "age", "birth_date"])
     .values(vals)
     .to(PgSQL)
@@ -31,7 +31,7 @@ test "insert-sql-pgsql" {
 
 ///|
 test "update-sql-pgsql" {
-  let (sql, params) = @morm.update("students")
+  let (sql, _) = @morm.update("students")
     .set("name", "Bob")
     .set("age", 21)
     .where_eq("id", 1)
@@ -46,7 +46,7 @@ test "update-sql-pgsql" {
 
 ///|
 test "delete-sql-pgsql" {
-  let (sql, params) = @morm.delete_from("students").where_eq("id", 1).to(PgSQL)
+  let (sql, _) = @morm.delete_from("students").where_eq("id", 1).to(PgSQL)
   inspect(
     sql,
     content=(

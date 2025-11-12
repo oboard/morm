@@ -117,7 +117,7 @@ test "generated class with foreign key" {
   let teacher_id_col = table.columns[2]
   assert_eq(teacher_id_col.name, "teacher_id")
   assert_eq(teacher_id_col.column_type, Int)
-  assert_eq(teacher_id_col.nullable, true) // 未标注 not_null
+  assert_eq(teacher_id_col.nullable, false)
 
   // 外键约束存在
   assert_eq(table.foreign_keys.length(), 1)
@@ -143,5 +143,19 @@ test {
     "name": "666",
     "major": "English",
     "age": 12,
+  })
+  let teacher = Teacher::{
+    id: 1,
+    name: "666",
+    age: 12,
+    major: "English",
+    birth_date: Some("2022-03-04"),
+  }
+  @json.inspect(teacher, content={
+    "id": 1,
+    "name": "666",
+    "major": "English",
+    "age": 12,
+    "birth_date": "2022-03-04",
   })
 }

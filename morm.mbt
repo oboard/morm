@@ -1050,7 +1050,7 @@ pub fn[E : Entity] UpsertQuery::from(
   let mut conflict_cols : FixedArray[String] = []
   match table.primary_key() {
     Some(pk) => conflict_cols = [pk]
-    None => {
+    None =>
       for idx in table.indexes {
         match idx.index_type {
           Unique => {
@@ -1060,9 +1060,12 @@ pub fn[E : Entity] UpsertQuery::from(
           _ => ()
         }
       }
-    }
   }
-  { ..self, sets: FixedArray::from_iter(sets.values()), conflict_target: conflict_cols }
+  {
+    ..self,
+    sets: FixedArray::from_iter(sets.values()),
+    conflict_target: conflict_cols,
+  }
 }
 
 ///|

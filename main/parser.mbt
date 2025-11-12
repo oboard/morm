@@ -408,6 +408,21 @@ fn collect_field_flags(
 }
 
 ///|
+fn extract_type_name_and_nullable(
+  ty : @moonbitlang/parser/syntax.Type,
+) -> (String, Bool) {
+  match ty {
+    Name(constr_id={ id: Ident(name~) | Dot(id=name, ..), .. }, ..) =>
+      (name, false)
+    Option(
+      ty=Name(constr_id={ id: Ident(name~) | Dot(id=name, ..), .. }, ..),
+      ..
+    ) => (name, true)
+    _ => ("String", false)
+  }
+}
+
+///|
 /// 解析阶段：使用中间结构 EntitySpec（调用者负责提供 AST）
 // 说明：避免在此函数中调用可能带错误类型的 API，保持纯解析逻辑。
 fn parse_entities_from_ast(
@@ -416,7 +431,6 @@ fn parse_entities_from_ast(
   let specs : Array[EntitySpec] = []
   ast.each(item => if item is @syntax.Impl::TopTypeDef(type_decl) {
     if type_decl is { tycon: name, components: Record(params), attrs, .. } {
-      // 检查并读取 #morm.entity，可选参数 name="..."
       let orm_attrs = collect_orm_attributes(attrs)
       let mut has_entity = false
       let mut table_name = name
@@ -431,20 +445,7 @@ fn parse_entities_from_ast(
       }
       let fields : Array[FieldSpec] = []
       params.each(param => if param is { name: { label, .. }, ty, attrs, .. } {
-        let mut is_nullable = false
-        let field_type = match ty {
-          Name(constr_id={ id: Ident(name~) | Dot(id=name, ..), .. }, ..) =>
-            name
-          Option(ty=inner_ty, ..) => {
-            is_nullable = true
-            match inner_ty {
-              Name(constr_id={ id: Ident(name~) | Dot(id=name, ..), .. }, ..) =>
-                name
-              _ => "String"
-            }
-          }
-          _ => "String"
-        }
+        let (field_type, is_nullable) = extract_type_name_and_nullable(ty)
         fields.push({ label, field_type, nullable: is_nullable, attrs })
       })
       specs.push({ name, table_name, fields })

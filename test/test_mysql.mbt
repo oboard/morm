@@ -5,7 +5,7 @@ test "query-sql" {
     .where_eq("name", "Alice")
     .order_by(Desc("id"))
     .page(2, 5)
-  let (sql, params) = q1.to(MySQL)
+  let (sql, _) = q1.to(MySQL)
   inspect(
     sql,
     content=(
@@ -17,7 +17,7 @@ test "query-sql" {
 ///|
 test "insert-sql" {
   let vals : FixedArray[Json] = [1, "Alice", 20, "2000-01-01"]
-  let (sql, params) = @morm.insert_into("students")
+  let (sql, _) = @morm.insert_into("students")
     .columns(["id", "name", "age", "birth_date"])
     .values(vals)
     .to(MySQL)
@@ -31,20 +31,17 @@ test "insert-sql" {
 
 ///|
 test "update-sql" {
-  let (sql, params) = @morm.update("students")
+  let (sql, _) = @morm.update("students")
     .set("name", "Bob")
     .set("age", 21)
     .where_eq("id", 1)
     .to(MySQL)
-  inspect(
-    sql,
-    content="UPDATE students SET name = ?, age = ? WHERE id = ?",
-  )
+  inspect(sql, content="UPDATE students SET name = ?, age = ? WHERE id = ?")
 }
 
 ///|
 test "delete-sql" {
-  let (sql, params) = @morm.delete_from("students").where_eq("id", 1).to(MySQL)
+  let (sql, _) = @morm.delete_from("students").where_eq("id", 1).to(MySQL)
   inspect(
     sql,
     content=(
