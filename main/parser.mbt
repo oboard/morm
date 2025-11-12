@@ -126,19 +126,12 @@ fn extract_text_inside_parens(raw : String) -> String? {
 }
 
 ///|
-/// 提取 attribute 括号内首个引号包裹的字符串
+/// 提取 attribute 中首个引号包裹的字符串
 fn extract_quoted_string_in_parens(raw : String) -> String? {
-  if raw.find("(") is Some(open_idx) {
-    if raw.find(")") is Some(close_idx) {
-      let inner = try! raw[open_idx + 1:close_idx].to_string()
-      if inner.find("\"") is Some(start_idx) {
-        let tail = try! inner[start_idx + 1:].to_string()
-        if tail.find("\"") is Some(end_rel) {
-          return Some(
-            try! inner[start_idx + 1:start_idx + 1 + end_rel].to_string(),
-          )
-        }
-      }
+  if raw.find("\"") is Some(start_idx) {
+    let tail = try! raw[start_idx + 1:].to_string()
+    if tail.find("\"") is Some(end_rel) {
+      return Some(try! raw[start_idx + 1:start_idx + 1 + end_rel].to_string())
     }
   }
   None
@@ -164,8 +157,7 @@ fn parse_mappers_from_ast(
 
       // 收集方法
       let mmethods : Array[MapperMethodSpec] = []
-      methods.each(m => if m
-        is { name: { name: mname, .. }, params, attrs, return_type, .. } {
+      methods.each(m => if m is { name: { name: mname, .. }, params, attrs, .. } {
         // 提取 SQL
         let mut sql_opt : String? = None
         attrs.each(a => if a.raw.has_prefix("#morm.query") {
@@ -210,36 +202,53 @@ fn parse_mappers_from_ast(
           _ => ()
         })
 
-        // 解析返回类型：Option[Entity] / Array[Entity]
+        // 解析返回类型：Option[Entity] / FixedArray[Entity] / 基本类型可选 T?
         let mut returns_array = false
         let mut ret_entity = entity_name
-        match return_type {
-          Some(
-            Option(
-              ty=Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..),
-              ..
-            )
-          ) => ret_entity = t
-          Some(
-            Name(
-              constr_id={ id: Ident(name="Array") | Dot(id="Array", ..), .. },
-              tys~,
-              ..
-            )
-          ) => {
-            // 安全遍历类型参数列表，取首元素作为数组内类型
-            let mut inner_opt : @moonbitlang/parser/syntax.Type? = None
-            tys.each(inner => if inner_opt is None { inner_opt = Some(inner) })
-            if inner_opt is Some(inner_ty) {
-              returns_array = true
-              match inner_ty {
-                Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) =>
-                  ret_entity = t
-                _ => ()
+        match m {
+          { return_type: Some(return_type), .. } =>
+            match return_type {
+              Option(
+                ty=Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..),
+                ..
+              ) => ret_entity = t
+              Name(
+                constr_id={
+                  id: Ident(name="FixedArray")
+                  | Dot(id="FixedArray", ..),
+                  ..,
+                },
+                tys~,
+                ..
+              ) => {
+                // 安全遍历类型参数列表，取首元素作为数组内类型
+                let mut inner_opt : @moonbitlang/parser/syntax.Type? = None
+                tys.each(inner => if inner_opt is None {
+                  inner_opt = Some(inner)
+                })
+                if inner_opt is Some(inner_ty) {
+                  returns_array = true
+                  match inner_ty {
+                    Name(
+                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                      ..
+                    ) => ret_entity = t
+                    _ => ()
+                  }
+                }
               }
+              // 普通名称类型（例如 Int），非数组场景下用于推断基础返回类型
+              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) =>
+                ret_entity = t
+              _ => ()
             }
-          }
           _ => ()
+        }
+        // SQL 级别回退：识别 count 聚合返回 Int?
+        if !returns_array {
+          if sql.find("count(") is Some(_) {
+            ret_entity = "Int"
+          }
         }
         mmethods.push({
           name: mname,
@@ -248,6 +257,7 @@ fn parse_mappers_from_ast(
           return_entity: ret_entity,
           returns_array,
         })
+        //
       })
       specs.push({ trait_name, entity_name, methods: mmethods })
     }

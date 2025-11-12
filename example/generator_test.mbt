@@ -23,7 +23,7 @@ impl @engine.Engine for MySQLEngine with exec(
   params : Array[Json],
 ) -> @engine.QueryResult {
   println(sql)
-  println(params)
+  println(params.to_json().stringify())
   { ok: true, rows_affected: 0, rows: [], error: None }
 }
 
@@ -32,6 +32,14 @@ test "auto migrate" {
   let engine = MySQLEngine::open("mysql://root:123456@localhost:3306/test")
   @morm.auto_migrate(engine, [Student::table()])
   engine.close()
+}
+
+///|
+test "mapper" {
+  let engine = MySQLEngine::open("mysql://root:123456@localhost:3306/test")
+  let studentMapper = Student::mapper(engine)
+  let student = studentMapper.find_student_by_name("Alice")
+  inspect(student.to_json(), content="Null")
 }
 
 ///|

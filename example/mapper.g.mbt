@@ -36,13 +36,37 @@ pub impl StudentMapper for StudentMapper_ with find_student_by_name(
 pub impl StudentMapper for StudentMapper_ with find_students_by_age(
   self,
   age : Int,
-) -> Array[Student] {
-  let results = []
-  for
-    row in self.engine.exec("SELECT * FROM students WHERE age = ?", [
+) -> FixedArray[Student] {
+  self.engine.exec("SELECT * FROM students WHERE age = ?", [age.to_json()]).rows.map(row => @json.from_json(
+      row,
+    ) catch {
+      _ => panic()
+    },
+  )
+}
+
+///|
+pub impl StudentMapper for StudentMapper_ with find_students_by_age_and_name(
+  self,
+  age : Int,
+  name : String,
+) -> FixedArray[Student] {
+  self.engine.exec("SELECT * FROM students WHERE age = ? AND name = ?", [
+    age.to_json(),
+    name.to_json(),
+  ]).rows.map(row => @json.from_json(row) catch { _ => panic() })
+}
+
+///|
+pub impl StudentMapper for StudentMapper_ with count_students_by_age(
+  self,
+  age : Int,
+) -> Int? {
+  if self.engine.exec("SELECT count(*) FROM students WHERE age = ?", [
       age.to_json(),
-    ]).rows {
-    try! results.push(@json.from_json(row))
+    ]).rows
+    is [result, ..] {
+    return Some(try! @json.from_json(result))
   }
-  results
+  None
 }

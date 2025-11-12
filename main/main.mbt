@@ -69,13 +69,13 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
     let json_args = "[" + json_args_parts.join(", ") + "]"
     // 返回类型字符串
     let ret_type = if m.returns_array {
-      "Array[\{m.return_entity}]"
+      "FixedArray[\{m.return_entity}]"
     } else {
       "\{m.return_entity}?"
     }
     let method_header = "pub impl \{trait_name} for \{trait_name}_ with \{m.name}(\n  \{param_sig}\n) -> \{ret_type} {\n"
     let body = if m.returns_array {
-      "  let results = []\n  for row in self.engine.exec(\"\{m.sql}\", \{json_args}).rows {\n    try! results.push(@json.from_json(row))\n  }\n  results\n}\n\n"
+      "  self.engine.exec(\"\{m.sql}\", \{json_args}).rows.map(row => @json.from_json(\n      row,\n    ) catch {\n      _ => panic()\n    },\n  )\n}\n\n"
     } else {
       "  if self.engine.exec(\"\{m.sql}\", \{json_args}).rows\n    is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  None\n}\n\n"
     }
@@ -111,6 +111,7 @@ fn main {
     let (ast, _) = @parser.parse_file(input_file.val)
     let specs = parse_entities_from_ast(ast)
     let mapper_specs = parse_mappers_from_ast(ast)
+    //
     let codes : Array[String] = []
     specs.each(spec => {
       let table = transform_entity_to_table(spec)

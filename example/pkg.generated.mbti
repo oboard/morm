@@ -57,6 +57,8 @@ impl @morm.Entity for Teacher
 pub trait StudentMapper {
   find_student_by_id(Self, Int) -> Student?
   find_student_by_name(Self, String) -> Student?
-  find_students_by_age(Self, Int) -> Array[Student]
+  find_students_by_age(Self, Int) -> FixedArray[Student]
+  find_students_by_age_and_name(Self, Int, String) -> FixedArray[Student]
+  count_students_by_age(Self, Int) -> Int?
 }
 
