@@ -104,7 +104,6 @@ struct MapperMethodSpec {
   params : Array[(String, String)] // (param_name, type_name)
   return_entity : String
   returns_array : Bool
-  returns_option : Bool
 }
 
 ///|
@@ -213,7 +212,6 @@ fn parse_mappers_from_ast(
 
         // 解析返回类型：Option[Entity] / Array[Entity]
         let mut returns_array = false
-        let mut returns_option = false
         let mut ret_entity = entity_name
         match return_type {
           Some(
@@ -221,10 +219,7 @@ fn parse_mappers_from_ast(
               ty=Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..),
               ..
             )
-          ) => {
-            returns_option = true
-            ret_entity = t
-          }
+          ) => ret_entity = t
           Some(
             Name(
               constr_id={ id: Ident(name="Array") | Dot(id="Array", ..), .. },
@@ -252,7 +247,6 @@ fn parse_mappers_from_ast(
           params: plist,
           return_entity: ret_entity,
           returns_array,
-          returns_option,
         })
       })
       specs.push({ trait_name, entity_name, methods: mmethods })
