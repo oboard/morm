@@ -3,6 +3,7 @@
 struct FieldSpec {
   label : String
   field_type : String
+  nullable : Bool
   attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute]
 }
 
@@ -430,12 +431,21 @@ fn parse_entities_from_ast(
       }
       let fields : Array[FieldSpec] = []
       params.each(param => if param is { name: { label, .. }, ty, attrs, .. } {
+        let mut is_nullable = false
         let field_type = match ty {
           Name(constr_id={ id: Ident(name~) | Dot(id=name, ..), .. }, ..) =>
             name
+          Option(ty=inner_ty, ..) => {
+            is_nullable = true
+            match inner_ty {
+              Name(constr_id={ id: Ident(name~) | Dot(id=name, ..), .. }, ..) =>
+                name
+              _ => "String"
+            }
+          }
           _ => "String"
         }
-        fields.push({ label, field_type, attrs })
+        fields.push({ label, field_type, nullable: is_nullable, attrs })
       })
       specs.push({ name, table_name, fields })
     }

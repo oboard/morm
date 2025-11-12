@@ -6,30 +6,35 @@ test "query" {
     .order_by(Desc("id"))
     .offset(5)
     .limit(5)
+  let (sql_pg, params_pg) = q.to(PgSQL)
   inspect(
-    q.to(PgSQL),
+    sql_pg,
     content=(
-      #|SELECT * FROM students WHERE id = 1 AND name = 'Alice' ORDER BY id DESC LIMIT 5 OFFSET 5
+      #|SELECT * FROM students WHERE id = $1 AND name = $2 ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
+  let (sql_my, params_my) = q.to(MySQL)
   inspect(
-    q.to(MySQL),
+    sql_my,
     content=(
-      #|SELECT * FROM students WHERE id = 1 AND name = "Alice" ORDER BY id DESC LIMIT 5 OFFSET 5
+      #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
+  let (sql_ora, params_ora) = q.to(Oracle)
   inspect(
-    q.to(Oracle),
-    content="SELECT * FROM students WHERE id = 1 AND name = 'Alice' ORDER BY id DESC OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY",
+    sql_ora,
+    content="SELECT * FROM students WHERE id = :1 AND name = :2 ORDER BY id DESC OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY",
   )
+  let (sql_ss, params_ss) = q.to(SqlServer)
   inspect(
-    q.to(SqlServer),
-    content="SELECT * FROM students WHERE id = 1 AND name = 'Alice' ORDER BY id DESC OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY",
+    sql_ss,
+    content="SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY",
   )
+  let (sql_sqlite, params_sqlite) = q.to(Sqlite3)
   inspect(
-    q.to(Sqlite3),
+    sql_sqlite,
     content=(
-      #|SELECT * FROM students WHERE id = 1 AND name = 'Alice' ORDER BY id DESC LIMIT 5 OFFSET 5
+      #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
 }

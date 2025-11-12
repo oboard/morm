@@ -254,42 +254,33 @@ pub fn Query::page(self : Query, page : Int, size : Int) -> Query {
 }
 
 ///|
-/// helper: 为不同方言生成值字面量
-fn quote_value(dialect : Dialect, v : Json) -> String {
-  match v {
-    Number(n, ..) => n.to_string()
-    False =>
-      match dialect {
-        SqlServer => "0"
-        _ => "FALSE"
-      }
-    True =>
-      match dialect {
-        SqlServer => "1"
-        _ => "TRUE"
-      }
-    Null => "NULL"
-    String(s) =>
-      match dialect {
-        MySQL => v.stringify() // 与现有测试兼容，双引号字符串
-        _ => {
-          let buf = @buffer.new()
-          buf.write_string("'")
-          // 保守处理：直接包裹单引号，避免字符遍历与 write_char
-          buf.write_string(s)
-          buf.write_string("'")
-          buf.to_string()
-        }
-      }
-    _ => v.stringify()
+fn param_placeholder(dialect : Dialect, idx : Int) -> String {
+  match dialect {
+    PgSQL => "$" + idx.to_string()
+    Oracle => ":" + idx.to_string()
+    _ => "?"
   }
 }
 
 ///|
-/// helper: WHERE 子句格式化（通用）
-fn format_where_sql(dialect : Dialect, where_ : FixedArray[Where]) -> String {
+fn placeholders(dialect : Dialect, count : Int, start_index : Int) -> String {
+  let parts : Array[String] = []
+  let mut i = 0
+  while i < count {
+    parts.push(param_placeholder(dialect, start_index + i))
+    i = i + 1
+  }
+  parts.join(", ")
+}
+
+///|
+fn format_where_sql(
+  where_ : FixedArray[Where],
+  dialect : Dialect,
+  start_index : Int,
+) -> String {
   where_
-  .map(w => {
+  .mapi((i, w) => {
     let ty = match w.ty {
       Eq => "="
       Gt => ">"
@@ -297,13 +288,30 @@ fn format_where_sql(dialect : Dialect, where_ : FixedArray[Where]) -> String {
       Gte => ">="
       Lte => "<="
     }
-    [w.col, ty, quote_value(dialect, w.value)].join(" ")
+    [w.col, ty, param_placeholder(dialect, start_index + i)].join(" ")
   })
   .join(" AND ")
 }
 
 ///|
-pub fn Query::to(self : Query, dialect : Dialect) -> String {
+fn format_set_sql(
+  sets : FixedArray[Set],
+  dialect : Dialect,
+  start_index : Int,
+) -> String {
+  let parts : Array[String] = []
+  let mut i = 0
+  for s in sets {
+    parts.push(
+      [s.col, "=", param_placeholder(dialect, start_index + i)].join(" "),
+    )
+    i = i + 1
+  }
+  parts.join(", ")
+}
+
+///|
+pub fn Query::to(self : Query, dialect : Dialect) -> (String, FixedArray[Json]) {
   let buf = @buffer.new()
   buf.write_string("SELECT ")
   if self.select.is_empty() {
@@ -315,7 +323,7 @@ pub fn Query::to(self : Query, dialect : Dialect) -> String {
   buf.write_string(self.from)
   if !self.where_.is_empty() {
     buf.write_string(" WHERE ")
-    buf.write_string(format_where_sql(dialect, self.where_))
+    buf.write_string(format_where_sql(self.where_, dialect, 1))
   }
   if !self.order_by.is_empty() {
     buf.write_string(" ORDER BY ")
@@ -352,7 +360,7 @@ pub fn Query::to(self : Query, dialect : Dialect) -> String {
       }
     }
   }
-  buf.to_string()
+  (buf.to_string(), self.where_.map(w => w.value))
 }
 
 ///|
@@ -791,7 +799,10 @@ pub fn AlterTable::comment(self : AlterTable, text : String) -> AlterTable {
 }
 
 ///|
-pub fn AlterTable::to(self : AlterTable, dialect : Dialect) -> String {
+pub fn AlterTable::to(
+  self : AlterTable,
+  dialect : Dialect,
+) -> (String, FixedArray[Json]) {
   let stmts = Array::new()
   for op in self.ops {
     match op {
@@ -952,7 +963,7 @@ pub fn AlterTable::to(self : AlterTable, dialect : Dialect) -> String {
       }
     }
   }
-  stmts.join("; ")
+  (stmts.join("; "), [])
 }
 
 ///|
@@ -996,7 +1007,10 @@ pub fn InsertQuery::values(
 }
 
 ///|
-pub fn InsertQuery::to(self : InsertQuery, dialect : Dialect) -> String {
+pub fn InsertQuery::to(
+  self : InsertQuery,
+  dialect : Dialect,
+) -> (String, FixedArray[Json]) {
   let buf = @buffer.new()
   buf.write_string("INSERT INTO ")
   buf.write_string(self.into)
@@ -1006,9 +1020,164 @@ pub fn InsertQuery::to(self : InsertQuery, dialect : Dialect) -> String {
     buf.write_string(")")
   }
   buf.write_string(" VALUES (")
-  buf.write_string(self.values.map(v => quote_value(dialect, v)).join(", "))
+  buf.write_string(placeholders(dialect, self.values.length(), 1))
   buf.write_string(")")
-  buf.to_string()
+  (buf.to_string(), self.values)
+}
+
+///|
+// ---- UPSERT 构建器 ----
+pub struct UpsertQuery {
+  table : String
+  sets : FixedArray[Set]
+  conflict_target : FixedArray[String] // 冲突检测列（主键或唯一索引列）
+  update_sets : FixedArray[Set] // 冲突时更新的列
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub fn upsert_into(table : String) -> UpsertQuery {
+  { table, sets: [], conflict_target: [], update_sets: [] }
+}
+
+///|
+pub fn[E : Entity] UpsertQuery::from(
+  self : UpsertQuery,
+  entity : E,
+) -> UpsertQuery {
+  let json = entity.to_json()
+  let sets = json.as_object().unwrap().map((col, value) => { col, value })
+  let table = entity.table()
+  let mut conflict_cols : FixedArray[String] = []
+  match table.primary_key() {
+    Some(pk) => conflict_cols = [pk]
+    None => {
+      for idx in table.indexes {
+        match idx.index_type {
+          Unique => {
+            conflict_cols = idx.columns
+            break
+          }
+          _ => ()
+        }
+      }
+    }
+  }
+  { ..self, sets: FixedArray::from_iter(sets.values()), conflict_target: conflict_cols }
+}
+
+///|
+pub fn UpsertQuery::set(
+  self : UpsertQuery,
+  col : String,
+  value : Json,
+) -> UpsertQuery {
+  { ..self, sets: self.sets + [{ col, value }] }
+}
+
+///|
+pub fn UpsertQuery::on_conflict(
+  self : UpsertQuery,
+  columns : FixedArray[String],
+) -> UpsertQuery {
+  { ..self, conflict_target: columns }
+}
+
+///|
+pub fn UpsertQuery::do_update_set(
+  self : UpsertQuery,
+  col : String,
+  value : Json,
+) -> UpsertQuery {
+  { ..self, update_sets: self.update_sets + [{ col, value }] }
+}
+
+///|
+pub fn UpsertQuery::to(
+  self : UpsertQuery,
+  dialect : Dialect,
+) -> (String, FixedArray[Json]) {
+  let buf = @buffer.new()
+  // INSERT 部分
+  buf.write_string("INSERT INTO ")
+  buf.write_string(self.table)
+  buf.write_string(" (")
+  buf.write_string(self.sets.map(s => s.col).join(", "))
+  buf.write_string(") VALUES (")
+  buf.write_string(placeholders(dialect, self.sets.length(), 1))
+  buf.write_string(")")
+
+  // 冲突处理部分
+  match dialect {
+    PgSQL => {
+      if !self.conflict_target.is_empty() {
+        buf.write_string(" ON CONFLICT (")
+        buf.write_string(self.conflict_target.join(", "))
+        buf.write_string(")")
+      }
+      if !self.update_sets.is_empty() {
+        buf.write_string(" DO UPDATE SET ")
+        let parts : Array[String] = []
+        let mut i = 0
+        for s in self.update_sets {
+          parts.push(
+            [s.col, "=", param_placeholder(dialect, self.sets.length() + 1 + i)].join(
+              " ",
+            ),
+          )
+          i = i + 1
+        }
+        buf.write_string(parts.join(", "))
+      } else {
+        buf.write_string(" DO NOTHING")
+      }
+      buf.write_string(" RETURNING *")
+    }
+    MySQL =>
+      if !self.update_sets.is_empty() {
+        buf.write_string(" ON DUPLICATE KEY UPDATE ")
+        let parts : Array[String] = []
+        let mut i = 0
+        for s in self.update_sets {
+          parts.push(
+            [s.col, "=", param_placeholder(dialect, self.sets.length() + 1 + i)].join(
+              " ",
+            ),
+          )
+          i = i + 1
+        }
+        buf.write_string(parts.join(", "))
+      }
+    Sqlite3 => {
+      if !self.conflict_target.is_empty() {
+        buf.write_string(" ON CONFLICT (")
+        buf.write_string(self.conflict_target.join(", "))
+        buf.write_string(")")
+      }
+      if !self.update_sets.is_empty() {
+        buf.write_string(" DO UPDATE SET ")
+        let parts : Array[String] = []
+        let mut i = 0
+        for s in self.update_sets {
+          parts.push(
+            [s.col, "=", param_placeholder(dialect, self.sets.length() + 1 + i)].join(
+              " ",
+            ),
+          )
+          i = i + 1
+        }
+        buf.write_string(parts.join(", "))
+      } else {
+        buf.write_string(" DO NOTHING")
+      }
+      buf.write_string(" RETURNING *")
+    }
+    _ => abort("UpsertQuery::to: dialect not supported")
+  }
+  let mut args : FixedArray[Json] = self.sets.map(s => s.value)
+  if !self.update_sets.is_empty() {
+    args = args + self.update_sets.map(s => s.value)
+  }
+  (buf.to_string(), FixedArray::from_array(args))
 }
 
 ///|
@@ -1126,21 +1295,22 @@ pub fn UpdateQuery::to_mysql_sql(self : UpdateQuery) -> String {
 }
 
 ///|
-pub fn UpdateQuery::to(self : UpdateQuery, dialect : Dialect) -> String {
+pub fn UpdateQuery::to(
+  self : UpdateQuery,
+  dialect : Dialect,
+) -> (String, FixedArray[Json]) {
   let buf = @buffer.new()
   buf.write_string("UPDATE ")
   buf.write_string(self.table)
   buf.write_string(" SET ")
-  buf.write_string(
-    self.sets
-    .map(s => [s.col, "=", quote_value(dialect, s.value)].join(" "))
-    .join(", "),
-  )
+  buf.write_string(format_set_sql(self.sets, dialect, 1))
   if !self.where_.is_empty() {
     buf.write_string(" WHERE ")
-    buf.write_string(format_where_sql(dialect, self.where_))
+    buf.write_string(
+      format_where_sql(self.where_, dialect, self.sets.length() + 1),
+    )
   }
-  buf.to_string()
+  (buf.to_string(), self.sets.map(s => s.value) + self.where_.map(w => w.value))
 }
 
 ///|
@@ -1201,23 +1371,36 @@ pub fn DeleteQuery::where_lte(
 }
 
 ///|
-pub fn DeleteQuery::to(self : DeleteQuery, dialect : Dialect) -> String {
+pub fn DeleteQuery::to(
+  self : DeleteQuery,
+  dialect : Dialect,
+) -> (String, FixedArray[Json]) {
   let buf = @buffer.new()
   buf.write_string("DELETE FROM ")
   buf.write_string(self.from)
   if !self.where_.is_empty() {
     buf.write_string(" WHERE ")
-    buf.write_string(format_where_sql(dialect, self.where_))
+    buf.write_string(format_where_sql(self.where_, dialect, 1))
   }
-  buf.to_string()
+  (buf.to_string(), self.where_.map(w => w.value))
 }
 
-// ///|
-// pub fn[E : Entity] from_result(
-//   entity : E,
-//   result : @engine.QueryResult,
-// ) -> Array[E] {
-//   let res = FixedArray::make(result.rows.length(), entity)
-//   result.rows.each(row => res.append(entity.from_json(row)) catch { _ => () })
-//   res
-// }
+///|
+pub fn[E : Entity] DeleteQuery::from(
+  self : DeleteQuery,
+  entity : E,
+) -> DeleteQuery {
+  let table = entity.table()
+  let pk_opt = table.primary_key()
+  match pk_opt {
+    Some(pk) => {
+      let obj = entity.to_json().as_object().unwrap()
+      match obj.get(pk) {
+        Some(v) =>
+          { ..self, where_: self.where_ + [{ col: pk, value: v, ty: Eq }] }
+        None => self
+      }
+    }
+    None => self
+  }
+}

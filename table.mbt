@@ -27,3 +27,17 @@ pub fn Table::new(name : String, columns? : FixedArray[Column]) -> Table {
     auto_increment: 1,
   }
 }
+
+///|
+pub fn Table::primary_key(self : Table) -> String? {
+  self.columns.fold(init=None, (acc, col) => if col.primary_key {
+    Some(col.name)
+  } else {
+    acc
+  })
+}
+
+///|
+pub fn Table::has_primary_key(self : Table) -> Bool {
+  self.primary_key() is Some(_)
+}

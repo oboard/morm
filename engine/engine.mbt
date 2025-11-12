@@ -3,7 +3,7 @@ pub(open) trait Engine {
   dialect(Self) -> @dialect.Dialect
   ///|
   /// Execute a SQL statement.
-  exec(Self, sql : String, params : Array[Json]) -> QueryResult
+  exec(Self, sql : String, params : FixedArray[Json]) -> QueryResult
   ///|
   /// Close the database connection.
   close(Self) -> Unit

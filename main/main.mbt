@@ -81,7 +81,12 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
     }
     impls = impls + method_header + body
   }
-  struct_def + mapper_fn + impls
+  // 追加默认的 save / delete 成员函数
+  let save_fn =
+    "pub fn \{trait_name}_::save(\n  self : \{trait_name}_,\n  entity : \{entity_name},\n) -> \{entity_name}? {\n  let (sql, params) = @morm.upsert_into(\{entity_name}::table().name)\n    .from(entity)\n    .to(self.engine.dialect())\n  let res = self.engine.exec(sql, params)\n  if res.rows is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  // Fallback: read back by conflict keys when UPSERT does not return rows\n  let tbl = \{entity_name}::table()\n  let obj = entity.to_json().as_object().unwrap()\n  // try primary key first\n  match tbl.primary_key() {\n    Some(pk) => match obj.get(pk) {\n      Some(pkv) => {\n        let (sel_sql, sel_params) = @morm.select_from(tbl.name).where_eq(pk, pkv).to(self.engine.dialect())\n        if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {\n          return Some(try! @json.from_json(row))\n        }\n      }\n      None => ()\n    }\n    None => ()\n  }\n  // try first unique index with all values present\n  for idx in tbl.indexes {\n    match idx.index_type {\n      Unique => {\n        let mut q = @morm.select_from(tbl.name)\n        let mut ok = true\n        for col in idx.columns {\n          match obj.get(col) {\n            Some(v) => q = q.where_eq(col, v)\n            None => { ok = false; break }\n          }\n        }\n        if ok {\n          let (sel_sql, sel_params) = q.to(self.engine.dialect())\n          if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {\n            return Some(try! @json.from_json(row))\n          }\n        }\n        break\n      }\n      _ => ()\n    }\n  }\n  None\n}\n\n"
+  let delete_fn =
+    "pub fn \{trait_name}_::delete(self : \{trait_name}_, entity : \{entity_name}) -> Bool {\n  let primary_key = \{entity_name}::table().primary_key()\n  if primary_key is Some(_) {\n    let (sql, params) = @morm.delete_from(\{entity_name}::table().name)\n      .from(entity)\n      .to(self.engine.dialect())\n    self.engine.exec(sql, params).ok\n  } else {\n    false\n  }\n}\n\n"
+  struct_def + mapper_fn + impls + save_fn + delete_fn
 }
 
 ///|

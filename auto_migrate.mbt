@@ -26,7 +26,7 @@ pub fn[E : @engine.Engine] auto_migrate(
         _ => ()
       }
     }
-    let alter_sql = mut_alter.to(dialect)
+    let (alter_sql, _) = mut_alter.to(dialect)
     if !alter_sql.is_empty() {
       ignore(engine.exec(alter_sql, []))
     }

@@ -20,7 +20,7 @@ impl @engine.Engine for MySQLEngine with close(_self) -> Unit {
 impl @engine.Engine for MySQLEngine with exec(
   _self,
   sql : String,
-  params : Array[Json],
+  params : FixedArray[Json],
 ) -> @engine.QueryResult {
   println(sql)
   println(params.to_json().stringify())
@@ -50,11 +50,16 @@ test "generated entity" {
     age: 20,
     birth_date: "2003-01-01",
   }
+  let (sql1, params1) = @morm.insert_into("students").from(student).to(MySQL)
   inspect(
-    @morm.insert_into("students").from(student).to(MySQL),
+    sql1,
     content=(
-      #|INSERT INTO students (id, name, age, birth_date) VALUES (1, "Alice", 20, "2003-01-01")
+      #|INSERT INTO students (id, name, age, birth_date) VALUES (?, ?, ?, ?)
     ),
+  )
+  inspect(
+    params1.to_json().stringify(),
+    content="[1,\"Alice\",20,\"2003-01-01\"]",
   )
   let table = Student::table()
 
@@ -92,12 +97,14 @@ test "generated entity" {
 ///|
 test "generated class with foreign key" {
   let class_obj = Class::{ id: 10, name: "Math 101", teacher_id: 1 }
+  let (sql2, params2) = @morm.insert_into("classes").from(class_obj).to(MySQL)
   inspect(
-    @morm.insert_into("classes").from(class_obj).to(MySQL),
+    sql2,
     content=(
-      #|INSERT INTO classes (id, name, teacher_id) VALUES (10, "Math 101", 1)
+      #|INSERT INTO classes (id, name, teacher_id) VALUES (?, ?, ?)
     ),
   )
+  inspect(params2.to_json().stringify(), content="[10,\"Math 101\",1]")
   let table = Class::table()
 
   // 表名
@@ -120,4 +127,21 @@ test "generated class with foreign key" {
   assert_eq(fk.referenced_table, "teacher")
   assert_eq(fk.referenced_column, "id")
   assert_eq(fk.on_delete, "CASCADE")
+}
+
+///|
+test {
+  let teacher = Teacher::{
+    id: 1,
+    name: "666",
+    age: 12,
+    major: "English",
+    birth_date: None,
+  }
+  @json.inspect(teacher, content={
+    "id": 1,
+    "name": "666",
+    "major": "English",
+    "age": 12,
+  })
 }

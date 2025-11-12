@@ -38,5 +38,5 @@ pub(all) struct Teacher {
   major : String
   age : Int
   #morm.datetime
-  birth_date : String
+  birth_date : String?
 } derive(ToJson, FromJson)

@@ -1,10 +1,10 @@
 ///|
 test "update-sqlserver-bool" {
-  let sql = @morm.update("students").set("active", true).to(SqlServer)
+  let (sql, params) = @morm.update("students").set("active", true).to(SqlServer)
   inspect(
     sql,
     content=(
-      #|UPDATE students SET active = 1
+      #|UPDATE students SET active = ?
     ),
   )
 }
