@@ -1,6 +1,9 @@
 {
   "import": [
     "oboard/morm/engine",
-    "oboard/morm/dialect"
+    "oboard/morm/dialect",
+    "moonbitlang/x/time",
+    "oboard/morm/argument",
+    "oboard/morm/ty"
   ]
 }

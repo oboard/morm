@@ -16,7 +16,7 @@ test "query-sql" {
 
 ///|
 test "insert-sql" {
-  let vals : FixedArray[Json] = [1, "Alice", 20, "2000-01-01"]
+  let vals : MormArguments = [1, "Alice", 20, "2000-01-01"]
   let (sql, _) = @morm.insert_into("students")
     .columns(["id", "name", "age", "birth_date"])
     .values(vals)

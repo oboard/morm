@@ -14,7 +14,7 @@ import(
 pub(all) struct QueryResult {
   ok : Bool
   rows_affected : Int
-  rows : FixedArray[Json]
+  rows : MormArguments
   error : String?
 }
 impl Eq for QueryResult

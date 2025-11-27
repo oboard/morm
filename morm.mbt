@@ -1,5 +1,6 @@
 ///|
 using @dialect {type Dialect}
+using @argument {type MormArguments, trait MormArgument}
 
 ///|
 pub(open) trait Entity: ToJson + @json.FromJson {
@@ -140,9 +141,9 @@ pub(open) trait Driver {
   open(Self, dsn : String) -> DbResult[Self]
   close(Self) -> DbResult[Self]
   ping(Self) -> DbResult[Unit]
-  exec(Self, sql : String, args : FixedArray[Json]) -> DbResult[Unit]
-  query(Self, sql : String, args : FixedArray[Json]) -> DbResult[
-    FixedArray[Json],
+  exec(Self, sql : String, args : @argument.MormArguments) -> DbResult[Unit]
+  query(Self, sql : String, args : @argument.MormArguments) -> DbResult[
+    @argument.MormArguments,
   ]
 }
 
@@ -155,7 +156,7 @@ pub struct Query {
   order_by : FixedArray[OrderBy]
   limit : Int?
   offset : Int?
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Show)
 
 ///|
 pub(all) enum OrderBy {
@@ -166,9 +167,9 @@ pub(all) enum OrderBy {
 ///|
 pub struct Where {
   col : String
-  value : Json
+  value : &MormArgument
   ty : WhereType
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Show)
 
 ///|
 pub enum WhereType {
@@ -204,31 +205,51 @@ pub fn select_raw(table : String, cols_expr : String) -> Query {
 }
 
 ///|
-pub fn Query::where_eq(self : Query, col : String, value : Json) -> Query {
+pub fn Query::where_eq(
+  self : Query,
+  col : String,
+  value : &@argument.MormArgument,
+) -> Query {
   let where_ = self.where_ + [{ col, value, ty: Eq }]
   { ..self, where_, }
 }
 
 ///|
-pub fn Query::where_gt(self : Query, col : String, value : Json) -> Query {
+pub fn Query::where_gt(
+  self : Query,
+  col : String,
+  value : &@argument.MormArgument,
+) -> Query {
   let where_ = self.where_ + [{ col, value, ty: Gt }]
   { ..self, where_, }
 }
 
 ///|
-pub fn Query::where_lt(self : Query, col : String, value : Json) -> Query {
+pub fn Query::where_lt(
+  self : Query,
+  col : String,
+  value : &@argument.MormArgument,
+) -> Query {
   let where_ = self.where_ + [{ col, value, ty: Lt }]
   { ..self, where_, }
 }
 
 ///|
-pub fn Query::where_gte(self : Query, col : String, value : Json) -> Query {
+pub fn Query::where_gte(
+  self : Query,
+  col : String,
+  value : &@argument.MormArgument,
+) -> Query {
   let where_ = self.where_ + [{ col, value, ty: Gte }]
   { ..self, where_, }
 }
 
 ///|
-pub fn Query::where_lte(self : Query, col : String, value : Json) -> Query {
+pub fn Query::where_lte(
+  self : Query,
+  col : String,
+  value : &@argument.MormArgument,
+) -> Query {
   let where_ = self.where_ + [{ col, value, ty: Lte }]
   { ..self, where_, }
 }
@@ -311,7 +332,10 @@ fn format_set_sql(
 }
 
 ///|
-pub fn Query::to(self : Query, dialect : Dialect) -> (String, FixedArray[Json]) {
+pub fn Query::to(
+  self : Query,
+  dialect : Dialect,
+) -> (String, @argument.MormArguments) {
   let buf = @buffer.new()
   buf.write_string("SELECT ")
   if self.select.is_empty() {
@@ -802,7 +826,7 @@ pub fn AlterTable::comment(self : AlterTable, text : String) -> AlterTable {
 pub fn AlterTable::to(
   self : AlterTable,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, @argument.MormArguments) {
   let stmts = Array::new()
   for op in self.ops {
     match op {
@@ -971,7 +995,7 @@ pub fn AlterTable::to(
 pub struct InsertQuery {
   into : String
   columns : FixedArray[String]
-  values : FixedArray[Json]
+  values : MormArguments
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
@@ -1001,7 +1025,7 @@ pub fn InsertQuery::columns(
 ///|
 pub fn InsertQuery::values(
   self : InsertQuery,
-  values : FixedArray[Json],
+  values : MormArguments,
 ) -> InsertQuery {
   { ..self, values, }
 }
@@ -1010,7 +1034,7 @@ pub fn InsertQuery::values(
 pub fn InsertQuery::to(
   self : InsertQuery,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, MormArguments) {
   let buf = @buffer.new()
   buf.write_string("INSERT INTO ")
   buf.write_string(self.into)
@@ -1098,7 +1122,7 @@ pub fn UpsertQuery::do_update_set(
 pub fn UpsertQuery::to(
   self : UpsertQuery,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, MormArguments) {
   let buf = @buffer.new()
   // INSERT 部分
   buf.write_string("INSERT INTO ")
@@ -1176,7 +1200,7 @@ pub fn UpsertQuery::to(
     }
     _ => abort("UpsertQuery::to: dialect not supported")
   }
-  let mut args : FixedArray[Json] = self.sets.map(s => s.value)
+  let mut args : MormArguments = self.sets.map(s => s.value)
   if !self.update_sets.is_empty() {
     args = args + self.update_sets.map(s => s.value)
   }
@@ -1263,7 +1287,7 @@ pub fn UpdateQuery::where_gte(
 pub fn UpdateQuery::where_lte(
   self : UpdateQuery,
   col : String,
-  value : Json,
+  value : &MormArgument,
 ) -> UpdateQuery {
   { ..self, where_: self.where_ + [{ col, value, ty: Lte }] }
 }
@@ -1301,7 +1325,7 @@ pub fn UpdateQuery::to_mysql_sql(self : UpdateQuery) -> String {
 pub fn UpdateQuery::to(
   self : UpdateQuery,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, MormArguments) {
   let buf = @buffer.new()
   buf.write_string("UPDATE ")
   buf.write_string(self.table)
@@ -1377,7 +1401,7 @@ pub fn DeleteQuery::where_lte(
 pub fn DeleteQuery::to(
   self : DeleteQuery,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, MormArguments) {
   let buf = @buffer.new()
   buf.write_string("DELETE FROM ")
   buf.write_string(self.from)

@@ -1,13 +1,17 @@
+///|
 pub struct StudentMapper_ {
   engine : &@engine.Engine
 }
 
+///|
 pub fn Student::mapper(engine : &@engine.Engine) -> StudentMapper_ {
   StudentMapper_::{ engine, }
 }
 
+///|
 pub impl StudentMapper for StudentMapper_ with find_student_by_id(
-  self, id : Int
+  self,
+  id : Int,
 ) -> Student? {
   if self.engine.exec("SELECT * FROM students WHERE id = ?", [id.to_json()]).rows
     is [result, ..] {
@@ -16,8 +20,10 @@ pub impl StudentMapper for StudentMapper_ with find_student_by_id(
   None
 }
 
+///|
 pub impl StudentMapper for StudentMapper_ with find_student_by_name(
-  self, name : String
+  self,
+  name : String,
 ) -> Student? {
   if self.engine.exec("SELECT * FROM students WHERE name = ?", [name.to_json()]).rows
     is [result, ..] {
@@ -26,8 +32,10 @@ pub impl StudentMapper for StudentMapper_ with find_student_by_name(
   None
 }
 
+///|
 pub impl StudentMapper for StudentMapper_ with find_students_by_age(
-  self, age : Int
+  self,
+  age : Int,
 ) -> FixedArray[Student] {
   self.engine.exec("SELECT * FROM students WHERE age = ?", [age.to_json()]).rows.map(row => @json.from_json(
       row,
@@ -37,27 +45,33 @@ pub impl StudentMapper for StudentMapper_ with find_students_by_age(
   )
 }
 
+///|
 pub impl StudentMapper for StudentMapper_ with find_students_by_age_and_name(
-  self, age : Int, name : String
+  self,
+  age : Int,
+  name : String,
 ) -> FixedArray[Student] {
-  self.engine.exec("SELECT * FROM students WHERE age = ? AND name = ?", [age.to_json(), name.to_json()]).rows.map(row => @json.from_json(
-      row,
-    ) catch {
-      _ => panic()
-    },
-  )
+  self.engine.exec("SELECT * FROM students WHERE age = ? AND name = ?", [
+    age.to_json(),
+    name.to_json(),
+  ]).rows.map(row => @json.from_json(row) catch { _ => panic() })
 }
 
+///|
 pub impl StudentMapper for StudentMapper_ with count_students_by_age(
-  self, age : Int
+  self,
+  age : Int,
 ) -> Int? {
-  if self.engine.exec("SELECT count(*) FROM students WHERE age = ?", [age.to_json()]).rows
+  if self.engine.exec("SELECT count(*) FROM students WHERE age = ?", [
+      age.to_json(),
+    ]).rows
     is [result, ..] {
     return Some(try! @json.from_json(result))
   }
   None
 }
 
+///|
 pub fn StudentMapper_::save(
   self : StudentMapper_,
   entity : Student,
@@ -74,15 +88,18 @@ pub fn StudentMapper_::save(
   let obj = entity.to_json().as_object().unwrap()
   // try primary key first
   match tbl.primary_key() {
-    Some(pk) => match obj.get(pk) {
-      Some(pkv) => {
-        let (sel_sql, sel_params) = @morm.select_from(tbl.name).where_eq(pk, pkv).to(self.engine.dialect())
-        if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {
-          return Some(try! @json.from_json(row))
+    Some(pk) =>
+      match obj.get(pk) {
+        Some(pkv) => {
+          let (sel_sql, sel_params) = @morm.select_from(tbl.name)
+            .where_eq(pk, pkv)
+            .to(self.engine.dialect())
+          if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {
+            return Some(try! @json.from_json(row))
+          }
         }
+        None => ()
       }
-      None => ()
-    }
     None => ()
   }
   // try first unique index with all values present
@@ -94,7 +111,10 @@ pub fn StudentMapper_::save(
         for col in idx.columns {
           match obj.get(col) {
             Some(v) => q = q.where_eq(col, v)
-            None => { ok = false; break }
+            None => {
+              ok = false
+              break
+            }
           }
         }
         if ok {
@@ -111,6 +131,7 @@ pub fn StudentMapper_::save(
   None
 }
 
+///|
 pub fn StudentMapper_::delete(self : StudentMapper_, entity : Student) -> Bool {
   let primary_key = Student::table().primary_key()
   if primary_key is Some(_) {
@@ -122,4 +143,3 @@ pub fn StudentMapper_::delete(self : StudentMapper_, entity : Student) -> Bool {
     false
   }
 }
-

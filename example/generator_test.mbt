@@ -20,7 +20,7 @@ impl @engine.Engine for MySQLEngine with close(_self) -> Unit {
 impl @engine.Engine for MySQLEngine with exec(
   _self,
   sql : String,
-  params : FixedArray[Json],
+  params : @morm.MormArguments,
 ) -> @engine.QueryResult {
   println(sql)
   println(params.to_json().stringify())

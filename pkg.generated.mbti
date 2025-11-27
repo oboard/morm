@@ -206,12 +206,12 @@ impl @json.FromJson for IndexType
 pub struct InsertQuery {
   into : String
   columns : FixedArray[String]
-  values : FixedArray[Json]
+  values : MormArguments
 }
 fn InsertQuery::columns(Self, FixedArray[String]) -> Self
 fn[E : Entity] InsertQuery::from(Self, E) -> Self
 fn InsertQuery::to(Self, @dialect.Dialect) -> String
-fn InsertQuery::values(Self, FixedArray[Json]) -> Self
+fn InsertQuery::values(Self, MormArguments) -> Self
 impl Eq for InsertQuery
 impl Show for InsertQuery
 impl ToJson for InsertQuery
@@ -327,8 +327,8 @@ pub(open) trait Driver {
   open(Self, String) -> Result[Self, DbError]
   close(Self) -> Result[Self, DbError]
   ping(Self) -> Result[Unit, DbError]
-  exec(Self, String, FixedArray[Json]) -> Result[Unit, DbError]
-  query(Self, String, FixedArray[Json]) -> Result[FixedArray[Json], DbError]
+  exec(Self, String, MormArguments) -> Result[Unit, DbError]
+  query(Self, String, MormArguments) -> Result[MormArguments, DbError]
 }
 
 pub(open) trait Entity : ToJson + @json.FromJson {
