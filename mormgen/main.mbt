@@ -104,7 +104,7 @@ fn main {
   let usage =
     #| MoonBit ORM CLI tool for generating database schema from Moonbit files
     #| usage: 
-    #|      morm-gen <input_file> -o <output_file>
+    #|      mormgen <input_file> -o <output_file>
     #|
   @ArgParser.parse(
     [

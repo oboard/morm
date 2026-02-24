@@ -13,6 +13,6 @@ import {
 
 options(
   "bin-name": "morm-gen",
-  "bin-target": "js",
+  "bin-target": "native",
   "is-main": true,
 )

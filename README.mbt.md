@@ -6,6 +6,39 @@ MoonBit 生态下的轻量级 ORM。目标很直接：
 - 保持实现透明，允许随时绕过 ORM 手写 SQL
 - 不使用运行时反射，不隐式修改用户语义
 
+
+## Quick Start
+
+1. 在你的应用 `moon.mod.json` 中添加依赖：
+
+```json
+  "bin-deps": {
+    "oboard/morm": "0.2.2"
+  },
+```
+
+2. 在你的 `moon.pkg` 添加
+
+```moonbit
+options(
+  "pre-build": [
+    {
+      "command": "$mod_dir/.mooncakes/oboard/morm/mormgen $input -o $output && moonfmt -w $output",
+      "input": "entities.mbt",
+      "output": "entities.g.mbt",
+    },
+    {
+      "command": "$mod_dir/.mooncakes/oboard/morm/mormgen $input -o $output && moonfmt -w $output",
+      "input": "mapper.mbt",
+      "output": "mapper.g.mbt",
+    },
+  ],
+)
+```
+
+3. 在你的 `entities.mbt` 中定义实体：
+
+
 通过在 `struct` 上加少量 `#morm.*` 属性，可以自动生成：
 
 - `impl @morm.Entity` 与 `table()` 元数据
@@ -27,19 +60,6 @@ MoonBit 生态下的轻量级 ORM。目标很直接：
 - 统一 SQL 参数绑定方式
 
 业务层的查询依然以显式 SQL 为主，由用户自己控制每一条语句。
-
-## 安装与依赖
-
-在你的应用 `moon.pkg.json` 中引入：
-
-```json
-{
-  "import": [
-    "oboard/morm",
-    "oboard/morm/dialect"
-  ]
-}
-```
 
 你还需要自己实现一个满足 `@oboard/morm/engine.Engine` 的驱动，用来真正连到 MySQL / PostgreSQL / Sqlite 等数据库。`example/generator_test.mbt` 里有一个简化版的 `MySQLEngine` 示例。
 
@@ -112,22 +132,22 @@ pub(all) struct Teacher {
 
 说明：目前生成器尚未读取编译器暴露的参数字典，长度/精度等参数采用保守默认与示例形式；未来会增强为真正读取参数值并完全可配置。
 
-## 代码生成：morm-gen CLI
+## 代码生成：mormgen CLI
 
-仓库包含一个生成器二进制 `morm-gen`（见 `main/main.mbt`），负责把带 `#morm.*` 的源码翻译成实体和 mapper 实现。用法：
+仓库包含一个生成器二进制 `mormgen`（见 `main/main.mbt`），负责把带 `#morm.*` 的源码翻译成实体和 mapper 实现。用法：
 
 ```text
-morm-gen <input_file> -o <output_file>
+mormgen -i <input_file> -o <output_file>
 ```
 
 典型流程（对应 `example/`）：
 
 ```bash
 # 生成实体的 table() 实现
-morm-gen example/entities.mbt -o example/entities.g.mbt
+mormgen example/entities.mbt -o example/entities.g.mbt
 
 # 生成 mapper 实现
-morm-gen example/mapper.mbt -o example/mapper.g.mbt
+mormgen example/mapper.mbt -o example/mapper.g.mbt
 ```
 
 `entities.g.mbt` 会包含每个实体的 `impl @morm.Entity` 和 `table()`，`mapper.g.mbt` 会包含 mapper struct、`::mapper` 工厂函数以及基于 `#morm.query` 的方法实现。
