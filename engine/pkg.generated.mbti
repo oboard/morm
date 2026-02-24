@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/morm/engine"
 
-import(
-  "moonbitlang/core/json"
-  "oboard/morm/dialect"
-)
+import {
+  "moonbitlang/core/json",
+  "oboard/morm/dialect",
+}
 
 // Values
 
@@ -17,17 +17,17 @@ pub(all) struct QueryResult {
   rows : FixedArray[Json]
   error : String?
 }
-impl Eq for QueryResult
-impl Show for QueryResult
-impl ToJson for QueryResult
-impl @json.FromJson for QueryResult
+pub impl Eq for QueryResult
+pub impl Show for QueryResult
+pub impl ToJson for QueryResult
+pub impl @json.FromJson for QueryResult
 
 // Type aliases
 
 // Traits
 pub(open) trait Engine {
   dialect(Self) -> @dialect.Dialect
-  exec(Self, String, Array[Json]) -> QueryResult
+  exec(Self, String, FixedArray[Json]) -> QueryResult
   close(Self) -> Unit
 }
 

@@ -4,7 +4,7 @@ struct FieldSpec {
   label : String
   field_type : String
   nullable : Bool
-  attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute]
+  attrs : @list.List[@moonbitlang/parser/attribute.Attribute]
 }
 
 ///|
@@ -45,54 +45,58 @@ fn collect_orm_attributes(
   attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
 ) -> Array[ORMAttribute] {
   let results : Array[ORMAttribute] = []
-  attrs.each(attr => if attr.raw.has_prefix("#morm.") {
-    let raw = attr.raw
-    let mut name = raw
-    let mut params_part = ""
-    if raw.find("(") is Some(open_idx) {
-      name = raw[0:open_idx].to_string() catch { _ => raw }
-      if raw.find(")") is Some(close_idx) {
-        params_part = raw[open_idx + 1:close_idx].to_string() catch { _ => "" }
-      }
-    }
-    // 解析 params_part 为 key="value" 的字典
-    let m : Map[String, String] = Map::new()
-    let mut i = 0
-    let n = params_part.length()
-    while i < n {
-      let rest = params_part[i:].to_string() catch { _ => "" }
-      if rest.find(",") is Some(comma_rel) {
-        let comma_abs = i + comma_rel
-        let pair = params_part[i:comma_abs].to_string() catch { _ => "" }
-        i = comma_abs + 1
-        if pair.find("=") is Some(eq_idx) {
-          let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
-          let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
-          if vrest.has_prefix("\"") {
-            let vrest_tail = vrest[1:].to_string() catch { _ => "" }
-            if vrest_tail.find("\"") is Some(end_rel) {
-              let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
-              m.set(k, v)
-            }
-          }
-        }
-      } else {
-        let pair = params_part[i:].to_string() catch { _ => "" }
-        i = n
-        if pair.find("=") is Some(eq_idx) {
-          let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
-          let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
-          if vrest.has_prefix("\"") {
-            let vrest_tail = vrest[1:].to_string() catch { _ => "" }
-            if vrest_tail.find("\"") is Some(end_rel) {
-              let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
-              m.set(k, v)
-            }
+  attrs.each(attr => {
+    if attr.raw.has_prefix("#morm.") {
+      let raw = attr.raw
+      let mut name = raw
+      let mut params_part = ""
+      if raw.find("(") is Some(open_idx) {
+        name = raw[0:open_idx].to_string() catch { _ => raw }
+        if raw.find(")") is Some(close_idx) {
+          params_part = raw[open_idx + 1:close_idx].to_string() catch {
+            _ => ""
           }
         }
       }
+      // 解析 params_part 为 key="value" 的字典
+      let m : Map[String, String] = Map::new()
+      let mut i = 0
+      let n = params_part.length()
+      while i < n {
+        let rest = params_part[i:].to_string() catch { _ => "" }
+        if rest.find(",") is Some(comma_rel) {
+          let comma_abs = i + comma_rel
+          let pair = params_part[i:comma_abs].to_string() catch { _ => "" }
+          i = comma_abs + 1
+          if pair.find("=") is Some(eq_idx) {
+            let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
+            let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
+            if vrest.has_prefix("\"") {
+              let vrest_tail = vrest[1:].to_string() catch { _ => "" }
+              if vrest_tail.find("\"") is Some(end_rel) {
+                let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
+                m.set(k, v)
+              }
+            }
+          }
+        } else {
+          let pair = params_part[i:].to_string() catch { _ => "" }
+          i = n
+          if pair.find("=") is Some(eq_idx) {
+            let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
+            let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
+            if vrest.has_prefix("\"") {
+              let vrest_tail = vrest[1:].to_string() catch { _ => "" }
+              if vrest_tail.find("\"") is Some(end_rel) {
+                let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
+                m.set(k, v)
+              }
+            }
+          }
+        }
+      }
+      results.push({ name, value: m })
     }
-    results.push({ name, value: m })
   })
   results
 }
@@ -144,123 +148,150 @@ fn parse_mappers_from_ast(
   ast : @moonbitlang/core/list.List[@moonbitlang/parser/syntax.Impl],
 ) -> Array[MapperSpec] {
   let specs : Array[MapperSpec] = []
-  ast.each(item => if item is @syntax.Impl::TopTrait(trait_decl) {
-    if trait_decl is { name: { name: trait_name, .. }, methods, attrs, .. } {
-      // 读取实体名
-      let mut entity_name_opt : String? = None
-      attrs.each(attr => if attr.raw.has_prefix("#morm.mapper") {
-        entity_name_opt = extract_text_inside_parens(attr.raw)
-      })
-      if entity_name_opt is None {
-        return
-      }
-      let entity_name = entity_name_opt.unwrap()
-
-      // 收集方法
-      let mmethods : Array[MapperMethodSpec] = []
-      methods.each(m => if m is { name: { name: mname, .. }, params, attrs, .. } {
-        // 提取 SQL
-        let mut sql_opt : String? = None
-        attrs.each(a => if a.raw.has_prefix("#morm.query") {
-          sql_opt = extract_quoted_string_in_parens(a.raw)
+  ast.each(item => {
+    if item is @syntax.Impl::TopTrait(trait_decl) {
+      if trait_decl is { name: { name: trait_name, .. }, methods, attrs, .. } {
+        // 读取实体名
+        let mut entity_name_opt : String? = None
+        attrs.each(attr => {
+          if attr.raw.has_prefix("#morm.mapper") {
+            entity_name_opt = extract_text_inside_parens(attr.raw)
+          }
         })
-        if sql_opt is None {
+        if entity_name_opt is None {
           return
         }
-        let sql = sql_opt.unwrap()
+        let entity_name = entity_name_opt.unwrap()
 
-        // 提取参数（基于 Parameter 变体，读取 binder.name 与显式类型）
-        let plist : Array[(String, String)] = []
-        params.each(p => match p {
-          Positional(binder={ name: pname, .. }, ty=Some(pty)) => {
-            let tname = match pty {
-              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) => t
-              _ => "String"
+        // 收集方法
+        let mmethods : Array[MapperMethodSpec] = []
+        methods.each(m => {
+          if m is { name: { name: mname, .. }, params, attrs, .. } {
+            // 提取 SQL
+            let mut sql_opt : String? = None
+            attrs.each(a => {
+              if a.raw.has_prefix("#morm.query") {
+                sql_opt = extract_quoted_string_in_parens(a.raw)
+              }
+            })
+            if sql_opt is None {
+              return
             }
-            plist.push((pname, tname))
-          }
-          Labelled(binder={ name: pname, .. }, ty=Some(pty)) => {
-            let tname = match pty {
-              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) => t
-              _ => "String"
-            }
-            plist.push((pname, tname))
-          }
-          Optional(binder={ name: pname, .. }, ty=Some(pty), ..) => {
-            let tname = match pty {
-              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) => t
-              _ => "String"
-            }
-            plist.push((pname, tname))
-          }
-          QuestionOptional(binder={ name: pname, .. }, ty=Some(pty)) => {
-            let tname = match pty {
-              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) => t
-              _ => "String"
-            }
-            plist.push((pname, tname))
-          }
-          _ => ()
-        })
+            let sql = sql_opt.unwrap()
 
-        // 解析返回类型：Option[Entity] / FixedArray[Entity] / 基本类型可选 T?
-        let mut returns_array = false
-        let mut ret_entity = entity_name
-        match m {
-          { return_type: Some(return_type), .. } =>
-            match return_type {
-              Option(
-                ty=Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..),
-                ..
-              ) => ret_entity = t
-              Name(
-                constr_id={
-                  id: Ident(name="FixedArray")
-                  | Dot(id="FixedArray", ..),
-                  ..,
-                },
-                tys~,
-                ..
-              ) => {
-                // 安全遍历类型参数列表，取首元素作为数组内类型
-                let mut inner_opt : @moonbitlang/parser/syntax.Type? = None
-                tys.each(inner => if inner_opt is None {
-                  inner_opt = Some(inner)
-                })
-                if inner_opt is Some(inner_ty) {
-                  returns_array = true
-                  match inner_ty {
+            // 提取参数（基于 Parameter 变体，读取 binder.name 与显式类型）
+            let plist : Array[(String, String)] = []
+            params.each(p => {
+              match p {
+                Positional(binder={ name: pname, .. }, ty=Some(pty)) => {
+                  let tname = match pty {
                     Name(
                       constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
                       ..
-                    ) => ret_entity = t
-                    _ => ()
+                    ) => t
+                    _ => "String"
                   }
+                  plist.push((pname, tname))
                 }
+                Labelled(binder={ name: pname, .. }, ty=Some(pty)) => {
+                  let tname = match pty {
+                    Name(
+                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                      ..
+                    ) => t
+                    _ => "String"
+                  }
+                  plist.push((pname, tname))
+                }
+                Optional(binder={ name: pname, .. }, ty=Some(pty), ..) => {
+                  let tname = match pty {
+                    Name(
+                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                      ..
+                    ) => t
+                    _ => "String"
+                  }
+                  plist.push((pname, tname))
+                }
+                QuestionOptional(binder={ name: pname, .. }, ty=Some(pty)) => {
+                  let tname = match pty {
+                    Name(
+                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                      ..
+                    ) => t
+                    _ => "String"
+                  }
+                  plist.push((pname, tname))
+                }
+                _ => ()
               }
-              // 普通名称类型（例如 Int），非数组场景下用于推断基础返回类型
-              Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) =>
-                ret_entity = t
+            })
+
+            // 解析返回类型：Option[Entity] / FixedArray[Entity] / 基本类型可选 T?
+            let mut returns_array = false
+            let mut ret_entity = entity_name
+            match m {
+              { return_type: Some(return_type), .. } =>
+                match return_type {
+                  Option(
+                    ty=Name(
+                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                      ..
+                    ),
+                    ..
+                  ) => ret_entity = t
+                  Name(
+                    constr_id={
+                      id: Ident(name="FixedArray")
+                      | Dot(id="FixedArray", ..),
+                      ..,
+                    },
+                    tys~,
+                    ..
+                  ) => {
+                    // 安全遍历类型参数列表，取首元素作为数组内类型
+                    let mut inner_opt : @moonbitlang/parser/syntax.Type? = None
+                    tys.each(inner => {
+                      if inner_opt is None {
+                        inner_opt = Some(inner)
+                      }
+                    })
+                    if inner_opt is Some(inner_ty) {
+                      returns_array = true
+                      match inner_ty {
+                        Name(
+                          constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                          ..
+                        ) => ret_entity = t
+                        _ => ()
+                      }
+                    }
+                  }
+                  // 普通名称类型（例如 Int），非数组场景下用于推断基础返回类型
+                  Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) =>
+                    ret_entity = t
+                  _ => ()
+                }
               _ => ()
             }
-          _ => ()
-        }
-        // SQL 级别回退：识别 count 聚合返回 Int?
-        if !returns_array {
-          if sql.find("count(") is Some(_) {
-            ret_entity = "Int"
+            // SQL 级别回退：识别 count 聚合返回 Int?
+            if !returns_array {
+              if sql.find("count(") is Some(_) {
+                ret_entity = "Int"
+              }
+            }
+            mmethods.push({
+              name: mname,
+              sql,
+              params: plist,
+              return_entity: ret_entity,
+              returns_array,
+            })
+            //
           }
-        }
-        mmethods.push({
-          name: mname,
-          sql,
-          params: plist,
-          return_entity: ret_entity,
-          returns_array,
         })
-        //
-      })
-      specs.push({ trait_name, entity_name, methods: mmethods })
+        specs.push({ trait_name, entity_name, methods: mmethods })
+      }
     }
   })
   specs
@@ -282,21 +313,23 @@ fn parse_foreign_key_for_field(
   let mut fkargs_column : String? = None
   let mut fkargs_on_delete : String? = None
   let mut fkargs_on_update : String? = None
-  parsed.each(a => if a.name == "#morm.foreign_key" {
-    if a.value.get("references") is Some(v) {
-      fkargs_refs = Some(v)
-    }
-    if a.value.get("table") is Some(v) {
-      fkargs_table = Some(v)
-    }
-    if a.value.get("column") is Some(v) {
-      fkargs_column = Some(v)
-    }
-    if a.value.get("on_delete") is Some(v) {
-      fkargs_on_delete = Some(v)
-    }
-    if a.value.get("on_update") is Some(v) {
-      fkargs_on_update = Some(v)
+  parsed.each(a => {
+    if a.name == "#morm.foreign_key" {
+      if a.value.get("references") is Some(v) {
+        fkargs_refs = Some(v)
+      }
+      if a.value.get("table") is Some(v) {
+        fkargs_table = Some(v)
+      }
+      if a.value.get("column") is Some(v) {
+        fkargs_column = Some(v)
+      }
+      if a.value.get("on_delete") is Some(v) {
+        fkargs_on_delete = Some(v)
+      }
+      if a.value.get("on_update") is Some(v) {
+        fkargs_on_update = Some(v)
+      }
     }
   })
   if fkargs_refs is None &&
@@ -361,31 +394,33 @@ fn find_morm_type_attribute(
 ) -> @morm.ColumnType? {
   // 单次遍历 attrs，记录首个匹配并在遍历结束返回，避免多次线性扫描与闭包返回类型不匹配
   let mut result : @morm.ColumnType? = None
-  attrs.each(attr => match attr.raw {
-    "#morm.datetime" => result = Some(@morm.ColumnType::DateTime)
-    "#morm.date" => result = Some(@morm.ColumnType::Date)
-    "#morm.time" => result = Some(@morm.ColumnType::Time)
-    "#morm.timestamp" => result = Some(@morm.ColumnType::Timestamp)
-    "#morm.varchar" => result = Some(@morm.ColumnType::VarChar(255))
-    "#morm.char" => result = Some(@morm.ColumnType::Char(1))
-    "#morm.text" => result = Some(@morm.ColumnType::Text)
-    "#morm.mediumtext" => result = Some(@morm.ColumnType::MediumText)
-    "#morm.longtext" => result = Some(@morm.ColumnType::LongText)
-    "#morm.binary" => result = Some(@morm.ColumnType::Binary(1))
-    "#morm.varbinary" => result = Some(@morm.ColumnType::VarBinary(255))
-    "#morm.blob" => result = Some(@morm.ColumnType::Blob)
-    "#morm.tinyint" => result = Some(@morm.ColumnType::TinyInt)
-    "#morm.smallint" => result = Some(@morm.ColumnType::SmallInt)
-    "#morm.int" => result = Some(@morm.ColumnType::Int)
-    "#morm.bigint" => result = Some(@morm.ColumnType::BigInt)
-    "#morm.float" => result = Some(@morm.ColumnType::Float)
-    "#morm.double" => result = Some(@morm.ColumnType::Double)
-    "#morm.decimal" => result = Some(@morm.ColumnType::Decimal(10, 2))
-    "#morm.boolean" => result = Some(@morm.ColumnType::Boolean)
-    "#morm.json" => result = Some(@morm.ColumnType::Json)
-    "#morm.jsonb" => result = Some(@morm.ColumnType::JsonB)
-    "#morm.uuid" => result = Some(@morm.ColumnType::VarChar(36))
-    _ => ()
+  attrs.each(attr => {
+    match attr.raw {
+      "#morm.datetime" => result = Some(@morm.ColumnType::DateTime)
+      "#morm.date" => result = Some(@morm.ColumnType::Date)
+      "#morm.time" => result = Some(@morm.ColumnType::Time)
+      "#morm.timestamp" => result = Some(@morm.ColumnType::Timestamp)
+      "#morm.varchar" => result = Some(@morm.ColumnType::VarChar(255))
+      "#morm.char" => result = Some(@morm.ColumnType::Char(1))
+      "#morm.text" => result = Some(@morm.ColumnType::Text)
+      "#morm.mediumtext" => result = Some(@morm.ColumnType::MediumText)
+      "#morm.longtext" => result = Some(@morm.ColumnType::LongText)
+      "#morm.binary" => result = Some(@morm.ColumnType::Binary(1))
+      "#morm.varbinary" => result = Some(@morm.ColumnType::VarBinary(255))
+      "#morm.blob" => result = Some(@morm.ColumnType::Blob)
+      "#morm.tinyint" => result = Some(@morm.ColumnType::TinyInt)
+      "#morm.smallint" => result = Some(@morm.ColumnType::SmallInt)
+      "#morm.int" => result = Some(@morm.ColumnType::Int)
+      "#morm.bigint" => result = Some(@morm.ColumnType::BigInt)
+      "#morm.float" => result = Some(@morm.ColumnType::Float)
+      "#morm.double" => result = Some(@morm.ColumnType::Double)
+      "#morm.decimal" => result = Some(@morm.ColumnType::Decimal(10, 2))
+      "#morm.boolean" => result = Some(@morm.ColumnType::Boolean)
+      "#morm.json" => result = Some(@morm.ColumnType::Json)
+      "#morm.jsonb" => result = Some(@morm.ColumnType::JsonB)
+      "#morm.uuid" => result = Some(@morm.ColumnType::VarChar(36))
+      _ => ()
+    }
   })
   result
 }
@@ -398,11 +433,13 @@ fn collect_field_flags(
   let mut is_primary_key = false
   let mut is_auto_increment = false
   let mut has_not_null = false
-  attrs.each(attr => match attr.raw {
-    "#morm.primary_key" => is_primary_key = true
-    "#morm.auto_increment" => is_auto_increment = true
-    "#morm.not_null" => has_not_null = true
-    _ => ()
+  attrs.each(attr => {
+    match attr.raw {
+      "#morm.primary_key" => is_primary_key = true
+      "#morm.auto_increment" => is_auto_increment = true
+      "#morm.not_null" => has_not_null = true
+      _ => ()
+    }
   })
   (is_primary_key, is_auto_increment, has_not_null)
 }
@@ -429,26 +466,32 @@ fn parse_entities_from_ast(
   ast : @moonbitlang/core/list.List[@moonbitlang/parser/syntax.Impl],
 ) -> Array[EntitySpec] {
   let specs : Array[EntitySpec] = []
-  ast.each(item => if item is @syntax.Impl::TopTypeDef(type_decl) {
-    if type_decl is { tycon: name, components: Record(params), attrs, .. } {
-      let orm_attrs = collect_orm_attributes(attrs)
-      let mut has_entity = false
-      let mut table_name = name
-      orm_attrs.each(a => if a.name == "#morm.entity" {
-        has_entity = true
-        if a.value.get("name") is Some(custom_name) {
-          table_name = custom_name
+  ast.each(item => {
+    if item is @syntax.Impl::TopTypeDef(type_decl) {
+      if type_decl is { tycon: name, components: Record(params), attrs, .. } {
+        let orm_attrs = collect_orm_attributes(attrs)
+        let mut has_entity = false
+        let mut table_name = name
+        orm_attrs.each(a => {
+          if a.name == "#morm.entity" {
+            has_entity = true
+            if a.value.get("name") is Some(custom_name) {
+              table_name = custom_name
+            }
+          }
+        })
+        if !has_entity {
+          return
         }
-      })
-      if !has_entity {
-        return
+        let fields : Array[FieldSpec] = []
+        params.each(param => {
+          if param is { name: { label, .. }, ty, attrs, .. } {
+            let (field_type, is_nullable) = extract_type_name_and_nullable(ty)
+            fields.push({ label, field_type, nullable: is_nullable, attrs })
+          }
+        })
+        specs.push({ name, table_name, fields })
       }
-      let fields : Array[FieldSpec] = []
-      params.each(param => if param is { name: { label, .. }, ty, attrs, .. } {
-        let (field_type, is_nullable) = extract_type_name_and_nullable(ty)
-        fields.push({ label, field_type, nullable: is_nullable, attrs })
-      })
-      specs.push({ name, table_name, fields })
     }
   })
   specs

@@ -1,0 +1,10 @@
+import {
+  "moonbitlang/core/json",
+  "oboard/morm",
+  "oboard/morm/engine",
+}
+
+import {
+  "oboard/morm/engine",
+  "oboard/morm/dialect",
+} for "test"

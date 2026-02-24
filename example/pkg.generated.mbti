@@ -1,11 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/morm/example"
 
-import(
-  "moonbitlang/core/json"
-  "oboard/morm"
-  "oboard/morm/engine"
-)
+import {
+  "moonbitlang/core/json",
+  "oboard/morm",
+  "oboard/morm/engine",
+}
 
 // Values
 
@@ -17,10 +17,10 @@ pub(all) struct Class {
   name : String
   teacher_id : Int
 }
-fn Class::table() -> @morm.Table
-impl ToJson for Class
-impl @json.FromJson for Class
-impl @morm.Entity for Class
+pub fn Class::table() -> @morm.Table
+pub impl ToJson for Class
+pub impl @json.FromJson for Class
+pub impl @morm.Entity for Class
 
 pub(all) struct Student {
   id : Int
@@ -28,28 +28,30 @@ pub(all) struct Student {
   age : Int
   birth_date : String
 }
-fn Student::mapper(&@engine.Engine) -> StudentMapper_
-fn Student::table() -> @morm.Table
-impl ToJson for Student
-impl @json.FromJson for Student
-impl @morm.Entity for Student
+pub fn Student::mapper(&@engine.Engine) -> StudentMapper_
+pub fn Student::table() -> @morm.Table
+pub impl ToJson for Student
+pub impl @json.FromJson for Student
+pub impl @morm.Entity for Student
 
 pub struct StudentMapper_ {
   engine : &@engine.Engine
 }
-impl StudentMapper for StudentMapper_
+pub fn StudentMapper_::delete(Self, Student) -> Bool
+pub fn StudentMapper_::save(Self, Student) -> Student?
+pub impl StudentMapper for StudentMapper_
 
 pub(all) struct Teacher {
   id : Int
   name : String
   major : String
   age : Int
-  birth_date : String
+  birth_date : String?
 }
-fn Teacher::table() -> @morm.Table
-impl ToJson for Teacher
-impl @json.FromJson for Teacher
-impl @morm.Entity for Teacher
+pub fn Teacher::table() -> @morm.Table
+pub impl ToJson for Teacher
+pub impl @json.FromJson for Teacher
+pub impl @morm.Entity for Teacher
 
 // Type aliases
 

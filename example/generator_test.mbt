@@ -138,7 +138,7 @@ test {
     major: "English",
     birth_date: None,
   }
-  @json.inspect(teacher, content={
+  json_inspect(teacher, content={
     "id": 1,
     "name": "666",
     "major": "English",
@@ -151,7 +151,7 @@ test {
     major: "English",
     birth_date: Some("2022-03-04"),
   }
-  @json.inspect(teacher, content={
+  json_inspect(teacher, content={
     "id": 1,
     "name": "666",
     "major": "English",

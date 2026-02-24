@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/x/fs",
+  "moonbitlang/core/list",
+  "moonbitlang/core/ref",
+  "moonbitlang/parser",
+  "moonbitlang/parser/syntax",
+  "moonbitlang/parser/attribute",
+  "moonbitlang/x/sys",
+  "Yoorkin/ArgParser",
+  "oboard/morm",
+}
+
+options(
+  "bin-name": "morm-gen",
+  "bin-target": "js",
+  "is-main": true,
+)

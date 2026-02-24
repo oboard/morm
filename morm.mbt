@@ -329,9 +329,11 @@ pub fn Query::to(self : Query, dialect : Dialect) -> (String, FixedArray[Json]) 
     buf.write_string(" ORDER BY ")
     buf.write_string(
       self.order_by
-      .map(ob => match ob {
-        Asc(col) => "\{col} ASC"
-        Desc(col) => "\{col} DESC"
+      .map(ob => {
+        match ob {
+          Asc(col) => "\{col} ASC"
+          Desc(col) => "\{col} DESC"
+        }
       })
       .join(", "),
     )

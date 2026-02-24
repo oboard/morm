@@ -1,48 +1,50 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/morm"
 
-import(
-  "moonbitlang/core/json"
-  "oboard/morm/dialect"
-  "oboard/morm/engine"
-)
+import {
+  "moonbitlang/core/json",
+  "oboard/morm/dialect",
+  "oboard/morm/engine",
+}
 
 // Values
-fn add_column(Table, Column) -> Table
+pub fn add_column(Table, Column) -> Table
 
-fn add_foreign_key(Table, ForeignKey) -> Table
+pub fn add_foreign_key(Table, ForeignKey) -> Table
 
-fn add_index(Table, Index) -> Table
+pub fn add_index(Table, Index) -> Table
 
-fn alter_table(String) -> AlterTable
+pub fn alter_table(String) -> AlterTable
 
-fn[E : @engine.Engine] auto_migrate(E, Array[Table]) -> Unit
+pub fn[E : @engine.Engine] auto_migrate(E, Array[Table]) -> Unit
 
-fn begin_tx(@dialect.Dialect) -> String
+pub fn begin_tx(@dialect.Dialect) -> String
 
-fn commit_tx(@dialect.Dialect) -> String
+pub fn commit_tx(@dialect.Dialect) -> String
 
-fn delete_from(String) -> DeleteQuery
+pub fn delete_from(String) -> DeleteQuery
 
-fn infer_column_type(Json) -> ColumnType
+pub fn infer_column_type(Json) -> ColumnType
 
-fn insert_into(String) -> InsertQuery
+pub fn insert_into(String) -> InsertQuery
 
-fn on_delete_cascade(ForeignKey) -> ForeignKey
+pub fn on_delete_cascade(ForeignKey) -> ForeignKey
 
-fn on_update_cascade(ForeignKey) -> ForeignKey
+pub fn on_update_cascade(ForeignKey) -> ForeignKey
 
-fn rollback_tx(@dialect.Dialect) -> String
+pub fn rollback_tx(@dialect.Dialect) -> String
 
-fn select_from(String) -> Query
+pub fn select_from(String) -> Query
 
-fn select_raw(String, String) -> Query
+pub fn select_raw(String, String) -> Query
 
-fn table_comment(Table, String) -> Table
+pub fn table_comment(Table, String) -> Table
 
-fn table_engine(Table, String) -> Table
+pub fn table_engine(Table, String) -> Table
 
-fn update(String) -> UpdateQuery
+pub fn update(String) -> UpdateQuery
+
+pub fn upsert_into(String) -> UpsertQuery
 
 // Errors
 
@@ -58,27 +60,27 @@ pub enum AlterOp {
   RenameTable(String)
   TableComment(String)
 }
-impl Show for AlterOp
-impl ToJson for AlterOp
-impl @json.FromJson for AlterOp
+pub impl Show for AlterOp
+pub impl ToJson for AlterOp
+pub impl @json.FromJson for AlterOp
 
 pub struct AlterTable {
   table : String
   ops : FixedArray[AlterOp]
 }
-fn AlterTable::add_column(Self, Column) -> Self
-fn AlterTable::add_foreign_key(Self, ForeignKey) -> Self
-fn AlterTable::add_index(Self, Index) -> Self
-fn AlterTable::comment(Self, String) -> Self
-fn AlterTable::drop_column(Self, String) -> Self
-fn AlterTable::drop_foreign_key(Self, String) -> Self
-fn AlterTable::drop_index(Self, String) -> Self
-fn AlterTable::modify_column(Self, Column) -> Self
-fn AlterTable::rename(Self, String) -> Self
-fn AlterTable::to(Self, @dialect.Dialect) -> String
-impl Show for AlterTable
-impl ToJson for AlterTable
-impl @json.FromJson for AlterTable
+pub fn AlterTable::add_column(Self, Column) -> Self
+pub fn AlterTable::add_foreign_key(Self, ForeignKey) -> Self
+pub fn AlterTable::add_index(Self, Index) -> Self
+pub fn AlterTable::comment(Self, String) -> Self
+pub fn AlterTable::drop_column(Self, String) -> Self
+pub fn AlterTable::drop_foreign_key(Self, String) -> Self
+pub fn AlterTable::drop_index(Self, String) -> Self
+pub fn AlterTable::modify_column(Self, Column) -> Self
+pub fn AlterTable::rename(Self, String) -> Self
+pub fn AlterTable::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
+pub impl Show for AlterTable
+pub impl ToJson for AlterTable
+pub impl @json.FromJson for AlterTable
 
 pub(all) struct Column {
   name : String
@@ -93,13 +95,13 @@ pub(all) struct Column {
   charset : String?
   collation : String?
 }
-fn Column::new(String, ColumnType) -> Self
-impl Compare for Column
-impl Eq for Column
-impl Hash for Column
-impl Show for Column
-impl ToJson for Column
-impl @json.FromJson for Column
+pub fn Column::new(String, ColumnType) -> Self
+pub impl Compare for Column
+pub impl Eq for Column
+pub impl Hash for Column
+pub impl Show for Column
+pub impl ToJson for Column
+pub impl @json.FromJson for Column
 
 pub(all) enum ColumnType {
   TinyInt
@@ -129,33 +131,34 @@ pub(all) enum ColumnType {
   JsonB
   Boolean
 }
-impl Compare for ColumnType
-impl Eq for ColumnType
-impl Hash for ColumnType
-impl Show for ColumnType
-impl ToJson for ColumnType
-impl @json.FromJson for ColumnType
+pub impl Compare for ColumnType
+pub impl Eq for ColumnType
+pub impl Hash for ColumnType
+pub impl Show for ColumnType
+pub impl ToJson for ColumnType
+pub impl @json.FromJson for ColumnType
 
 pub(all) struct DbError {
   message : String
 }
-impl Show for DbError
-impl ToJson for DbError
+pub impl Show for DbError
+pub impl ToJson for DbError
 
 pub struct DeleteQuery {
   from : String
   where_ : FixedArray[Where]
 }
-fn DeleteQuery::to(Self, @dialect.Dialect) -> String
-fn DeleteQuery::where_eq(Self, String, Json) -> Self
-fn DeleteQuery::where_gt(Self, String, Json) -> Self
-fn DeleteQuery::where_gte(Self, String, Json) -> Self
-fn DeleteQuery::where_lt(Self, String, Json) -> Self
-fn DeleteQuery::where_lte(Self, String, Json) -> Self
-impl Eq for DeleteQuery
-impl Show for DeleteQuery
-impl ToJson for DeleteQuery
-impl @json.FromJson for DeleteQuery
+pub fn[E : Entity] DeleteQuery::from(Self, E) -> Self
+pub fn DeleteQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
+pub fn DeleteQuery::where_eq(Self, String, Json) -> Self
+pub fn DeleteQuery::where_gt(Self, String, Json) -> Self
+pub fn DeleteQuery::where_gte(Self, String, Json) -> Self
+pub fn DeleteQuery::where_lt(Self, String, Json) -> Self
+pub fn DeleteQuery::where_lte(Self, String, Json) -> Self
+pub impl Eq for DeleteQuery
+pub impl Show for DeleteQuery
+pub impl ToJson for DeleteQuery
+pub impl @json.FromJson for DeleteQuery
 
 pub(all) struct ForeignKey {
   name : String
@@ -165,13 +168,13 @@ pub(all) struct ForeignKey {
   on_delete : String
   on_update : String
 }
-fn ForeignKey::new(String, String, String, String) -> Self
-impl Compare for ForeignKey
-impl Eq for ForeignKey
-impl Hash for ForeignKey
-impl Show for ForeignKey
-impl ToJson for ForeignKey
-impl @json.FromJson for ForeignKey
+pub fn ForeignKey::new(String, String, String, String) -> Self
+pub impl Compare for ForeignKey
+pub impl Eq for ForeignKey
+pub impl Hash for ForeignKey
+pub impl Show for ForeignKey
+pub impl ToJson for ForeignKey
+pub impl @json.FromJson for ForeignKey
 
 pub(all) struct Index {
   name : String
@@ -179,15 +182,15 @@ pub(all) struct Index {
   columns : FixedArray[String]
   comment : String
 }
-fn Index::new(String, FixedArray[String]) -> Self
-fn Index::new_primary(FixedArray[String]) -> Self
-fn Index::new_unique(String, FixedArray[String]) -> Self
-impl Compare for Index
-impl Eq for Index
-impl Hash for Index
-impl Show for Index
-impl ToJson for Index
-impl @json.FromJson for Index
+pub fn Index::new(String, FixedArray[String]) -> Self
+pub fn Index::new_primary(FixedArray[String]) -> Self
+pub fn Index::new_unique(String, FixedArray[String]) -> Self
+pub impl Compare for Index
+pub impl Eq for Index
+pub impl Hash for Index
+pub impl Show for Index
+pub impl ToJson for Index
+pub impl @json.FromJson for Index
 
 pub(all) enum IndexType {
   Primary
@@ -196,35 +199,35 @@ pub(all) enum IndexType {
   FullText
   Spatial
 }
-impl Compare for IndexType
-impl Eq for IndexType
-impl Hash for IndexType
-impl Show for IndexType
-impl ToJson for IndexType
-impl @json.FromJson for IndexType
+pub impl Compare for IndexType
+pub impl Eq for IndexType
+pub impl Hash for IndexType
+pub impl Show for IndexType
+pub impl ToJson for IndexType
+pub impl @json.FromJson for IndexType
 
 pub struct InsertQuery {
   into : String
   columns : FixedArray[String]
   values : FixedArray[Json]
 }
-fn InsertQuery::columns(Self, FixedArray[String]) -> Self
-fn[E : Entity] InsertQuery::from(Self, E) -> Self
-fn InsertQuery::to(Self, @dialect.Dialect) -> String
-fn InsertQuery::values(Self, FixedArray[Json]) -> Self
-impl Eq for InsertQuery
-impl Show for InsertQuery
-impl ToJson for InsertQuery
-impl @json.FromJson for InsertQuery
+pub fn InsertQuery::columns(Self, FixedArray[String]) -> Self
+pub fn[E : Entity] InsertQuery::from(Self, E) -> Self
+pub fn InsertQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
+pub fn InsertQuery::values(Self, FixedArray[Json]) -> Self
+pub impl Eq for InsertQuery
+pub impl Show for InsertQuery
+pub impl ToJson for InsertQuery
+pub impl @json.FromJson for InsertQuery
 
 pub(all) enum OrderBy {
   Asc(String)
   Desc(String)
 }
-impl Eq for OrderBy
-impl Show for OrderBy
-impl ToJson for OrderBy
-impl @json.FromJson for OrderBy
+pub impl Eq for OrderBy
+pub impl Show for OrderBy
+pub impl ToJson for OrderBy
+pub impl @json.FromJson for OrderBy
 
 pub struct Query {
   select : String
@@ -234,29 +237,29 @@ pub struct Query {
   limit : Int?
   offset : Int?
 }
-fn Query::limit(Self, Int) -> Self
-fn Query::offset(Self, Int) -> Self
-fn Query::order_by(Self, OrderBy) -> Self
-fn Query::page(Self, Int, Int) -> Self
-fn Query::to(Self, @dialect.Dialect) -> String
-fn Query::where_eq(Self, String, Json) -> Self
-fn Query::where_gt(Self, String, Json) -> Self
-fn Query::where_gte(Self, String, Json) -> Self
-fn Query::where_lt(Self, String, Json) -> Self
-fn Query::where_lte(Self, String, Json) -> Self
-impl Eq for Query
-impl Show for Query
-impl ToJson for Query
-impl @json.FromJson for Query
+pub fn Query::limit(Self, Int) -> Self
+pub fn Query::offset(Self, Int) -> Self
+pub fn Query::order_by(Self, OrderBy) -> Self
+pub fn Query::page(Self, Int, Int) -> Self
+pub fn Query::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
+pub fn Query::where_eq(Self, String, Json) -> Self
+pub fn Query::where_gt(Self, String, Json) -> Self
+pub fn Query::where_gte(Self, String, Json) -> Self
+pub fn Query::where_lt(Self, String, Json) -> Self
+pub fn Query::where_lte(Self, String, Json) -> Self
+pub impl Eq for Query
+pub impl Show for Query
+pub impl ToJson for Query
+pub impl @json.FromJson for Query
 
 pub struct Set {
   col : String
   value : Json
 }
-impl Eq for Set
-impl Show for Set
-impl ToJson for Set
-impl @json.FromJson for Set
+pub impl Eq for Set
+pub impl Show for Set
+pub impl ToJson for Set
+pub impl @json.FromJson for Set
 
 pub(all) struct Table {
   name : String
@@ -269,43 +272,61 @@ pub(all) struct Table {
   comment : String
   auto_increment : Int
 }
-fn Table::new(String, columns? : FixedArray[Column]) -> Self
-fn Table::to_create_sql(Self, @dialect.Dialect) -> String
-impl Compare for Table
-impl Eq for Table
-impl Hash for Table
-impl Show for Table
-impl ToJson for Table
-impl @json.FromJson for Table
+pub fn Table::has_primary_key(Self) -> Bool
+pub fn Table::new(String, columns? : FixedArray[Column]) -> Self
+pub fn Table::primary_key(Self) -> String?
+pub fn Table::to_create_sql(Self, @dialect.Dialect) -> String
+pub impl Compare for Table
+pub impl Eq for Table
+pub impl Hash for Table
+pub impl Show for Table
+pub impl ToJson for Table
+pub impl @json.FromJson for Table
 
 pub struct UpdateQuery {
   table : String
   sets : FixedArray[Set]
   where_ : FixedArray[Where]
 }
-fn[E : Entity] UpdateQuery::from(Self, E) -> Self
-fn UpdateQuery::set(Self, String, Json) -> Self
-fn UpdateQuery::to(Self, @dialect.Dialect) -> String
-fn UpdateQuery::to_mysql_sql(Self) -> String
-fn UpdateQuery::where_eq(Self, String, Json) -> Self
-fn UpdateQuery::where_gt(Self, String, Json) -> Self
-fn UpdateQuery::where_gte(Self, String, Json) -> Self
-fn UpdateQuery::where_lt(Self, String, Json) -> Self
-fn UpdateQuery::where_lte(Self, String, Json) -> Self
-impl Eq for UpdateQuery
-impl Show for UpdateQuery
-impl ToJson for UpdateQuery
-impl @json.FromJson for UpdateQuery
+pub fn[E : Entity] UpdateQuery::from(Self, E) -> Self
+pub fn UpdateQuery::set(Self, String, Json) -> Self
+pub fn UpdateQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
+pub fn UpdateQuery::to_mysql_sql(Self) -> String
+pub fn UpdateQuery::where_eq(Self, String, Json) -> Self
+pub fn UpdateQuery::where_gt(Self, String, Json) -> Self
+pub fn UpdateQuery::where_gte(Self, String, Json) -> Self
+pub fn UpdateQuery::where_lt(Self, String, Json) -> Self
+pub fn UpdateQuery::where_lte(Self, String, Json) -> Self
+pub impl Eq for UpdateQuery
+pub impl Show for UpdateQuery
+pub impl ToJson for UpdateQuery
+pub impl @json.FromJson for UpdateQuery
+
+pub struct UpsertQuery {
+  table : String
+  sets : FixedArray[Set]
+  conflict_target : FixedArray[String]
+  update_sets : FixedArray[Set]
+}
+pub fn UpsertQuery::do_update_set(Self, String, Json) -> Self
+pub fn[E : Entity] UpsertQuery::from(Self, E) -> Self
+pub fn UpsertQuery::on_conflict(Self, FixedArray[String]) -> Self
+pub fn UpsertQuery::set(Self, String, Json) -> Self
+pub fn UpsertQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
+pub impl Eq for UpsertQuery
+pub impl Show for UpsertQuery
+pub impl ToJson for UpsertQuery
+pub impl @json.FromJson for UpsertQuery
 
 pub struct Where {
   col : String
   value : Json
   ty : WhereType
 }
-impl Eq for Where
-impl Show for Where
-impl ToJson for Where
-impl @json.FromJson for Where
+pub impl Eq for Where
+pub impl Show for Where
+pub impl ToJson for Where
+pub impl @json.FromJson for Where
 
 pub enum WhereType {
   Eq
@@ -314,10 +335,10 @@ pub enum WhereType {
   Gte
   Lte
 }
-impl Eq for WhereType
-impl Show for WhereType
-impl ToJson for WhereType
-impl @json.FromJson for WhereType
+pub impl Eq for WhereType
+pub impl Show for WhereType
+pub impl ToJson for WhereType
+pub impl @json.FromJson for WhereType
 
 // Type aliases
 pub type DbResult[T] = Result[T, DbError]

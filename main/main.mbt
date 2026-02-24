@@ -107,7 +107,12 @@ fn main {
     file => input_file.val = file,
     usage,
     argv,
-  )
+  ) catch {
+    e => {
+      println("Error: \{e}")
+      return
+    }
+  }
   try {
     let (ast, _) = @parser.parse_file(input_file.val)
     let specs = parse_entities_from_ast(ast)

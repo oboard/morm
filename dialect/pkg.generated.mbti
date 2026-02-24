@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/morm/dialect"
 
-import(
-  "moonbitlang/core/json"
-)
+import {
+  "moonbitlang/core/json",
+}
 
 // Values
 
@@ -17,12 +17,12 @@ pub(all) enum Dialect {
   SqlServer
   Oracle
 }
-impl Compare for Dialect
-impl Eq for Dialect
-impl Hash for Dialect
-impl Show for Dialect
-impl ToJson for Dialect
-impl @json.FromJson for Dialect
+pub impl Compare for Dialect
+pub impl Eq for Dialect
+pub impl Hash for Dialect
+pub impl Show for Dialect
+pub impl ToJson for Dialect
+pub impl @json.FromJson for Dialect
 
 // Type aliases
 
