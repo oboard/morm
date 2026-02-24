@@ -13,7 +13,7 @@ MoonBit 生态下的轻量级 ORM。目标很直接：
 
 ```json
   "bin-deps": {
-    "oboard/morm": "0.2.2"
+    "oboard/morm": "latest"
   },
 ```
 
@@ -23,12 +23,12 @@ MoonBit 生态下的轻量级 ORM。目标很直接：
 options(
   "pre-build": [
     {
-      "command": "$mod_dir/.mooncakes/oboard/morm/mormgen $input -o $output && moonfmt -w $output",
+      "command": "$mod_dir/.mooncakes/oboard/morm/morm-gen $input -o $output && moonfmt -w $output",
       "input": "entities.mbt",
       "output": "entities.g.mbt",
     },
     {
-      "command": "$mod_dir/.mooncakes/oboard/morm/mormgen $input -o $output && moonfmt -w $output",
+      "command": "$mod_dir/.mooncakes/oboard/morm/morm-gen $input -o $output && moonfmt -w $output",
       "input": "mapper.mbt",
       "output": "mapper.g.mbt",
     },
