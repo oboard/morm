@@ -48,6 +48,7 @@ MoonBit 生态下的轻量级 ORM。目标很直接：
 一个典型实体定义如下（摘自 `example/entities.mbt`）：
 
 ```moonbit nocheck
+///|
 #morm.entity(name="teacher")
 pub(all) struct Teacher {
   #morm.primary_key
@@ -156,11 +157,22 @@ pub trait StudentMapper {
 使用方式示例（简化）：
 
 ```moonbit nocheck
+///|
 let engine = MySQLEngine::open("mysql://...")
+
+///|
 let mapper = Student::mapper(engine)
+
+///|
 let stu = mapper.find_student_by_id(1)
+
+///|
 let n = mapper.count_students_by_age(18)
+
+///|
 let saved = mapper.save(stu)
+
+///|
 let deleted = mapper.delete(stu)
 ```
 

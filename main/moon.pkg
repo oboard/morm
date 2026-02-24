@@ -5,6 +5,7 @@ import {
   "moonbitlang/parser",
   "moonbitlang/parser/syntax",
   "moonbitlang/parser/attribute",
+  "moonbitlang/core/strconv",
   "moonbitlang/x/sys",
   "Yoorkin/ArgParser",
   "oboard/morm",

@@ -72,15 +72,26 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
       "\{m.return_entity}?"
     }
     let method_header = "pub impl \{trait_name} for \{trait_name}_ with \{m.name}(\n  \{param_sig}\n) -> \{ret_type} {\n"
-    let body = if m.returns_array {
-      "  self.engine.exec(\"\{m.sql}\", \{json_args}).rows.map(row => @json.from_json(\n      row,\n    ) catch {\n      _ => panic()\n    },\n  )\n}\n\n"
-    } else {
-      "  if self.engine.exec(\"\{m.sql}\", \{json_args}).rows\n    is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  None\n}\n\n"
+    let body = match m.builder_code {
+      Some(code) =>
+        if m.returns_array {
+          "  let (sql, params) = \{code}\n  self.engine.exec(sql, params).rows.map(row => @json.from_json(\n      row,\n    ) catch {\n      _ => panic()\n    },\n  )\n}\n\n"
+        } else {
+          "  let (sql, params) = \{code}\n  if self.engine.exec(sql, params).rows\n    is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  None\n}\n\n"
+        }
+      None => {
+        let sql = m.sql.unwrap()
+        if m.returns_array {
+          "  self.engine.exec(\"\{sql}\", \{json_args}).rows.map(row => @json.from_json(\n      row,\n    ) catch {\n      _ => panic()\n    },\n  )\n}\n\n"
+        } else {
+          "  if self.engine.exec(\"\{sql}\", \{json_args}).rows\n    is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  None\n}\n\n"
+        }
+      }
     }
     impls = impls + method_header + body
   }
   // 追加默认的 save / delete 成员函数
-  let save_fn = "pub fn \{trait_name}_::save(\n  self : \{trait_name}_,\n  entity : \{entity_name},\n) -> \{entity_name}? {\n  let (sql, params) = @morm.upsert_into(\{entity_name}::table().name)\n    .from(entity)\n    .to(self.engine.dialect())\n  let res = self.engine.exec(sql, params)\n  if res.rows is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  // Fallback: read back by conflict keys when UPSERT does not return rows\n  let tbl = \{entity_name}::table()\n  let obj = entity.to_json().as_object().unwrap()\n  // try primary key first\n  match tbl.primary_key() {\n    Some(pk) => match obj.get(pk) {\n      Some(pkv) => {\n        let (sel_sql, sel_params) = @morm.select_from(tbl.name).where_eq(pk, pkv).to(self.engine.dialect())\n        if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {\n          return Some(try! @json.from_json(row))\n        }\n      }\n      None => ()\n    }\n    None => ()\n  }\n  // try first unique index with all values present\n  for idx in tbl.indexes {\n    match idx.index_type {\n      Unique => {\n        let mut q = @morm.select_from(tbl.name)\n        let mut ok = true\n        for col in idx.columns {\n          match obj.get(col) {\n            Some(v) => q = q.where_eq(col, v)\n            None => { ok = false; break }\n          }\n        }\n        if ok {\n          let (sel_sql, sel_params) = q.to(self.engine.dialect())\n          if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {\n            return Some(try! @json.from_json(row))\n          }\n        }\n        break\n      }\n      _ => ()\n    }\n  }\n  None\n}\n\n"
+  let save_fn = "pub fn \{trait_name}_::save(\n  self : \{trait_name}_,\n  entity : \{entity_name},\n) -> \{entity_name}? {\n  let (sql, params) = @morm.upsert_into(\{entity_name}::table().name)\n    .from(entity)\n    .to(self.engine.dialect())\n  let res = self.engine.exec(sql, params)\n  if res.rows is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  // Fallback: read back by conflict keys when UPSERT does not return rows\n  let tbl = \{entity_name}::table()\n  let obj = if entity.to_json() is Object(obj) { obj } else { {} }\n  // try primary key first\n  match tbl.primary_key() {\n    Some(pk) => match obj.get(pk) {\n      Some(pkv) => {\n        let (sel_sql, sel_params) = @morm.select_from(tbl.name).where_eq(pk, pkv).to(self.engine.dialect())\n        if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {\n          return Some(try! @json.from_json(row))\n        }\n      }\n      None => ()\n    }\n    None => ()\n  }\n  // try first unique index with all values present\n  for idx in tbl.indexes {\n    match idx.index_type {\n      Unique => {\n        let mut q = @morm.select_from(tbl.name)\n        let mut ok = true\n        for col in idx.columns {\n          match obj.get(col) {\n            Some(v) => q = q.where_eq(col, v)\n            None => { ok = false; break }\n          }\n        }\n        if ok {\n          let (sel_sql, sel_params) = q.to(self.engine.dialect())\n          if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {\n            return Some(try! @json.from_json(row))\n          }\n        }\n        break\n      }\n      _ => ()\n    }\n  }\n  None\n}\n\n"
   let delete_fn = "pub fn \{trait_name}_::delete(self : \{trait_name}_, entity : \{entity_name}) -> Bool {\n  let primary_key = \{entity_name}::table().primary_key()\n  if primary_key is Some(_) {\n    let (sql, params) = @morm.delete_from(\{entity_name}::table().name)\n      .from(entity)\n      .to(self.engine.dialect())\n    self.engine.exec(sql, params).ok\n  } else {\n    false\n  }\n}\n\n"
   struct_def + mapper_fn + impls + save_fn + delete_fn
 }
@@ -115,8 +126,9 @@ fn main {
   }
   try {
     let (ast, _) = @parser.parse_file(input_file.val)
+    let source_content = @fs.read_file_to_string(input_file.val)
     let specs = parse_entities_from_ast(ast)
-    let mapper_specs = parse_mappers_from_ast(ast)
+    let mapper_specs = parse_mappers_from_ast(ast, source_content, specs)
     //
     let codes : Array[String] = []
     specs.each(spec => {

@@ -988,7 +988,11 @@ pub fn[E : Entity] InsertQuery::from(
 ) -> InsertQuery {
   let json = entity.to_json()
   let columns = entity.table().columns.map(c => c.name)
-  let values = FixedArray::from_iter(json.as_object().unwrap().values())
+  let values = if json is Object(obj) {
+    FixedArray::from_iter(obj.values())
+  } else {
+    []
+  }
   { ..self, columns, values }
 }
 
@@ -1047,7 +1051,11 @@ pub fn[E : Entity] UpsertQuery::from(
   entity : E,
 ) -> UpsertQuery {
   let json = entity.to_json()
-  let sets = json.as_object().unwrap().map((col, value) => { col, value })
+  let sets = if json is Object(obj) {
+    obj.map((col, value) => { col, value })
+  } else {
+    {}
+  }
   let table = entity.table()
   let mut conflict_cols : FixedArray[String] = []
   match table.primary_key() {
@@ -1211,7 +1219,11 @@ pub fn[E : Entity] UpdateQuery::from(
 ) -> UpdateQuery {
   let json = entity.to_json()
   let values = FixedArray::from_iter(
-    json.as_object().unwrap().map((k, v) => Set::{ col: k, value: v }).values(),
+    if json is Object(obj) {
+      obj.map((k, v) => Set::{ col: k, value: v }).values()
+    } else {
+      [].iter()
+    },
   )
   { ..self, sets: values }
 }
@@ -1399,7 +1411,7 @@ pub fn[E : Entity] DeleteQuery::from(
   let pk_opt = table.primary_key()
   match pk_opt {
     Some(pk) => {
-      let obj = entity.to_json().as_object().unwrap()
+      let obj = if entity.to_json() is Object(obj) { obj } else { {} }
       match obj.get(pk) {
         Some(v) =>
           { ..self, where_: self.where_ + [{ col: pk, value: v, ty: Eq }] }

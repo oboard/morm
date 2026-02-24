@@ -6,7 +6,7 @@ pub impl @oboard/morm.Entity for Class with table(_self) -> @oboard/morm.Table {
 ///|
 pub fn Class::table() -> @morm.Table {
   try! @json.from_json({
-    "name": "class",
+    "name": "Class",
     "columns": [
       {
         "name": "id",
@@ -40,16 +40,7 @@ pub fn Class::table() -> @morm.Table {
       },
     ],
     "indexes": [],
-    "foreign_keys": [
-      {
-        "name": "fk_Class_teacher_id",
-        "column": "teacher_id",
-        "referenced_table": "teacher",
-        "referenced_column": "id",
-        "on_delete": "CASCADE",
-        "on_update": "RESTRICT",
-      },
-    ],
+    "foreign_keys": [],
     "engine": "InnoDB",
     "charset": "utf8mb4",
     "collation": "utf8mb4_unicode_ci",
@@ -66,7 +57,7 @@ pub impl @oboard/morm.Entity for Student with table(_self) -> @oboard/morm.Table
 ///|
 pub fn Student::table() -> @morm.Table {
   try! @json.from_json({
-    "name": "student",
+    "name": "Student",
     "columns": [
       {
         "name": "id",
@@ -127,7 +118,7 @@ pub impl @oboard/morm.Entity for Teacher with table(_self) -> @oboard/morm.Table
 ///|
 pub fn Teacher::table() -> @morm.Table {
   try! @json.from_json({
-    "name": "teacher",
+    "name": "Teacher",
     "columns": [
       {
         "name": "id",

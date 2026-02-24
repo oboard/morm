@@ -105,7 +105,8 @@ fn collect_orm_attributes(
 /// Mapper 方法规格：方法名、SQL、参数与返回实体名
 struct MapperMethodSpec {
   name : String
-  sql : String
+  sql : String? // 显式 SQL
+  builder_code : String? // 构建器代码
   params : Array[(String, String)] // (param_name, type_name)
   return_entity : String
   returns_array : Bool
@@ -143,157 +144,286 @@ fn extract_quoted_string_in_parens(raw : String) -> String? {
 }
 
 ///|
+fn recover_attr_raw(
+  source : String,
+  attr : @moonbitlang/parser/attribute.Attribute,
+) -> String {
+  let loc = attr.loc
+  let start_str = loc.start.to_string()
+  let end_str = loc.end.to_string()
+
+  let parse_pos = fn(s : String) -> (Int, Int) {
+    try {
+      let mut s = s
+      if s.has_prefix("\"") && s.length() >= 2 {
+        s = s[1:s.length()].to_string()
+      }
+      if s.has_suffix("\"") && s.length() >= 1 {
+        s = s[0:s.length() - 1].to_string()
+      }
+
+      let parts = s.split(":").collect()
+      let len = parts.length()
+      if len >= 2 {
+        let line = @strconv.parse_int(parts[len - 2])
+        let col = @strconv.parse_int(parts[len - 1])
+        (line, col)
+      } else {
+        (-1, -1)
+      }
+    } catch {
+      _ => (-1, -1)
+    }
+  }
+
+  let (sl, sc) = parse_pos(start_str)
+  let (el, ec) = parse_pos(end_str)
+
+  let start_line = sl - 1
+  let start_col = sc - 1
+  let end_line = el - 1
+  let end_col = ec - 1
+
+  let lines = source.split("\n").collect()
+  if start_line == end_line && start_line >= 0 && start_line < lines.length() {
+    let line = lines[start_line]
+    let len = line.length()
+    if start_col >= 0 && end_col <= len && start_col <= end_col {
+      try {
+        let res = line[start_col:end_col].to_string()
+        return res
+      } catch {
+        _ => ()
+      }
+    }
+  }
+  ""
+}
+
+///|
+/// 从方法名推导构建器代码
+fn derive_builder_code(method_name : String, entity_name : String) -> String? {
+  let lower_entity = entity_name.to_lower()
+  let mut action = ""
+  let mut condition_part : StringView = ""
+  let mut is_count = false
+
+  // 识别动作和去除前缀
+  if method_name.has_prefix("find_") {
+    action = "find"
+    let prefix1 = "find_\{lower_entity}_by_"
+    let prefix2 = "find_by_"
+    if method_name.strip_prefix(prefix1) is Some(rest) {
+      condition_part = rest
+    } else if method_name.strip_prefix(prefix2) is Some(rest) {
+      condition_part = rest
+    } else {
+      // 处理复数情况
+      let prefix3 = "find_\{lower_entity}s_by_"
+      if method_name.strip_prefix(prefix3) is Some(rest) {
+        condition_part = rest
+      }
+    }
+  } else if method_name.has_prefix("count_") {
+    action = "count"
+    is_count = true
+    let prefix1 = "count_\{lower_entity}_by_"
+    let prefix2 = "count_by_"
+    if method_name.strip_prefix(prefix1) is Some(rest) {
+      condition_part = rest
+    } else if method_name.strip_prefix(prefix2) is Some(rest) {
+      condition_part = rest
+    } else {
+      let prefix3 = "count_\{lower_entity}s_by_"
+      if method_name.strip_prefix(prefix3) is Some(rest) {
+        condition_part = rest
+      }
+    }
+  }
+
+  if action == "" || condition_part == "" {
+    return None
+  }
+
+  // 解析条件字段
+  let fields = condition_part.split("_and_").collect()
+  if fields.length() == 0 {
+    return None
+  }
+
+  // 构建代码
+  let start = if is_count {
+    "@morm.select_raw(\{entity_name}::table().name, \"count(*)\")"
+  } else {
+    "@morm.select_from(\{entity_name}::table().name)"
+  }
+
+  let wheres_arr : Array[String] = []
+  fields.each(f => wheres_arr.push(".where_eq(\"\{f}\", \{f}.to_json())"))
+  let wheres = wheres_arr.join("")
+
+  Some("\{start}\{wheres}.to(self.engine.dialect())")
+}
+
+///|
 /// 解析阶段：从 AST 收集 Mapper 规格
 fn parse_mappers_from_ast(
   ast : @moonbitlang/core/list.List[@moonbitlang/parser/syntax.Impl],
+  source : String,
+  entities : Array[EntitySpec],
 ) -> Array[MapperSpec] {
   let specs : Array[MapperSpec] = []
+
+  // 建立实体名到表名的映射
+  let entity_table_map : Map[String, String] = Map::new()
+  entities.each(e => entity_table_map.set(e.name, e.table_name))
+
   ast.each(item => {
-    if item is @syntax.Impl::TopTrait(trait_decl) {
-      if trait_decl is { name: { name: trait_name, .. }, methods, attrs, .. } {
-        // 读取实体名
-        let mut entity_name_opt : String? = None
-        attrs.each(attr => {
-          if attr.raw.has_prefix("#morm.mapper") {
-            entity_name_opt = extract_text_inside_parens(attr.raw)
-          }
-        })
-        if entity_name_opt is None {
-          return
-        }
-        let entity_name = entity_name_opt.unwrap()
-
-        // 收集方法
-        let mmethods : Array[MapperMethodSpec] = []
-        methods.each(m => {
-          if m is { name: { name: mname, .. }, params, attrs, .. } {
-            // 提取 SQL
-            let mut sql_opt : String? = None
-            attrs.each(a => {
-              if a.raw.has_prefix("#morm.query") {
-                sql_opt = extract_quoted_string_in_parens(a.raw)
+    match item {
+      @syntax.Impl::TopTrait(trait_decl) =>
+        if trait_decl is { name: { name: trait_name, .. }, methods, attrs, .. } {
+          // println("Found TopTrait: \{trait_name}")
+          // 读取实体名
+          let mut entity_name_opt : String? = None
+          attrs.each(attr => {
+            // println("  Attr: \{attr.raw}")
+            let mut raw_text = attr.raw
+            if raw_text.has_prefix("#morm.mapper") {
+              if extract_text_inside_parens(raw_text) is None {
+                let recovered = recover_attr_raw(source, attr)
+                if recovered != "" {
+                  raw_text = recovered
+                }
               }
-            })
-            if sql_opt is None {
-              return
+              entity_name_opt = extract_text_inside_parens(raw_text)
             }
-            let sql = sql_opt.unwrap()
+          })
+          if entity_name_opt is None {
+            // println("  No entity name found for \{trait_name}")
+            return
+          }
+          let entity_name = entity_name_opt.unwrap()
+          // 收集方法
+          let mmethods : Array[MapperMethodSpec] = []
+          methods.each(m => {
+            if m is { name: { name: mname, .. }, params, attrs, .. } {
+              // 提取 SQL
+              let mut sql_opt : String? = None
+              let mut builder_code_opt : String? = None
 
-            // 提取参数（基于 Parameter 变体，读取 binder.name 与显式类型）
-            let plist : Array[(String, String)] = []
-            params.each(p => {
-              match p {
-                Positional(binder={ name: pname, .. }, ty=Some(pty)) => {
-                  let tname = match pty {
-                    Name(
-                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                      ..
-                    ) => t
-                    _ => "String"
-                  }
-                  plist.push((pname, tname))
-                }
-                Labelled(binder={ name: pname, .. }, ty=Some(pty)) => {
-                  let tname = match pty {
-                    Name(
-                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                      ..
-                    ) => t
-                    _ => "String"
-                  }
-                  plist.push((pname, tname))
-                }
-                Optional(binder={ name: pname, .. }, ty=Some(pty), ..) => {
-                  let tname = match pty {
-                    Name(
-                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                      ..
-                    ) => t
-                    _ => "String"
-                  }
-                  plist.push((pname, tname))
-                }
-                QuestionOptional(binder={ name: pname, .. }, ty=Some(pty)) => {
-                  let tname = match pty {
-                    Name(
-                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                      ..
-                    ) => t
-                    _ => "String"
-                  }
-                  plist.push((pname, tname))
-                }
-                _ => ()
-              }
-            })
-
-            // 解析返回类型：Option[Entity] / FixedArray[Entity] / 基本类型可选 T?
-            let mut returns_array = false
-            let mut ret_entity = entity_name
-            match m {
-              { return_type: Some(return_type), .. } =>
-                match return_type {
-                  Option(
-                    ty=Name(
-                      constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                      ..
-                    ),
-                    ..
-                  ) => ret_entity = t
-                  Name(
-                    constr_id={
-                      id: Ident(name="FixedArray")
-                      | Dot(id="FixedArray", ..),
-                      ..,
-                    },
-                    tys~,
-                    ..
-                  ) => {
-                    // 安全遍历类型参数列表，取首元素作为数组内类型
-                    let mut inner_opt : @moonbitlang/parser/syntax.Type? = None
-                    tys.each(inner => {
-                      if inner_opt is None {
-                        inner_opt = Some(inner)
-                      }
-                    })
-                    if inner_opt is Some(inner_ty) {
-                      returns_array = true
-                      match inner_ty {
-                        Name(
-                          constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                          ..
-                        ) => ret_entity = t
-                        _ => ()
-                      }
+              attrs.each(a => {
+                let mut raw_text = a.raw
+                if raw_text.has_prefix("#morm.query") {
+                  if extract_quoted_string_in_parens(raw_text) is None {
+                    let recovered = recover_attr_raw(source, a)
+                    if recovered != "" {
+                      raw_text = recovered
                     }
                   }
-                  // 普通名称类型（例如 Int），非数组场景下用于推断基础返回类型
-                  Name(constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. }, ..) =>
-                    ret_entity = t
+                  sql_opt = extract_quoted_string_in_parens(raw_text)
+                }
+              })
+
+              // 如果没有显式 query 注解，尝试从方法名推导构建器代码
+              if sql_opt is None {
+                builder_code_opt = derive_builder_code(mname, entity_name)
+              }
+
+              if sql_opt is None && builder_code_opt is None {
+                return
+              }
+
+              // 提取参数（基于 Parameter 变体，读取 binder.name 与显式类型）
+              let plist : Array[(String, String)] = []
+              params.each(p => {
+                match p {
+                  Positional(binder={ name: pname, .. }, ty=Some(pty)) => {
+                    let tname = match pty {
+                      Name(
+                        constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                        ..
+                      ) => t
+                      _ => "String"
+                    }
+                    plist.push((pname, tname))
+                  }
+                  Labelled(binder={ name: pname, .. }, ty=Some(pty)) => {
+                    let tname = match pty {
+                      Name(
+                        constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                        ..
+                      ) => t
+                      _ => "String"
+                    }
+                    plist.push((pname, tname))
+                  }
                   _ => ()
                 }
-              _ => ()
-            }
-            // SQL 级别回退：识别 count 聚合返回 Int?
-            if !returns_array {
-              if sql.find("count(") is Some(_) {
-                ret_entity = "Int"
+              })
+              // 检查返回类型是否为 Array
+              let mut returns_array = false
+              let mut return_entity = "String" // default fallback
+
+              match m.return_type {
+                Some(ty) =>
+                  match ty {
+                    Name(
+                      constr_id={ id: Ident(name=n) | Dot(id=n, ..), .. },
+                      tys~,
+                      ..
+                    ) =>
+                      if n == "FixedArray" {
+                        match tys.head() {
+                          Some(
+                            Name(
+                              constr_id={
+                                id: Ident(name=inner)
+                                | Dot(id=inner, ..),
+                                ..,
+                              },
+                              ..
+                            )
+                          ) => {
+                            returns_array = true
+                            return_entity = inner
+                          }
+                          _ => ()
+                        }
+                      } else {
+                        return_entity = n
+                      }
+                    Option(
+                      ty=Name(
+                        constr_id={
+                          id: Ident(name=inner)
+                          | Dot(id=inner, ..),
+                          ..,
+                        },
+                        ..
+                      ),
+                      ..
+                    ) => return_entity = inner
+                    _ => ()
+                  }
+                None => ()
               }
+
+              mmethods.push({
+                name: mname,
+                sql: sql_opt,
+                builder_code: builder_code_opt,
+                params: plist,
+                return_entity,
+                returns_array,
+              })
             }
-            mmethods.push({
-              name: mname,
-              sql,
-              params: plist,
-              return_entity: ret_entity,
-              returns_array,
-            })
-            //
-          }
-        })
-        specs.push({ trait_name, entity_name, methods: mmethods })
-      }
+          })
+          specs.push({ trait_name, entity_name, methods: mmethods })
+        }
+      _ => ()
     }
   })
+
   specs
 }
 

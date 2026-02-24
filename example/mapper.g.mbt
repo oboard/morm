@@ -13,8 +13,10 @@ pub impl StudentMapper for StudentMapper_ with find_student_by_id(
   self,
   id : Int,
 ) -> Student? {
-  if self.engine.exec("SELECT * FROM students WHERE id = ?", [id.to_json()]).rows
-    is [result, ..] {
+  let (sql, params) = @morm.select_from(Student::table().name)
+    .where_eq("id", id.to_json())
+    .to(self.engine.dialect())
+  if self.engine.exec(sql, params).rows is [result, ..] {
     return Some(try! @json.from_json(result))
   }
   None
@@ -25,8 +27,10 @@ pub impl StudentMapper for StudentMapper_ with find_student_by_name(
   self,
   name : String,
 ) -> Student? {
-  if self.engine.exec("SELECT * FROM students WHERE name = ?", [name.to_json()]).rows
-    is [result, ..] {
+  let (sql, params) = @morm.select_from(Student::table().name)
+    .where_eq("name", name.to_json())
+    .to(self.engine.dialect())
+  if self.engine.exec(sql, params).rows is [result, ..] {
     return Some(try! @json.from_json(result))
   }
   None
@@ -37,12 +41,14 @@ pub impl StudentMapper for StudentMapper_ with find_students_by_age(
   self,
   age : Int,
 ) -> FixedArray[Student] {
-  self.engine.exec("SELECT * FROM students WHERE age = ?", [age.to_json()]).rows.map(row => {
-      @json.from_json(row) catch {
-        _ => panic()
-      }
-    },
-  )
+  let (sql, params) = @morm.select_from(Student::table().name)
+    .where_eq("age", age.to_json())
+    .to(self.engine.dialect())
+  self.engine.exec(sql, params).rows.map(row => {
+    @json.from_json(row) catch {
+      _ => panic()
+    }
+  })
 }
 
 ///|
@@ -51,10 +57,15 @@ pub impl StudentMapper for StudentMapper_ with find_students_by_age_and_name(
   age : Int,
   name : String,
 ) -> FixedArray[Student] {
-  self.engine.exec("SELECT * FROM students WHERE age = ? AND name = ?", [
-    age.to_json(),
-    name.to_json(),
-  ]).rows.map(row => @json.from_json(row) catch { _ => panic() })
+  let (sql, params) = @morm.select_from(Student::table().name)
+    .where_eq("age", age.to_json())
+    .where_eq("name", name.to_json())
+    .to(self.engine.dialect())
+  self.engine.exec(sql, params).rows.map(row => {
+    @json.from_json(row) catch {
+      _ => panic()
+    }
+  })
 }
 
 ///|
@@ -62,10 +73,10 @@ pub impl StudentMapper for StudentMapper_ with count_students_by_age(
   self,
   age : Int,
 ) -> Int? {
-  if self.engine.exec("SELECT count(*) FROM students WHERE age = ?", [
-      age.to_json(),
-    ]).rows
-    is [result, ..] {
+  let (sql, params) = @morm.select_raw(Student::table().name, "count(*)")
+    .where_eq("age", age.to_json())
+    .to(self.engine.dialect())
+  if self.engine.exec(sql, params).rows is [result, ..] {
     return Some(try! @json.from_json(result))
   }
   None
@@ -85,7 +96,7 @@ pub fn StudentMapper_::save(
   }
   // Fallback: read back by conflict keys when UPSERT does not return rows
   let tbl = Student::table()
-  let obj = entity.to_json().as_object().unwrap()
+  let obj = if entity.to_json() is Object(obj) { obj } else { {} }
   // try primary key first
   match tbl.primary_key() {
     Some(pk) =>
