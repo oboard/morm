@@ -83,6 +83,32 @@ pub impl StudentMapper for StudentMapper_ with count_students_by_age(
 }
 
 ///|
+pub impl StudentMapper for StudentMapper_ with find_all(self) -> FixedArray[
+  Student,
+] {
+  let (sql, params) = @morm.select_from(Student::table().name).to(
+    self.engine.dialect(),
+  )
+  self.engine.exec(sql, params).rows.map(row => {
+    @json.from_json(row) catch {
+      _ => panic()
+    }
+  })
+}
+
+///|
+pub impl StudentMapper for StudentMapper_ with all(self) -> FixedArray[Student] {
+  let (sql, params) = @morm.select_from(Student::table().name).to(
+    self.engine.dialect(),
+  )
+  self.engine.exec(sql, params).rows.map(row => {
+    @json.from_json(row) catch {
+      _ => panic()
+    }
+  })
+}
+
+///|
 pub fn StudentMapper_::save(
   self : StudentMapper_,
   entity : Student,

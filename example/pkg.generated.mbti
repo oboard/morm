@@ -62,5 +62,7 @@ pub trait StudentMapper {
   find_students_by_age(Self, Int) -> FixedArray[Student]
   find_students_by_age_and_name(Self, Int, String) -> FixedArray[Student]
   count_students_by_age(Self, Int) -> Int?
+  find_all(Self) -> FixedArray[Student]
+  all(Self) -> FixedArray[Student]
 }
 

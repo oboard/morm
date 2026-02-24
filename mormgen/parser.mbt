@@ -209,7 +209,11 @@ fn derive_builder_code(method_name : String, entity_name : String) -> String? {
   let mut is_count = false
 
   // 识别动作和去除前缀
-  if method_name.has_prefix("find_") {
+  if method_name == "find_all" || method_name == "all" {
+    return Some(
+      "@morm.select_from(\{entity_name}::table().name).to(self.engine.dialect())",
+    )
+  } else if method_name.has_prefix("find_") {
     action = "find"
     let prefix1 = "find_\{lower_entity}_by_"
     let prefix2 = "find_by_"

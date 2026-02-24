@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/morm/main"
+package "oboard/morm/mormgen"
 
 // Values
 
