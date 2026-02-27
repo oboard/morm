@@ -3,10 +3,8 @@ import {
   "moonbitlang/async/socket",
   "moonbitlang/core/buffer",
   "moonbitlang/core/encoding/utf8" @utf8,
-  "moonbitlang/core/json" @json,
+  "moonbitlang/core/json",
   "moonbitlang/core/strconv",
   "moonbitlang/x/crypto" @crypto,
-  "oboard/morm",
-  "oboard/morm/dialect",
   "oboard/morm/engine",
 }
