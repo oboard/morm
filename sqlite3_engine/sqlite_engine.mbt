@@ -405,6 +405,7 @@ impl @engine.Engine for SQLiteEngine with exec_raw(
       match val {
         @engine.Double(v) => stmt.bind(index~, val=v)
         @engine.Float(v) => stmt.bind(index~, val=v.to_double())
+        @engine.Byte(v) => stmt.bind(index~, val=v.to_int())
         @engine.Int(v) => stmt.bind(index~, val=v)
         @engine.Int16(v) => stmt.bind(index~, val=v.to_int())
         @engine.UInt16(v) => stmt.bind(index~, val=v.to_int())

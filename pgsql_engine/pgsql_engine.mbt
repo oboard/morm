@@ -95,6 +95,7 @@ fn param_sql(p : @engine.Param) -> String {
   match p {
     @engine.Null => "NULL"
     @engine.Bool(v) => if v { "TRUE" } else { "FALSE" }
+    @engine.Byte(v) => v.to_int().to_string()
     @engine.Int(v) => v.to_string()
     @engine.Int16(v) => v.to_string()
     @engine.UInt16(v) => v.to_string()

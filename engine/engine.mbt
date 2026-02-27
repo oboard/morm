@@ -2,6 +2,7 @@
 pub(all) enum Param {
   Null
   Bool(Bool)
+  Byte(Byte)
   Int(Int)
   Int16(Int16)
   UInt16(UInt16)
@@ -20,6 +21,7 @@ pub impl ToJson for Param with to_json(self) -> Json {
   match self {
     Null => Json::null()
     Bool(v) => Json::boolean(v)
+    Byte(v) => Json::number(v.to_int().to_double())
     Int(v) => v.to_json()
     Int16(v) => v.to_json()
     UInt16(v) => v.to_json()
@@ -77,6 +79,11 @@ pub impl ToParam for Unit with to_param(_self) -> Param {
 ///|
 pub impl ToParam for Bool with to_param(self) -> Param {
   Bool(self)
+}
+
+///|
+pub impl ToParam for Byte with to_param(self) -> Param {
+  Byte(self)
 }
 
 ///|
