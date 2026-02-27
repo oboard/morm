@@ -235,7 +235,9 @@ fn[O : ToJson] collect_owner_key_params(
 ///|
 pub(all) enum AssociationKind {
   BelongsTo
+  HasOne
   HasMany
+  ManyToMany
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
@@ -245,6 +247,9 @@ pub(all) struct Association {
   owner_key : String
   target_table : String
   target_key : String
+  join_table : String?
+  join_owner_key : String?
+  join_target_key : String?
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
@@ -254,7 +259,35 @@ pub fn belongs_to(
   target_table : String,
   target_key : String,
 ) -> Association {
-  { name, kind: BelongsTo, owner_key, target_table, target_key }
+  {
+    name,
+    kind: BelongsTo,
+    owner_key,
+    target_table,
+    target_key,
+    join_table: None,
+    join_owner_key: None,
+    join_target_key: None,
+  }
+}
+
+///|
+pub fn has_one(
+  name : String,
+  owner_key : String,
+  target_table : String,
+  target_key : String,
+) -> Association {
+  {
+    name,
+    kind: HasOne,
+    owner_key,
+    target_table,
+    target_key,
+    join_table: None,
+    join_owner_key: None,
+    join_target_key: None,
+  }
 }
 
 ///|
@@ -264,7 +297,38 @@ pub fn has_many(
   target_table : String,
   target_key : String,
 ) -> Association {
-  { name, kind: HasMany, owner_key, target_table, target_key }
+  {
+    name,
+    kind: HasMany,
+    owner_key,
+    target_table,
+    target_key,
+    join_table: None,
+    join_owner_key: None,
+    join_target_key: None,
+  }
+}
+
+///|
+pub fn many_to_many(
+  name : String,
+  owner_key : String,
+  target_table : String,
+  target_key : String,
+  join_table : String,
+  join_owner_key : String,
+  join_target_key : String,
+) -> Association {
+  {
+    name,
+    kind: ManyToMany,
+    owner_key,
+    target_table,
+    target_key,
+    join_table: Some(join_table),
+    join_owner_key: Some(join_owner_key),
+    join_target_key: Some(join_target_key),
+  }
 }
 
 ///|
@@ -295,6 +359,17 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs
     }
   }
   out
+}
+
+///|
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_one(
+  engine : E,
+  owners : FixedArray[O],
+  owner_key : String,
+  target_table : String,
+  target_key : String,
+) -> Map[String, T] {
+  preload_belongs_to(engine, owners, owner_key, target_table, target_key)
 }
 
 ///|
@@ -333,6 +408,83 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_man
 }
 
 ///|
+fn build_many_to_many_sql(
+  target_table : String,
+  target_key : String,
+  join_table : String,
+  join_owner_key : String,
+  join_target_key : String,
+  count : Int,
+) -> String {
+  let marks : Array[String] = []
+  let mut i = 0
+  while i < count {
+    marks.push("?")
+    i = i + 1
+  }
+  "SELECT t.*, j." +
+  join_owner_key +
+  " AS __morm_owner_key FROM " +
+  target_table +
+  " t INNER JOIN " +
+  join_table +
+  " j ON j." +
+  join_target_key +
+  " = t." +
+  target_key +
+  " WHERE j." +
+  join_owner_key +
+  " IN (" +
+  marks.join(", ") +
+  ")"
+}
+
+///|
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to_many(
+  engine : E,
+  owners : FixedArray[O],
+  owner_key : String,
+  target_table : String,
+  target_key : String,
+  join_table : String,
+  join_owner_key : String,
+  join_target_key : String,
+) -> Map[String, Array[T]] {
+  let key_params = collect_owner_key_params(owners, owner_key)
+  let out : Map[String, Array[T]] = Map::new()
+  if key_params.is_empty() {
+    return out
+  }
+  let sql = build_many_to_many_sql(
+    target_table,
+    target_key,
+    join_table,
+    join_owner_key,
+    join_target_key,
+    key_params.length(),
+  )
+  let res = engine.exec_raw(sql, key_params)
+  if !res.ok {
+    return out
+  }
+  for row in res.rows {
+    if row is Object(obj) {
+      if obj.get("__morm_owner_key") is Some(owner_key_value) {
+        let owner_key = owner_key_value.stringify()
+        let entity : T = @json.from_json(row) catch { _ => continue }
+        if out.get(owner_key) is Some(items) {
+          items.push(entity)
+          out.set(owner_key, items)
+        } else {
+          out.set(owner_key, [entity])
+        }
+      }
+    }
+  }
+  out
+}
+
+///|
 pub(all) enum PreloadResult[T] {
   One(Map[String, T])
   Many(Map[String, Array[T]])
@@ -355,6 +507,16 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(
           association.target_key,
         ),
       )
+    HasOne =>
+      One(
+        preload_has_one(
+          engine,
+          owners,
+          association.owner_key,
+          association.target_table,
+          association.target_key,
+        ),
+      )
     HasMany =>
       Many(
         preload_has_many(
@@ -363,6 +525,19 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(
           association.owner_key,
           association.target_table,
           association.target_key,
+        ),
+      )
+    ManyToMany =>
+      Many(
+        preload_many_to_many(
+          engine,
+          owners,
+          association.owner_key,
+          association.target_table,
+          association.target_key,
+          association.join_table.unwrap_or(""),
+          association.join_owner_key.unwrap_or(""),
+          association.join_target_key.unwrap_or(""),
         ),
       )
   }
@@ -899,5 +1074,263 @@ pub fn[E : Entity] DeleteQuery::from(
       }
     }
     None => self
+  }
+}
+
+///|
+/// Soft delete default scope (boolean convention): deleted = false
+pub fn select_from_scoped(table : String, deleted_col? : String) -> Query {
+  let col = deleted_col.unwrap_or("deleted")
+  select_from(table).where_eq(col, false)
+}
+
+///|
+pub fn[V : @engine.ToParam] soft_delete_by_id(
+  table : String,
+  id_col : String,
+  id : V,
+  deleted_col? : String,
+) -> UpdateQuery {
+  let col = deleted_col.unwrap_or("deleted")
+  update(table).set(col, true).where_eq(id_col, id)
+}
+
+///|
+pub fn[V : @engine.ToParam] restore_by_id(
+  table : String,
+  id_col : String,
+  id : V,
+  deleted_col? : String,
+) -> UpdateQuery {
+  let col = deleted_col.unwrap_or("deleted")
+  update(table).set(col, false).where_eq(id_col, id)
+}
+
+///|
+/// Hook callbacks helpers.
+pub fn[T] before_create(entity : T, callback : (T) -> T) -> T {
+  callback(entity)
+}
+
+///|
+pub fn[T] after_create(entity : T, callback : (T) -> T) -> T {
+  callback(entity)
+}
+
+///|
+pub fn[T] before_update(entity : T, callback : (T) -> T) -> T {
+  callback(entity)
+}
+
+///|
+pub fn[T] after_update(entity : T, callback : (T) -> T) -> T {
+  callback(entity)
+}
+
+///|
+pub fn[T] before_delete(entity : T, callback : (T) -> T) -> T {
+  callback(entity)
+}
+
+///|
+pub fn[T] after_delete(entity : T, callback : (T) -> T) -> T {
+  callback(entity)
+}
+
+///|
+pub fn[T] after_find(entity : T, callback : (T) -> T) -> T {
+  callback(entity)
+}
+
+///|
+pub(all) struct ColumnDiff {
+  added : FixedArray[Column]
+  removed : FixedArray[Column]
+  changed : FixedArray[(String, Column, Column)]
+} derive(Show, ToJson, FromJson, Eq)
+
+///|
+pub(all) struct IndexDiff {
+  added : FixedArray[Index]
+  removed : FixedArray[Index]
+  changed : FixedArray[(String, Index, Index)]
+} derive(Show, ToJson, FromJson, Eq)
+
+///|
+pub(all) struct ForeignKeyDiff {
+  added : FixedArray[ForeignKey]
+  removed : FixedArray[ForeignKey]
+  changed : FixedArray[(String, ForeignKey, ForeignKey)]
+} derive(Show, ToJson, FromJson, Eq)
+
+///|
+pub(all) struct TableDiff {
+  columns : ColumnDiff
+  indexes : IndexDiff
+  foreign_keys : ForeignKeyDiff
+} derive(Show, ToJson, FromJson, Eq)
+
+///|
+fn diff_columns(old_table : Table, new_table : Table) -> ColumnDiff {
+  let old_map : Map[String, Column] = Map::new()
+  let new_map : Map[String, Column] = Map::new()
+  for c in old_table.columns {
+    old_map.set(c.name, c)
+  }
+  for c in new_table.columns {
+    new_map.set(c.name, c)
+  }
+  let added : Array[Column] = []
+  let removed : Array[Column] = []
+  let changed : Array[(String, Column, Column)] = []
+  for c in new_table.columns {
+    if old_map.get(c.name) is Some(old_col) {
+      if old_col != c {
+        changed.push((c.name, old_col, c))
+      }
+    } else {
+      added.push(c)
+    }
+  }
+  for c in old_table.columns {
+    if new_map.get(c.name) is None {
+      removed.push(c)
+    }
+  }
+  {
+    added: FixedArray::from_array(added),
+    removed: FixedArray::from_array(removed),
+    changed: FixedArray::from_array(changed),
+  }
+}
+
+///|
+fn diff_indexes(old_table : Table, new_table : Table) -> IndexDiff {
+  let old_map : Map[String, Index] = Map::new()
+  let new_map : Map[String, Index] = Map::new()
+  for i in old_table.indexes {
+    old_map.set(i.name, i)
+  }
+  for i in new_table.indexes {
+    new_map.set(i.name, i)
+  }
+  let added : Array[Index] = []
+  let removed : Array[Index] = []
+  let changed : Array[(String, Index, Index)] = []
+  for i in new_table.indexes {
+    if old_map.get(i.name) is Some(old_idx) {
+      if old_idx != i {
+        changed.push((i.name, old_idx, i))
+      }
+    } else {
+      added.push(i)
+    }
+  }
+  for i in old_table.indexes {
+    if new_map.get(i.name) is None {
+      removed.push(i)
+    }
+  }
+  {
+    added: FixedArray::from_array(added),
+    removed: FixedArray::from_array(removed),
+    changed: FixedArray::from_array(changed),
+  }
+}
+
+///|
+fn diff_foreign_keys(old_table : Table, new_table : Table) -> ForeignKeyDiff {
+  let old_map : Map[String, ForeignKey] = Map::new()
+  let new_map : Map[String, ForeignKey] = Map::new()
+  for fk in old_table.foreign_keys {
+    old_map.set(fk.name, fk)
+  }
+  for fk in new_table.foreign_keys {
+    new_map.set(fk.name, fk)
+  }
+  let added : Array[ForeignKey] = []
+  let removed : Array[ForeignKey] = []
+  let changed : Array[(String, ForeignKey, ForeignKey)] = []
+  for fk in new_table.foreign_keys {
+    if old_map.get(fk.name) is Some(old_fk) {
+      if old_fk != fk {
+        changed.push((fk.name, old_fk, fk))
+      }
+    } else {
+      added.push(fk)
+    }
+  }
+  for fk in old_table.foreign_keys {
+    if new_map.get(fk.name) is None {
+      removed.push(fk)
+    }
+  }
+  {
+    added: FixedArray::from_array(added),
+    removed: FixedArray::from_array(removed),
+    changed: FixedArray::from_array(changed),
+  }
+}
+
+///|
+pub fn diff_table(old_table : Table, new_table : Table) -> TableDiff {
+  {
+    columns: diff_columns(old_table, new_table),
+    indexes: diff_indexes(old_table, new_table),
+    foreign_keys: diff_foreign_keys(old_table, new_table),
+  }
+}
+
+///|
+fn default_driver_registry() -> Map[String, String] {
+  let m : Map[String, String] = Map::new()
+  m.set("mysql", "mysql")
+  m.set("mariadb", "mysql")
+  m.set("tidb", "mysql")
+  m.set("postgres", "pgsql")
+  m.set("postgresql", "pgsql")
+  m.set("cockroachdb", "pgsql")
+  m.set("gaussdb", "pgsql")
+  m.set("sqlserver", "sqlserver")
+  m.set("mssql", "sqlserver")
+  m.set("oracle", "oracle")
+  m.set("sqlite", "sqlite3")
+  m
+}
+
+///|
+let driver_registry : Map[String, String] = default_driver_registry()
+
+///|
+fn dsn_scheme(dsn : String) -> String? {
+  let core = if dsn.strip_prefix("jdbc:") is Some(rest) {
+    rest.to_string()
+  } else {
+    dsn
+  }
+  if core.find("://") is Some(i) {
+    let scheme = core[:i].to_string() catch { _ => "" }
+    Some(scheme.to_lower())
+  } else {
+    None
+  }
+}
+
+///|
+pub fn register_driver_scheme(scheme : String, driver_name : String) -> Unit {
+  driver_registry.set(scheme.to_lower(), driver_name)
+}
+
+///|
+pub fn unregister_driver_scheme(scheme : String) -> Unit {
+  ignore(driver_registry.remove(scheme.to_lower()))
+}
+
+///|
+pub fn resolve_driver_name(dsn : String) -> String? {
+  if dsn_scheme(dsn) is Some(scheme) {
+    driver_registry.get(scheme)
+  } else {
+    None
   }
 }

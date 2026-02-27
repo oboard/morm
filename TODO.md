@@ -28,8 +28,11 @@
 - [x] Added compatibility tests for DSN schemes.
 
 ## Next Batch
-- [ ] Add association APIs (`has one`, `has many`, `belongs to`, `many2many`) and preload.
-- [ ] Add hook callbacks (`before/after create/update/delete/find`).
-- [ ] Add soft delete convention and default scoped query behavior.
-- [ ] Add richer migration diff support (alter column/index/constraint diff).
-- [ ] Add pluggable dialect/driver registry for more JDBC-style database coverage.
+- [x] Add association APIs (`has one`, `has many`, `belongs to`, `many2many`) and preload.
+- [x] Add hook callbacks (`before/after create/update/delete/find`).
+- [x] Add soft delete convention and default scoped query behavior.
+- [x] Add richer migration diff support (alter column/index/constraint diff).
+- [x] Add pluggable dialect/driver registry for more JDBC-style database coverage.
+
+## Notes
+- Current round implements the above as MVP APIs with test coverage.

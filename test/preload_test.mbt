@@ -150,3 +150,48 @@ async test "preload has_many map" {
     fail("missing key 1")
   }
 }
+
+///|
+async test "preload has_one map" {
+  let owners : FixedArray[OwnerBelongsTo] = [
+    OwnerBelongsTo::{ id: 1, teacher_id: 10 },
+    OwnerBelongsTo::{ id: 2, teacher_id: 11 },
+  ]
+  let engine = MockEngine::{
+    expected_sql: "SELECT * FROM teachers WHERE id IN (?, ?)",
+    expected_params: [@engine.Double(10), @engine.Double(11)],
+    rows: [{ "id": 10, "name": "Alice" }, { "id": 11, "name": "Bob" }],
+  }
+  let by_key : Map[String, Teacher] = @morm.preload_has_one(
+    engine, owners, "teacher_id", "teachers", "id",
+  )
+  inspect(by_key.get("10") is Some(_), content="true")
+  inspect(by_key.get("11") is Some(_), content="true")
+}
+
+///|
+async test "preload many_to_many map" {
+  let owners : FixedArray[OwnerHasMany] = [
+    OwnerHasMany::{ id: 1 },
+    OwnerHasMany::{ id: 2 },
+  ]
+  let engine = MockEngine::{
+    expected_sql: "SELECT t.*, j.teacher_id AS __morm_owner_key FROM students t INNER JOIN teacher_students j ON j.student_id = t.id WHERE j.teacher_id IN (?, ?)",
+    expected_params: [@engine.Double(1), @engine.Double(2)],
+    rows: [
+      { "id": 100, "teacher_id": 1, "name": "S1", "__morm_owner_key": 1 },
+      { "id": 101, "teacher_id": 1, "name": "S2", "__morm_owner_key": 1 },
+      { "id": 102, "teacher_id": 2, "name": "S3", "__morm_owner_key": 2 },
+    ],
+  }
+  let by_key : Map[String, Array[Student]] = @morm.preload_many_to_many(
+    engine, owners, "id", "students", "id", "teacher_students", "teacher_id", "student_id",
+  )
+  inspect(by_key.get("1") is Some(_), content="true")
+  inspect(by_key.get("2") is Some(_), content="true")
+  if by_key.get("1") is Some(students) {
+    inspect(students.length(), content="2")
+  } else {
+    fail("missing key 1")
+  }
+}
