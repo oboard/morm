@@ -5,7 +5,6 @@ pub struct OracleEngine {
   user : String
   password : String
   service : String
-  container : String
 }
 
 ///|
@@ -31,21 +30,6 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 }
 
 ///|
-fn query_param(input : String, key : String) -> String? {
-  let parts = input.split("&").collect()
-  for p in parts {
-    let pair = p.to_string()
-    if pair.find("=") is Some(i) {
-      let k = pair[:i].to_string() catch { _ => "" }
-      if k == key {
-        return Some(pair[i + 1:].to_string() catch { _ => "" })
-      }
-    }
-  }
-  None
-}
-
-///|
 fn parse_oracle_dsn(dsn : String) -> OracleEngine? {
   let raw = if dsn.strip_prefix("oracle://") is Some(rest) {
     rest.to_string()
@@ -53,14 +37,6 @@ fn parse_oracle_dsn(dsn : String) -> OracleEngine? {
     return None
   }
   let main = first_part(raw, "?")
-  let query = if raw.find("?") is Some(i) {
-    raw[i + 1:].to_string() catch {
-      _ => ""
-    }
-  } else {
-    ""
-  }
-
   let mut auth_host = main
   let mut service = "XEPDB1"
   if main.find("/") is Some(i) {
@@ -83,11 +59,7 @@ fn parse_oracle_dsn(dsn : String) -> OracleEngine? {
   }
 
   let (host, port) = parse_host_port(host_port, 1521)
-  let container = match query_param(query, "container") {
-    Some(v) => v
-    None => host
-  }
-  Some({ host, port, user, password, service, container })
+  Some({ host, port, user, password, service })
 }
 
 ///|
@@ -140,91 +112,43 @@ fn fail(message : String) -> @engine.QueryResult {
 }
 
 ///|
-fn shell_escape_single(text : String) -> String {
-  text.replace(old="'", new="'\"'\"'")
+fn oracle_connect_descriptor(cfg : OracleEngine) -> String {
+  "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=" +
+  cfg.host +
+  ")(PORT=" +
+  cfg.port.to_string() +
+  "))(CONNECT_DATA=(SERVICE_NAME=" +
+  cfg.service +
+  ")))"
 }
 
 ///|
-fn normalize_oracle_batch(sql : String) -> String {
-  let stmts : Array[String] = []
-  for part in sql.split(";").collect() {
-    let stmt = part.to_string().trim().to_string()
-    if stmt != "" {
-      stmts.push(stmt)
-    }
+async fn oracle_tns_handshake(cfg : OracleEngine) -> Bool {
+  let conn = @socket.Tcp::connect_to_host(cfg.host, port=cfg.port) catch {
+    _ => return false
   }
-  stmts.join(";\n")
-}
-
-///|
-fn parse_oracle_output(stdout : String) -> FixedArray[Json] {
-  let rows : Array[Json] = []
-  let lines = stdout.split("\n").collect()
-  for line in lines {
-    let text = line.to_string().trim()
-    if text == "" || text.has_prefix("SQL>") {
-      continue
-    }
-    if text.has_prefix("ORA-") {
-      continue
-    }
-    let cols = text.split("|").collect()
-    let obj : Map[String, Json] = {}
-    let mut i = 0
-    for c in cols {
-      let value = c.to_string().trim().to_string()
-      obj["c" + i.to_string()] = Json::string(value)
-      i = i + 1
-    }
-    rows.push(obj.to_json())
+  let connect_packet = build_tns_connect_packet(
+    oracle_connect_descriptor(cfg),
+    0x2000,
+    0x2000,
+    317,
+    300,
+  )
+  conn.write(connect_packet) catch {
+    _ => return false
   }
-  FixedArray::from_array(rows)
-}
-
-///|
-async fn run_sqlplus(cfg : OracleEngine, sql : String) -> @engine.QueryResult {
-  let conn = shell_escape_single(cfg.user) +
-    "/" +
-    shell_escape_single(cfg.password) +
-    "@//localhost:" +
-    cfg.port.to_string() +
-    "/" +
-    shell_escape_single(cfg.service)
-  let batch = normalize_oracle_batch(sql)
-  let command = "cat <<'SQL' | sqlplus -s '" +
-    conn +
-    "'\n" +
-    "set heading off feedback off pagesize 0 verify off echo off trimspool on linesize 32767 colsep |\n" +
-    batch +
-    ";\n" +
-    "exit\n" +
-    "SQL"
-
-  let (code, out, err) = @process.collect_output("docker", [
-    "exec",
-    cfg.container,
-    "bash",
-    "-lc",
-    command,
-  ])
-  if code != 0 {
-    return fail("oracle exec failed: " + err.text())
+  let hdr = conn.read_exactly(8) catch { _ => return false }
+  if hdr.length() < 8 {
+    return false
   }
-  let stderr = err.text().trim().to_string()
-  if stderr != "" {
-    return fail("oracle error: " + stderr)
-  }
-  let text = out.text()
-  if text.contains("ORA-") {
-    return fail("oracle error: " + text)
-  }
-  let rows = parse_oracle_output(text)
-  { ok: true, rows_affected: rows.length(), rows, error: None }
+  // TNS packet type is byte #4 (0-based).
+  let packet_type = hdr[4].to_int()
+  packet_type is (2 | 4 | 5)
 }
 
 ///|
 pub async fn OracleEngine::ping(self : OracleEngine) -> Bool {
-  run_sqlplus(self, "SELECT 1 FROM dual").ok
+  oracle_tns_handshake(self)
 }
 
 ///|
@@ -496,8 +420,13 @@ pub impl @engine.Engine for OracleEngine with exec_raw(
   sql : String,
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
-  let query = inline_sql(sql, params)
-  run_sqlplus(self, query)
+  let _query = inline_sql(sql, params)
+  if !oracle_tns_handshake(self) {
+    return fail("oracle connect failed")
+  }
+  fail(
+    "oracle native SQL execution is in progress; docker/sqlplus path removed",
+  )
 }
 
 ///|
