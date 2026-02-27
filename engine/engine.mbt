@@ -3,7 +3,13 @@ pub(all) enum Param {
   Null
   Bool(Bool)
   Int(Int)
+  Int16(Int16)
+  UInt16(UInt16)
+  UInt(UInt)
+  UInt64(UInt64)
   Int64(Int64)
+  BigInt(BigInt)
+  Float(Float)
   Double(Double)
   String(String)
   Bytes(Bytes)
@@ -15,7 +21,13 @@ pub impl ToJson for Param with to_json(self) -> Json {
     Null => Json::null()
     Bool(v) => Json::boolean(v)
     Int(v) => v.to_json()
+    Int16(v) => v.to_json()
+    UInt16(v) => v.to_json()
+    UInt(v) => v.to_json()
+    UInt64(v) => v.to_json()
     Int64(v) => v.to_json()
+    BigInt(v) => v.to_json()
+    Float(v) => v.to_json()
     Double(v) => v.to_json()
     String(v) => v.to_json()
     Bytes(v) => v.to_json()
@@ -73,8 +85,33 @@ pub impl ToParam for Int with to_param(self) -> Param {
 }
 
 ///|
+pub impl ToParam for Int16 with to_param(self) -> Param {
+  Int16(self)
+}
+
+///|
+pub impl ToParam for UInt16 with to_param(self) -> Param {
+  UInt16(self)
+}
+
+///|
+pub impl ToParam for UInt with to_param(self) -> Param {
+  UInt(self)
+}
+
+///|
+pub impl ToParam for UInt64 with to_param(self) -> Param {
+  UInt64(self)
+}
+
+///|
 pub impl ToParam for Int64 with to_param(self) -> Param {
   Int64(self)
+}
+
+///|
+pub impl ToParam for BigInt with to_param(self) -> Param {
+  BigInt(self)
 }
 
 ///|
@@ -84,7 +121,7 @@ pub impl ToParam for Double with to_param(self) -> Param {
 
 ///|
 pub impl ToParam for Float with to_param(self) -> Param {
-  Double(self.to_double())
+  Float(self)
 }
 
 ///|

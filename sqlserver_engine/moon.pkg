@@ -1,5 +1,7 @@
 import {
-  "moonbitlang/async/process",
+  "moonbitlang/async/io",
+  "moonbitlang/async/socket",
+  "moonbitlang/async/tls",
   "moonbitlang/core/buffer",
   "moonbitlang/core/json" @json,
   "moonbitlang/core/strconv",

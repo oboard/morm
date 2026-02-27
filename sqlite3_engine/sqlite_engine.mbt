@@ -404,8 +404,14 @@ impl @engine.Engine for SQLiteEngine with exec_raw(
     params.eachi((index, val) => {
       match val {
         @engine.Double(v) => stmt.bind(index~, val=v)
+        @engine.Float(v) => stmt.bind(index~, val=v.to_double())
         @engine.Int(v) => stmt.bind(index~, val=v)
+        @engine.Int16(v) => stmt.bind(index~, val=v.to_int())
+        @engine.UInt16(v) => stmt.bind(index~, val=v.to_int())
+        @engine.UInt(v) => stmt.bind(index~, val=v.to_string())
+        @engine.UInt64(v) => stmt.bind(index~, val=v.to_string())
         @engine.Int64(v) => stmt.bind(index~, val=v)
+        @engine.BigInt(v) => stmt.bind(index~, val=v.to_string())
         @engine.String(v) => stmt.bind(index~, val=v)
         @engine.Bytes(v) => stmt.bind(index~, val=v)
         @engine.Bool(v) => stmt.bind(index~, val=if v { 1 } else { 0 })

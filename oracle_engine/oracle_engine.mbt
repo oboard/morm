@@ -105,7 +105,13 @@ fn param_sql(p : @engine.Param) -> String {
     @engine.Null => "NULL"
     @engine.Bool(v) => if v { "1" } else { "0" }
     @engine.Int(v) => v.to_string()
+    @engine.Int16(v) => v.to_string()
+    @engine.UInt16(v) => v.to_string()
+    @engine.UInt(v) => v.to_string()
+    @engine.UInt64(v) => v.to_string()
     @engine.Int64(v) => v.to_string()
+    @engine.BigInt(v) => v.to_string()
+    @engine.Float(v) => v.to_string()
     @engine.Double(v) => v.to_string()
     @engine.String(v) => "'" + v.replace(old="'", new="''") + "'"
     @engine.Bytes(_) => "NULL"

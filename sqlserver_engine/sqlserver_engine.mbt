@@ -5,7 +5,6 @@ pub struct SQLServerEngine {
   user : String
   password : String
   database : String
-  container : String
 }
 
 ///|
@@ -31,21 +30,6 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 }
 
 ///|
-fn query_param(input : String, key : String) -> String? {
-  let parts = input.split("&").collect()
-  for p in parts {
-    let pair = p.to_string()
-    if pair.find("=") is Some(i) {
-      let k = pair[:i].to_string() catch { _ => "" }
-      if k == key {
-        return Some(pair[i + 1:].to_string() catch { _ => "" })
-      }
-    }
-  }
-  None
-}
-
-///|
 fn parse_sqlserver_dsn(dsn : String) -> SQLServerEngine? {
   let raw = if dsn.strip_prefix("sqlserver://") is Some(rest) {
     rest.to_string()
@@ -53,14 +37,6 @@ fn parse_sqlserver_dsn(dsn : String) -> SQLServerEngine? {
     return None
   }
   let main = first_part(raw, "?")
-  let query = if raw.find("?") is Some(i) {
-    raw[i + 1:].to_string() catch {
-      _ => ""
-    }
-  } else {
-    ""
-  }
-
   let mut auth_host = main
   let mut database = "master"
   if main.find("/") is Some(i) {
@@ -83,11 +59,7 @@ fn parse_sqlserver_dsn(dsn : String) -> SQLServerEngine? {
   }
 
   let (host, port) = parse_host_port(host_port, 1433)
-  let container = match query_param(query, "container") {
-    Some(v) => v
-    None => host
-  }
-  Some({ host, port, user, password, database, container })
+  Some({ host, port, user, password, database })
 }
 
 ///|
@@ -100,12 +72,23 @@ pub fn SQLServerEngine::open(dsn : String) -> Result[SQLServerEngine, String] {
 }
 
 ///|
+fn fail(message : String) -> @engine.QueryResult {
+  { ok: false, rows_affected: 0, rows: [], error: Some(message) }
+}
+
+///|
 fn param_sql(p : @engine.Param) -> String {
   match p {
     @engine.Null => "NULL"
     @engine.Bool(v) => if v { "1" } else { "0" }
     @engine.Int(v) => v.to_string()
+    @engine.Int16(v) => v.to_string()
+    @engine.UInt16(v) => v.to_string()
+    @engine.UInt(v) => v.to_string()
+    @engine.UInt64(v) => v.to_string()
     @engine.Int64(v) => v.to_string()
+    @engine.BigInt(v) => v.to_string()
+    @engine.Float(v) => v.to_string()
     @engine.Double(v) => v.to_string()
     @engine.String(v) => "'" + v.replace(old="'", new="''") + "'"
     @engine.Bytes(_) => "NULL"
@@ -128,78 +111,556 @@ fn inline_sql(sql : String, params : FixedArray[@engine.Param]) -> String {
 }
 
 ///|
-fn fail(message : String) -> @engine.QueryResult {
-  { ok: false, rows_affected: 0, rows: [], error: Some(message) }
+fn split_go_batches(sql : String) -> Array[String] {
+  let batches : Array[String] = []
+  let mut curr = ""
+  for line in sql.split("\n").collect() {
+    let s = line.to_string()
+    if s.trim() is ("GO" | "go" | "Go" | "gO") {
+      if curr.trim() != "" {
+        batches.push(curr)
+      }
+      curr = ""
+    } else if curr == "" {
+      curr = s
+    } else {
+      curr = curr + "\n" + s
+    }
+  }
+  if curr.trim() != "" {
+    batches.push(curr)
+  }
+  if batches.length() == 0 {
+    batches.push(sql)
+  }
+  batches
 }
 
 ///|
-fn shell_escape_single(text : String) -> String {
-  text.replace(old="'", new="'\"'\"'")
+fn utf16le_bytes(text : String) -> Bytes {
+  let b = @buffer.new()
+  for c in text {
+    let x = c.to_int()
+    b.write_byte((x & 0xff).to_byte())
+    b.write_byte(((x >> 8) & 0xff).to_byte())
+  }
+  b.to_bytes()
 }
 
 ///|
-fn parse_table_output(stdout : String) -> FixedArray[Json] {
-  let rows : Array[Json] = []
-  let lines = stdout.split("\n").collect()
-  for line in lines {
-    let text = line.to_string().trim()
-    if text == "" {
-      continue
-    }
-    if text.contains("rows affected") ||
-      text.contains("Changed database context") ||
-      text.has_prefix("-") {
-      continue
-    }
-    let cols = text.split("|").collect()
-    let obj : Map[String, Json] = {}
-    let mut i = 0
-    for c in cols {
-      let value = c.to_string().trim().to_string()
-      obj["c" + i.to_string()] = Json::string(value)
-      i = i + 1
-    }
-    rows.push(obj.to_json())
+fn mangle_password(password : String) -> Bytes {
+  let b = @buffer.new()
+  for x in utf16le_bytes(password) {
+    let v = x.to_int()
+    let y = (((v << 4) & 0xff) | ((v >> 4) & 0xff)) ^ 0xA5
+    b.write_byte(y.to_byte())
   }
-  FixedArray::from_array(rows)
+  b.to_bytes()
 }
 
 ///|
-async fn run_sqlcmd(cfg : SQLServerEngine, sql : String) -> @engine.QueryResult {
-  let script = "cat <<'SQL' | /opt/mssql-tools18/bin/sqlcmd -C -b -S localhost," +
-    cfg.port.to_string() +
-    " -U '" +
-    shell_escape_single(cfg.user) +
-    "' -P '" +
-    shell_escape_single(cfg.password) +
-    "' -d '" +
-    shell_escape_single(cfg.database) +
-    "' -h -1 -W -s '|'\n" +
-    "SET NOCOUNT ON;\n" +
-    sql +
-    "\nSQL"
+fn read_u16_le_at(buf : Bytes, i : Int) -> Int {
+  match buf[i:i + 2] {
+    [u16le(v)] => v.reinterpret_as_int()
+    _ => 0
+  }
+}
 
-  let (code, out, err) = @process.collect_output("docker", [
-    "exec",
-    cfg.container,
-    "bash",
-    "-lc",
-    script,
-  ])
-  if code != 0 {
-    return fail("sqlserver exec failed: " + err.text())
+///|
+fn read_u32_le_at(buf : Bytes, i : Int) -> Int {
+  match buf[i:i + 4] {
+    [u32le(v)] => v.reinterpret_as_int()
+    _ => 0
   }
-  let stderr = err.text().trim().to_string()
-  if stderr != "" {
-    return fail("sqlserver error: " + stderr)
+}
+
+///|
+fn read_u16_be_at(buf : Bytes, i : Int) -> Int {
+  match buf[i:i + 2] {
+    [u16be(v)] => v.reinterpret_as_int()
+    _ => 0
   }
-  let rows = parse_table_output(out.text())
-  { ok: true, rows_affected: rows.length(), rows, error: None }
+}
+
+///|
+async fn[IO : @io.Writer] write_tds_message(
+  conn : IO,
+  packet_type : Int,
+  payload : Bytes,
+  packet_size : Int,
+) -> Bool {
+  let mut seq = 1
+  let mut pos = 0
+  while pos < payload.length() {
+    let remain = payload.length() - pos
+    let max_payload = packet_size - 8
+    let chunk_len = if remain > max_payload { max_payload } else { remain }
+    let is_last = pos + chunk_len >= payload.length()
+
+    let hdr = @buffer.new()
+    hdr.write_byte(packet_type.to_byte())
+    hdr.write_byte((if is_last { 1 } else { 0 }).to_byte())
+    hdr.write_uint16_be((chunk_len + 8).reinterpret_as_uint().to_uint16())
+    hdr.write_uint16_be(0)
+    hdr.write_byte((seq & 0xff).to_byte())
+    hdr.write_byte(0)
+
+    conn.write(hdr.to_bytes()) catch {
+      _ => return false
+    }
+    conn.write(payload[pos:pos + chunk_len].to_bytes()) catch {
+      _ => return false
+    }
+
+    pos = pos + chunk_len
+    seq = seq + 1
+  }
+  true
+}
+
+///|
+async fn[IO : @io.Reader] read_tds_message(conn : IO) -> (Int, Bytes)? {
+  let out = @buffer.new()
+  let mut packet_type = -1
+  let mut done = false
+  while !done {
+    let hdr = conn.read_exactly(8) catch { _ => return None }
+    if hdr.length() != 8 {
+      return None
+    }
+    packet_type = hdr[0].to_int()
+    let status = hdr[1].to_int()
+    let size = read_u16_be_at(hdr, 2)
+    if size < 8 {
+      return None
+    }
+    let body = conn.read_exactly(size - 8) catch { _ => return None }
+    out.write_bytes(body)
+    if (status & 0x01) != 0 {
+      done = true
+    }
+  }
+  Some((packet_type, out.to_bytes()))
+}
+
+///|
+fn prelogin_payload() -> Bytes {
+  let types : Array[Int] = [0, 1, 2, 3, 4]
+  let data : Array[Bytes] = [
+    b"\x00\x00\x00\x00\x00\x00", b"\x02", b"\x00", b"\x00\x00\x00\x00", b"\x00",
+  ]
+  let b = @buffer.new()
+  let offset_base = data.length() * 5 + 1
+  let mut offset = offset_base
+  let mut i = 0
+  while i < data.length() {
+    let v = data[i]
+    b.write_byte(types[i].to_byte())
+    b.write_uint16_be(offset.reinterpret_as_uint().to_uint16())
+    b.write_uint16_be(v.length().reinterpret_as_uint().to_uint16())
+    offset = offset + v.length()
+    i = i + 1
+  }
+  b.write_byte(0xff)
+  i = 0
+  while i < data.length() {
+    let v = data[i]
+    b.write_bytes(v)
+    i = i + 1
+  }
+  b.to_bytes()
+}
+
+///|
+fn parse_prelogin_encryption(data : Bytes) -> Int {
+  let mut i = 0
+  while i + 5 <= data.length() {
+    let typ = data[i].to_int()
+    if typ == 0xff {
+      break
+    }
+    let off = read_u16_be_at(data, i + 1)
+    let len = read_u16_be_at(data, i + 3)
+    if typ == 1 && off + len <= data.length() && len >= 1 {
+      return data[off].to_int()
+    }
+    i = i + 5
+  }
+  2
+}
+
+///|
+fn login7_payload(cfg : SQLServerEngine, packet_size : Int) -> Bytes {
+  let host = utf16le_bytes("moonbit")
+  let user = utf16le_bytes(cfg.user)
+  let pass = mangle_password(cfg.password)
+  let app = utf16le_bytes("morm")
+  let server = utf16le_bytes(cfg.host)
+  let ctl = utf16le_bytes("")
+  let lang = utf16le_bytes("")
+  let db = utf16le_bytes(cfg.database)
+  let sspi = b""
+  let atch = b""
+  let chgp = b""
+
+  let hdr_len = 94
+  let mut off = hdr_len
+
+  let host_off = off
+  off = off + host.length()
+  let user_off = off
+  off = off + user.length()
+  let pass_off = off
+  off = off + pass.length()
+  let app_off = off
+  off = off + app.length()
+  let server_off = off
+  off = off + server.length()
+  let ctl_off = off
+  off = off + ctl.length()
+  let lang_off = off
+  off = off + lang.length()
+  let db_off = off
+  off = off + db.length()
+  let sspi_off = off
+  off = off + sspi.length()
+  let atch_off = off
+  off = off + atch.length()
+  let chgp_off = off
+  off = off + chgp.length()
+
+  let b = @buffer.new()
+  b.write_uint_le(off.reinterpret_as_uint())
+  b.write_uint_le(0x71000001)
+  b.write_uint_le(packet_size.reinterpret_as_uint())
+  b.write_uint_le(0)
+  b.write_uint_le(0)
+  b.write_uint_le(0)
+  b.write_byte(0xA0) // fUseDB | fSetLang
+  b.write_byte(0x02) // fODBC
+  b.write_byte(0x00)
+  b.write_byte(0x00)
+  b.write_uint_le(0)
+  b.write_uint_le(0x0409)
+
+  let write_off_len = fn(off : Int, bytes_len : Int) {
+    b.write_uint16_le(off.reinterpret_as_uint().to_uint16())
+    b.write_uint16_le((bytes_len / 2).reinterpret_as_uint().to_uint16())
+  }
+
+  write_off_len(host_off, host.length())
+  write_off_len(user_off, user.length())
+  write_off_len(pass_off, pass.length())
+  write_off_len(app_off, app.length())
+  write_off_len(server_off, server.length())
+  b.write_uint16_le(0)
+  b.write_uint16_le(0)
+  write_off_len(ctl_off, ctl.length())
+  write_off_len(lang_off, lang.length())
+  write_off_len(db_off, db.length())
+
+  let mut i = 0
+  while i < 6 {
+    b.write_byte(0)
+    i = i + 1
+  }
+
+  b.write_uint16_le(sspi_off.reinterpret_as_uint().to_uint16())
+  b.write_uint16_le(sspi.length().reinterpret_as_uint().to_uint16())
+  write_off_len(atch_off, atch.length())
+  write_off_len(chgp_off, chgp.length())
+  b.write_uint_le(0)
+
+  b.write_bytes(host)
+  b.write_bytes(user)
+  b.write_bytes(pass)
+  b.write_bytes(app)
+  b.write_bytes(server)
+  b.write_bytes(ctl)
+  b.write_bytes(lang)
+  b.write_bytes(db)
+  b.write_bytes(sspi)
+  b.write_bytes(atch)
+  b.write_bytes(chgp)
+  b.to_bytes()
+}
+
+///|
+fn parse_tds_reply(data : Bytes) -> (Bool, String, Int) {
+  let mut pos = 0
+  let mut error_msg = ""
+  let mut rows = 0
+  while pos < data.length() {
+    let tok = data[pos].to_int()
+    pos = pos + 1
+    match tok {
+      0x00 => ()
+      0xAD => {
+        if pos + 2 > data.length() {
+          return (false, "bad loginack", rows)
+        }
+        let n = read_u16_le_at(data, pos)
+        pos = pos + 2 + n
+      }
+      0xE3 => {
+        if pos + 2 > data.length() {
+          return (false, "bad envchange", rows)
+        }
+        let n = read_u16_le_at(data, pos)
+        pos = pos + 2 + n
+      }
+      0xAA => {
+        if pos + 2 > data.length() {
+          return (false, "bad error token", rows)
+        }
+        let n = read_u16_le_at(data, pos)
+        if pos + 2 + n > data.length() {
+          return (false, "bad error token", rows)
+        }
+        let body = data[pos + 2:pos + 2 + n].to_bytes()
+        if body.length() >= 8 {
+          let mlen = read_u16_le_at(body, 6)
+          let start = 8
+          let byte_len = mlen * 2
+          if start + byte_len <= body.length() {
+            let m = @buffer.new()
+            let mut i = 0
+            while i < mlen {
+              m.write_byte(body[start + i * 2])
+              i = i + 1
+            }
+            error_msg = m.to_bytes().to_string()
+          }
+        }
+        pos = pos + 2 + n
+      }
+      0xAB => {
+        if pos + 2 > data.length() {
+          return (false, "bad info token", rows)
+        }
+        let n = read_u16_le_at(data, pos)
+        pos = pos + 2 + n
+      }
+      0xFD | 0xFE | 0xFF => {
+        let remain = data.length() - pos
+        if remain >= 12 {
+          let status = read_u16_le_at(data, pos)
+          let row_count = read_u32_le_at(data, pos + 8)
+          if (status & 0x10) != 0 && row_count > 0 {
+            rows = rows + row_count
+          }
+          pos = pos + 12
+        } else if remain >= 8 {
+          let status = read_u16_le_at(data, pos)
+          let row_count = read_u32_le_at(data, pos + 4)
+          if (status & 0x10) != 0 && row_count > 0 {
+            rows = rows + row_count
+          }
+          pos = pos + 8
+        } else {
+          return (false, "bad done token", rows)
+        }
+      }
+      0x81 => {
+        // COLMETADATA: for now only skip when count == 0xFFFF
+        if pos + 2 > data.length() {
+          return (false, "bad colmetadata", rows)
+        }
+        let count = read_u16_le_at(data, pos)
+        pos = pos + 2
+        if count != 0xFFFF {
+          return (false, "result-set decoding is not implemented yet", rows)
+        }
+      }
+      0x79 => {
+        if pos + 4 > data.length() {
+          return (false, "bad return status", rows)
+        }
+        pos = pos + 4
+      }
+      0xD1 | 0xD2 => return (false, "row decoding is not implemented yet", rows)
+      _ => return (false, "unknown token: " + tok.to_string(), rows)
+    }
+    if pos > data.length() {
+      return (false, "bad reply payload", rows)
+    }
+  }
+  if error_msg != "" {
+    (false, error_msg, rows)
+  } else {
+    (true, "", rows)
+  }
+}
+
+///|
+async fn[IO : @io.Reader + @io.Writer] sqlbatch(
+  conn : IO,
+  sql : String,
+  packet_size : Int,
+) -> @engine.QueryResult {
+  let payload = utf16le_bytes(sql)
+  if !(write_tds_message(conn, 1, payload, packet_size) catch { _ => false }) {
+    return fail("sqlserver batch write failed")
+  }
+  let reply = read_tds_message(conn) catch { _ => None }
+  if reply is None {
+    return fail("sqlserver batch read failed")
+  }
+  let (pt, body) = reply.unwrap()
+  if pt != 4 {
+    return fail("sqlserver invalid reply packet")
+  }
+  let (ok, err, rows) = parse_tds_reply(body)
+  if !ok {
+    return fail(if err == "" { "sqlserver batch failed" } else { err })
+  }
+  { ok: true, rows_affected: rows, rows: [], error: None }
+}
+
+///|
+async fn tds_exec(cfg : SQLServerEngine, sql : String) -> @engine.QueryResult {
+  let conn = @socket.Tcp::connect_to_host(cfg.host, port=cfg.port) catch {
+    _ => return fail("sqlserver connect failed")
+  }
+  defer conn.close()
+
+  let packet_size = 4096
+
+  if !(write_tds_message(conn, 18, prelogin_payload(), packet_size) catch {
+      _ => false
+    }) {
+    return fail("sqlserver prelogin write failed")
+  }
+  let pre = read_tds_message(conn) catch { _ => None }
+  if pre is None {
+    return fail("sqlserver prelogin read failed")
+  }
+  let (pt0, body0) = pre.unwrap()
+  if pt0 != 4 {
+    return fail("sqlserver invalid prelogin response")
+  }
+  let enc = parse_prelogin_encryption(body0)
+  if enc == 2 {
+    if !(write_tds_message(
+        conn,
+        16,
+        login7_payload(cfg, packet_size),
+        packet_size,
+      ) catch {
+        _ => false
+      }) {
+      return fail("sqlserver login write failed")
+    }
+    let login_resp = read_tds_message(conn) catch { _ => None }
+    if login_resp is None {
+      return fail("sqlserver login read failed")
+    }
+    let (pt1, body1) = login_resp.unwrap()
+    if pt1 != 4 {
+      return fail("sqlserver invalid login reply")
+    }
+    let (ok_login, err_login, _) = parse_tds_reply(body1)
+    if !ok_login {
+      return fail(
+        if err_login == "" {
+          "sqlserver login failed"
+        } else {
+          err_login
+        },
+      )
+    }
+
+    let mut final_res : @engine.QueryResult = {
+      ok: true,
+      rows_affected: 0,
+      rows: [],
+      error: None,
+    }
+    for batch in split_go_batches(sql) {
+      let stmt = batch.trim().to_string()
+      if stmt == "" {
+        continue
+      }
+      let res = sqlbatch(conn, stmt, packet_size) catch {
+        _ => fail("sqlserver batch execute failed")
+      }
+      if !res.ok {
+        return res
+      }
+      final_res = {
+        ok: true,
+        rows_affected: final_res.rows_affected + res.rows_affected,
+        rows: [],
+        error: None,
+      }
+    }
+    final_res
+  } else {
+    let tls_conn = @tls.Tls::client(conn, verify=false, host=cfg.host) catch {
+      _ => return fail("sqlserver tls handshake failed")
+    }
+    defer tls_conn.close()
+
+    if !(write_tds_message(
+        tls_conn,
+        16,
+        login7_payload(cfg, packet_size),
+        packet_size,
+      ) catch {
+        _ => false
+      }) {
+      return fail("sqlserver login write failed")
+    }
+    let login_resp = read_tds_message(tls_conn) catch { _ => None }
+    if login_resp is None {
+      return fail("sqlserver login read failed")
+    }
+    let (pt1, body1) = login_resp.unwrap()
+    if pt1 != 4 {
+      return fail("sqlserver invalid login reply")
+    }
+    let (ok_login, err_login, _) = parse_tds_reply(body1)
+    if !ok_login {
+      return fail(
+        if err_login == "" {
+          "sqlserver login failed"
+        } else {
+          err_login
+        },
+      )
+    }
+
+    let mut final_res : @engine.QueryResult = {
+      ok: true,
+      rows_affected: 0,
+      rows: [],
+      error: None,
+    }
+    for batch in split_go_batches(sql) {
+      let stmt = batch.trim().to_string()
+      if stmt == "" {
+        continue
+      }
+      let res = sqlbatch(tls_conn, stmt, packet_size) catch {
+        _ => fail("sqlserver batch execute failed")
+      }
+      if !res.ok {
+        return res
+      }
+      final_res = {
+        ok: true,
+        rows_affected: final_res.rows_affected + res.rows_affected,
+        rows: [],
+        error: None,
+      }
+    }
+    final_res
+  }
 }
 
 ///|
 pub async fn SQLServerEngine::ping(self : SQLServerEngine) -> Bool {
-  run_sqlcmd(self, "SELECT 1").ok
+  tds_exec(self, "BEGIN TRAN; ROLLBACK").ok
 }
 
 ///|
@@ -229,7 +690,7 @@ pub impl @engine.Engine for SQLServerEngine with exec_raw(
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
   let query = inline_sql(sql, params)
-  run_sqlcmd(self, query)
+  tds_exec(self, query)
 }
 
 ///|
