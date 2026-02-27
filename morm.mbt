@@ -170,10 +170,12 @@ pub struct Where {
 ///|
 pub enum WhereType {
   Eq
+  Ne
   Gt
   Lt
   Gte
   Lte
+  Like
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
@@ -233,12 +235,32 @@ pub fn[V : @engine.ToParam] Query::where_gt(
 }
 
 ///|
+pub fn[V : @engine.ToParam] Query::where_ne(
+  self : Query,
+  col : String,
+  value : V,
+) -> Query {
+  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Ne }]
+  { ..self, where_, }
+}
+
+///|
 pub fn[V : @engine.ToParam] Query::where_lt(
   self : Query,
   col : String,
   value : V,
 ) -> Query {
   let where_ = self.where_ + [{ col, value: value.to_param(), ty: Lt }]
+  { ..self, where_, }
+}
+
+///|
+pub fn[V : @engine.ToParam] Query::where_like(
+  self : Query,
+  col : String,
+  pattern : V,
+) -> Query {
+  let where_ = self.where_ + [{ col, value: pattern.to_param(), ty: Like }]
   { ..self, where_, }
 }
 
@@ -287,10 +309,12 @@ pub impl @engine.QueryBuilder for Query with to_statement(self) -> @engine.State
   let where_ = self.where_.map(w => {
     let ty = match w.ty {
       Eq => @engine.Eq
+      Ne => @engine.Ne
       Gt => @engine.Gt
       Lt => @engine.Lt
       Gte => @engine.Gte
       Lte => @engine.Lte
+      Like => @engine.Like
     }
     @engine.Where::{ col: w.col, value: w.value, ty }
   })
@@ -510,12 +534,33 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_gt(
 }
 
 ///|
+pub fn[V : @engine.ToParam] UpdateQuery::where_ne(
+  self : UpdateQuery,
+  col : String,
+  value : V,
+) -> UpdateQuery {
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Ne }] }
+}
+
+///|
 pub fn[V : @engine.ToParam] UpdateQuery::where_lt(
   self : UpdateQuery,
   col : String,
   value : V,
 ) -> UpdateQuery {
   { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lt }] }
+}
+
+///|
+pub fn[V : @engine.ToParam] UpdateQuery::where_like(
+  self : UpdateQuery,
+  col : String,
+  pattern : V,
+) -> UpdateQuery {
+  {
+    ..self,
+    where_: self.where_ + [{ col, value: pattern.to_param(), ty: Like }],
+  }
 }
 
 ///|
@@ -542,10 +587,12 @@ pub impl @engine.QueryBuilder for UpdateQuery with to_statement(self) -> @engine
   let where_ = self.where_.map(w => {
     let ty = match w.ty {
       Eq => @engine.Eq
+      Ne => @engine.Ne
       Gt => @engine.Gt
       Lt => @engine.Lt
       Gte => @engine.Gte
       Lte => @engine.Lte
+      Like => @engine.Like
     }
     @engine.Where::{ col: w.col, value: w.value, ty }
   })
@@ -583,12 +630,33 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_gt(
 }
 
 ///|
+pub fn[V : @engine.ToParam] DeleteQuery::where_ne(
+  self : DeleteQuery,
+  col : String,
+  value : V,
+) -> DeleteQuery {
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Ne }] }
+}
+
+///|
 pub fn[V : @engine.ToParam] DeleteQuery::where_lt(
   self : DeleteQuery,
   col : String,
   value : V,
 ) -> DeleteQuery {
   { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lt }] }
+}
+
+///|
+pub fn[V : @engine.ToParam] DeleteQuery::where_like(
+  self : DeleteQuery,
+  col : String,
+  pattern : V,
+) -> DeleteQuery {
+  {
+    ..self,
+    where_: self.where_ + [{ col, value: pattern.to_param(), ty: Like }],
+  }
 }
 
 ///|
@@ -614,10 +682,12 @@ pub impl @engine.QueryBuilder for DeleteQuery with to_statement(self) -> @engine
   let where_ = self.where_.map(w => {
     let ty = match w.ty {
       Eq => @engine.Eq
+      Ne => @engine.Ne
       Gt => @engine.Gt
       Lt => @engine.Lt
       Gte => @engine.Gte
       Lte => @engine.Lte
+      Like => @engine.Like
     }
     @engine.Where::{ col: w.col, value: w.value, ty }
   })

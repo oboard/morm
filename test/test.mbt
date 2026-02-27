@@ -42,3 +42,18 @@ test "query" {
     ),
   )
 }
+
+///|
+test "query where ne like" {
+  let q = @morm.select_from("students")
+    .where_ne("status", "deleted")
+    .where_like("name", "%Ali%")
+  let (sql, params) = @engine.render_default_sql(q.to_statement())
+  inspect(
+    sql,
+    content=(
+      #|SELECT * FROM students WHERE status != ? AND name LIKE ?
+    ),
+  )
+  inspect(params.to_json().stringify(), content="[\"deleted\",\"%Ali%\"]")
+}

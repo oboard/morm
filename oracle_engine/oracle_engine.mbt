@@ -437,6 +437,38 @@ pub impl @engine.Engine for OracleEngine with render(
 }
 
 ///|
+pub impl @engine.Engine for OracleEngine with tx_begin_sql(_self) -> String {
+  // Oracle starts transaction implicitly on first DML.
+  ""
+}
+
+///|
+pub impl @engine.Engine for OracleEngine with tx_commit_sql(_self) -> String {
+  "COMMIT"
+}
+
+///|
+pub impl @engine.Engine for OracleEngine with tx_rollback_sql(_self) -> String {
+  "ROLLBACK"
+}
+
+///|
+pub impl @engine.Engine for OracleEngine with tx_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "SAVEPOINT " + name
+}
+
+///|
+pub impl @engine.Engine for OracleEngine with tx_rollback_to_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "ROLLBACK TO " + name
+}
+
+///|
 pub impl @engine.Engine for OracleEngine with migrate_table(
   self,
   table_schema : Json,

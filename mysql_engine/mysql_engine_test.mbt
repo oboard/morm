@@ -43,3 +43,15 @@ async test "mysql real connection" {
 
   engine.close()
 }
+
+///|
+test "mysql compatible dsn schemes" {
+  inspect(
+    MySQLEngine::open("mariadb://root@127.0.0.1:3306/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    MySQLEngine::open("tidb://root@127.0.0.1:4000/test") is Ok(_),
+    content="true",
+  )
+}

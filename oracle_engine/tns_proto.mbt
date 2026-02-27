@@ -34,20 +34,6 @@ fn tns_packet_type_code(t : TNSPacketType) -> Int {
 }
 
 ///|
-fn write_be16(buf : @buffer.Buffer, v : Int) -> Unit {
-  buf.write_byte(((v >> 8) & 0xff).to_byte())
-  buf.write_byte((v & 0xff).to_byte())
-}
-
-///|
-fn write_be32(buf : @buffer.Buffer, v : Int) -> Unit {
-  buf.write_byte(((v >> 24) & 0xff).to_byte())
-  buf.write_byte(((v >> 16) & 0xff).to_byte())
-  buf.write_byte(((v >> 8) & 0xff).to_byte())
-  buf.write_byte((v & 0xff).to_byte())
-}
-
-///|
 // Build a CONNECT packet following go-ora/newConnectPacket + ConnectPacket::bytes.
 pub fn build_tns_connect_packet(
   connect_data : String,
@@ -66,27 +52,27 @@ pub fn build_tns_connect_packet(
   }
 
   let b = @buffer.new()
-  write_be16(b, total_len)
-  write_be16(b, 0) // packet checksum (unused)
+  b.write_uint16_be(total_len.reinterpret_as_uint().to_uint16())
+  b.write_uint16_be(0) // packet checksum (unused)
   b.write_byte(tns_packet_type_code(Connect).to_byte())
   b.write_byte(0) // flag
-  write_be16(b, 0)
+  b.write_uint16_be(0)
 
-  write_be16(b, version)
-  write_be16(b, lo_version)
-  write_be16(b, 0)
+  b.write_uint16_be(version.reinterpret_as_uint().to_uint16())
+  b.write_uint16_be(lo_version.reinterpret_as_uint().to_uint16())
+  b.write_uint16_be(0)
 
   let short_sdu = if sdu > 0xFFFF { 0xFFFF } else { sdu }
   let short_tdu = if tdu > 0xFFFF { 0xFFFF } else { tdu }
-  write_be16(b, short_sdu)
-  write_be16(b, short_tdu)
+  b.write_uint16_be(short_sdu.reinterpret_as_uint().to_uint16())
+  b.write_uint16_be(short_tdu.reinterpret_as_uint().to_uint16())
 
   b.write_byte(79)
   b.write_byte(152)
-  write_be16(b, 0)
-  write_be16(b, 1)
-  write_be16(b, data.length())
-  write_be16(b, header_len)
+  b.write_uint16_be(0)
+  b.write_uint16_be(1)
+  b.write_uint16_be(data.length().reinterpret_as_uint().to_uint16())
+  b.write_uint16_be(header_len.reinterpret_as_uint().to_uint16())
 
   // pad to offset 32
   while b.length() < 32 {
@@ -99,9 +85,9 @@ pub fn build_tns_connect_packet(
   while b.length() < 58 {
     b.write_byte(0)
   }
-  write_be32(b, sdu)
-  write_be32(b, tdu)
-  write_be32(b, 0)
+  b.write_uint_be(sdu.reinterpret_as_uint())
+  b.write_uint_be(tdu.reinterpret_as_uint())
+  b.write_uint_be(0)
 
   while b.length() < header_len {
     b.write_byte(0)

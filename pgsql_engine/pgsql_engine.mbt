@@ -35,6 +35,10 @@ fn parse_pg_dsn(dsn : String) -> PgSQLEngine? {
     rest.to_string()
   } else if dsn.strip_prefix("postgresql://") is Some(rest) {
     rest.to_string()
+  } else if dsn.strip_prefix("gaussdb://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("cockroachdb://") is Some(rest) {
+    rest.to_string()
   } else {
     return None
   }
@@ -232,7 +236,7 @@ async fn read_message(conn : @socket.Tcp) -> (Byte, Bytes)? {
 async fn write_tagged(conn : @socket.Tcp, tag : Byte, payload : Bytes) -> Bool {
   let h = @buffer.new()
   h.write_byte(tag)
-  h.write_int_be(payload.length() + 4)
+  h.write_uint_be((payload.length() + 4).reinterpret_as_uint())
   conn.write(h.to_bytes()) catch {
     _ => return false
   }
@@ -245,7 +249,8 @@ async fn write_tagged(conn : @socket.Tcp, tag : Byte, payload : Bytes) -> Bool {
 ///|
 async fn send_startup(conn : @socket.Tcp, cfg : PgSQLEngine) -> Bool {
   let body = @buffer.new()
-  body.write_int_be(196608) // protocol 3.0
+  let protocol_v3 : UInt = 196608
+  body.write_uint_be(protocol_v3) // protocol 3.0
   body.write_bytes(@utf8.encode("user"))
   body.write_byte(0)
   body.write_bytes(@utf8.encode(cfg.user))
@@ -257,7 +262,7 @@ async fn send_startup(conn : @socket.Tcp, cfg : PgSQLEngine) -> Bool {
   body.write_byte(0)
   let data = body.to_bytes()
   let len_buf = @buffer.new()
-  len_buf.write_int_be(data.length() + 4)
+  len_buf.write_uint_be((data.length() + 4).reinterpret_as_uint())
   conn.write(len_buf.to_bytes()) catch {
     _ => return false
   }
@@ -656,6 +661,37 @@ pub impl @engine.Engine for PgSQLEngine with render(
   stmt : @engine.Statement,
 ) -> (String, FixedArray[@engine.Param]) {
   pg_render(stmt)
+}
+
+///|
+pub impl @engine.Engine for PgSQLEngine with tx_begin_sql(_self) -> String {
+  "BEGIN"
+}
+
+///|
+pub impl @engine.Engine for PgSQLEngine with tx_commit_sql(_self) -> String {
+  "COMMIT"
+}
+
+///|
+pub impl @engine.Engine for PgSQLEngine with tx_rollback_sql(_self) -> String {
+  "ROLLBACK"
+}
+
+///|
+pub impl @engine.Engine for PgSQLEngine with tx_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "SAVEPOINT " + name
+}
+
+///|
+pub impl @engine.Engine for PgSQLEngine with tx_rollback_to_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "ROLLBACK TO SAVEPOINT " + name
 }
 
 ///|

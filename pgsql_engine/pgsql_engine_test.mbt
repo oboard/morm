@@ -43,3 +43,15 @@ async test "pgsql real connection" {
 
   engine.close()
 }
+
+///|
+test "pgsql compatible dsn schemes" {
+  inspect(
+    PgSQLEngine::open("gaussdb://postgres@127.0.0.1:15432/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    PgSQLEngine::open("cockroachdb://root@127.0.0.1:26257/test") is Ok(_),
+    content="true",
+  )
+}

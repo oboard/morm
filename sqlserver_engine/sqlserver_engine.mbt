@@ -141,9 +141,7 @@ fn split_go_batches(sql : String) -> Array[String] {
 fn utf16le_bytes(text : String) -> Bytes {
   let b = @buffer.new()
   for c in text {
-    let x = c.to_int()
-    b.write_byte((x & 0xff).to_byte())
-    b.write_byte(((x >> 8) & 0xff).to_byte())
+    b.write_char_utf16le(c)
   }
   b.to_bytes()
 }
@@ -870,6 +868,37 @@ pub impl @engine.Engine for SQLServerEngine with render(
   stmt : @engine.Statement,
 ) -> (String, FixedArray[@engine.Param]) {
   @engine.render_default_sql(stmt)
+}
+
+///|
+pub impl @engine.Engine for SQLServerEngine with tx_begin_sql(_self) -> String {
+  "BEGIN TRANSACTION"
+}
+
+///|
+pub impl @engine.Engine for SQLServerEngine with tx_commit_sql(_self) -> String {
+  "COMMIT TRANSACTION"
+}
+
+///|
+pub impl @engine.Engine for SQLServerEngine with tx_rollback_sql(_self) -> String {
+  "ROLLBACK TRANSACTION"
+}
+
+///|
+pub impl @engine.Engine for SQLServerEngine with tx_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "SAVE TRANSACTION " + name
+}
+
+///|
+pub impl @engine.Engine for SQLServerEngine with tx_rollback_to_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "ROLLBACK TRANSACTION " + name
 }
 
 ///|

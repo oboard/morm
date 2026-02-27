@@ -25,10 +25,12 @@ fn format_where_sql(where_ : FixedArray[@engine.Where]) -> String {
   .map(w => {
     let op = match w.ty {
       Eq => "="
+      Ne => "!="
       Gt => ">"
       Lt => "<"
       Gte => ">="
       Lte => "<="
+      Like => "LIKE"
     }
     [w.col, op, "?"].join(" ")
   })
@@ -360,6 +362,34 @@ impl @engine.Engine for SQLiteEngine with render(
   stmt : @engine.Statement,
 ) -> (String, FixedArray[@engine.Param]) {
   render_sqlite(stmt)
+}
+
+///|
+impl @engine.Engine for SQLiteEngine with tx_begin_sql(_self) -> String {
+  "BEGIN"
+}
+
+///|
+impl @engine.Engine for SQLiteEngine with tx_commit_sql(_self) -> String {
+  "COMMIT"
+}
+
+///|
+impl @engine.Engine for SQLiteEngine with tx_rollback_sql(_self) -> String {
+  "ROLLBACK"
+}
+
+///|
+impl @engine.Engine for SQLiteEngine with tx_savepoint_sql(_self, name : String) -> String {
+  "SAVEPOINT " + name
+}
+
+///|
+impl @engine.Engine for SQLiteEngine with tx_rollback_to_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "ROLLBACK TO SAVEPOINT " + name
 }
 
 ///|

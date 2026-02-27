@@ -20,6 +20,34 @@ impl @engine.Engine for MySQLEngine with render(_self, stmt : @engine.Statement)
 }
 
 ///|
+impl @engine.Engine for MySQLEngine with tx_begin_sql(_self) -> String {
+  "START TRANSACTION"
+}
+
+///|
+impl @engine.Engine for MySQLEngine with tx_commit_sql(_self) -> String {
+  "COMMIT"
+}
+
+///|
+impl @engine.Engine for MySQLEngine with tx_rollback_sql(_self) -> String {
+  "ROLLBACK"
+}
+
+///|
+impl @engine.Engine for MySQLEngine with tx_savepoint_sql(_self, name : String) -> String {
+  "SAVEPOINT " + name
+}
+
+///|
+impl @engine.Engine for MySQLEngine with tx_rollback_to_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "ROLLBACK TO SAVEPOINT " + name
+}
+
+///|
 impl @engine.Engine for MySQLEngine with migrate_table(
   _self,
   table_schema : Json,

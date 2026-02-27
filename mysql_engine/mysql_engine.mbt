@@ -33,6 +33,10 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 fn parse_mysql_dsn(dsn : String) -> MySQLEngine? {
   let raw = if dsn.strip_prefix("mysql://") is Some(rest) {
     rest.to_string()
+  } else if dsn.strip_prefix("mariadb://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("tidb://") is Some(rest) {
+    rest.to_string()
   } else {
     return None
   }
@@ -948,6 +952,37 @@ pub impl @engine.Engine for MySQLEngine with render(
   stmt : @engine.Statement,
 ) -> (String, FixedArray[@engine.Param]) {
   @engine.render_default_sql(stmt)
+}
+
+///|
+pub impl @engine.Engine for MySQLEngine with tx_begin_sql(_self) -> String {
+  "START TRANSACTION"
+}
+
+///|
+pub impl @engine.Engine for MySQLEngine with tx_commit_sql(_self) -> String {
+  "COMMIT"
+}
+
+///|
+pub impl @engine.Engine for MySQLEngine with tx_rollback_sql(_self) -> String {
+  "ROLLBACK"
+}
+
+///|
+pub impl @engine.Engine for MySQLEngine with tx_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "SAVEPOINT " + name
+}
+
+///|
+pub impl @engine.Engine for MySQLEngine with tx_rollback_to_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
+  "ROLLBACK TO SAVEPOINT " + name
 }
 
 ///|
