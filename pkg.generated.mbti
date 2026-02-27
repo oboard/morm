@@ -3,7 +3,6 @@ package "oboard/morm"
 
 import {
   "moonbitlang/core/json",
-  "oboard/morm/dialect",
   "oboard/morm/engine",
 }
 
@@ -14,15 +13,13 @@ pub fn add_foreign_key(Table, ForeignKey) -> Table
 
 pub fn add_index(Table, Index) -> Table
 
-pub fn alter_table(String) -> AlterTable
-
 pub async fn[E : @engine.Engine] auto_migrate(E, Array[Table]) -> Unit
 
-pub fn begin_tx(@dialect.Dialect) -> String
-
-pub fn commit_tx(@dialect.Dialect) -> String
+pub fn belongs_to(String, String, String, String) -> Association
 
 pub fn delete_from(String) -> DeleteQuery
+
+pub fn has_many(String, String, String, String) -> Association
 
 pub fn infer_column_type(Json) -> ColumnType
 
@@ -32,7 +29,11 @@ pub fn on_delete_cascade(ForeignKey) -> ForeignKey
 
 pub fn on_update_cascade(ForeignKey) -> ForeignKey
 
-pub fn rollback_tx(@dialect.Dialect) -> String
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(E, FixedArray[O], Association) -> PreloadResult[T]
+
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs_to(E, FixedArray[O], String, String, String) -> Map[String, T]
+
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_many(E, FixedArray[O], String, String, String) -> Map[String, Array[T]]
 
 pub fn select_from(String) -> Query
 
@@ -49,38 +50,26 @@ pub fn upsert_into(String) -> UpsertQuery
 // Errors
 
 // Types and methods
-pub enum AlterOp {
-  AddColumn(Column)
-  DropColumn(String)
-  ModifyColumn(Column)
-  AddIndex(Index)
-  DropIndex(String)
-  AddForeignKey(ForeignKey)
-  DropForeignKey(String)
-  RenameTable(String)
-  TableComment(String)
+pub(all) struct Association {
+  name : String
+  kind : AssociationKind
+  owner_key : String
+  target_table : String
+  target_key : String
 }
-pub impl Show for AlterOp
-pub impl ToJson for AlterOp
-pub impl @json.FromJson for AlterOp
+pub impl Eq for Association
+pub impl Show for Association
+pub impl ToJson for Association
+pub impl @json.FromJson for Association
 
-pub struct AlterTable {
-  table : String
-  ops : FixedArray[AlterOp]
+pub(all) enum AssociationKind {
+  BelongsTo
+  HasMany
 }
-pub fn AlterTable::add_column(Self, Column) -> Self
-pub fn AlterTable::add_foreign_key(Self, ForeignKey) -> Self
-pub fn AlterTable::add_index(Self, Index) -> Self
-pub fn AlterTable::comment(Self, String) -> Self
-pub fn AlterTable::drop_column(Self, String) -> Self
-pub fn AlterTable::drop_foreign_key(Self, String) -> Self
-pub fn AlterTable::drop_index(Self, String) -> Self
-pub fn AlterTable::modify_column(Self, Column) -> Self
-pub fn AlterTable::rename(Self, String) -> Self
-pub fn AlterTable::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
-pub impl Show for AlterTable
-pub impl ToJson for AlterTable
-pub impl @json.FromJson for AlterTable
+pub impl Eq for AssociationKind
+pub impl Show for AssociationKind
+pub impl ToJson for AssociationKind
+pub impl @json.FromJson for AssociationKind
 
 pub(all) struct Column {
   name : String
@@ -152,8 +141,10 @@ pub fn[E : Entity] DeleteQuery::from(Self, E) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_gte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] DeleteQuery::where_like(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_lt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_lte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] DeleteQuery::where_ne(Self, String, V) -> Self
 pub impl Eq for DeleteQuery
 pub impl Show for DeleteQuery
 pub impl ToJson for DeleteQuery
@@ -229,14 +220,21 @@ pub impl Show for OrderBy
 pub impl ToJson for OrderBy
 pub impl @json.FromJson for OrderBy
 
+pub(all) enum PreloadResult[T] {
+  One(Map[String, T])
+  Many(Map[String, Array[T]])
+}
+
 pub struct Query {
   select : String
   from : String
+  joins : FixedArray[String]
   where_ : FixedArray[Where]
   order_by : FixedArray[OrderBy]
   limit : Int?
   offset : Int?
 }
+pub fn Query::join(Self, String) -> Self
 pub fn Query::limit(Self, Int) -> Self
 pub fn Query::offset(Self, Int) -> Self
 pub fn Query::order_by(Self, OrderBy) -> Self
@@ -244,8 +242,10 @@ pub fn Query::page(Self, Int, Int) -> Self
 pub fn[V : @engine.ToParam] Query::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] Query::where_like(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_lt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_lte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] Query::where_ne(Self, String, V) -> Self
 pub impl Eq for Query
 pub impl Show for Query
 pub impl ToJson for Query
@@ -275,7 +275,6 @@ pub(all) struct Table {
 pub fn Table::has_primary_key(Self) -> Bool
 pub fn Table::new(String, columns? : FixedArray[Column]) -> Self
 pub fn Table::primary_key(Self) -> String?
-pub fn Table::to_create_sql(Self, @dialect.Dialect) -> String
 pub impl Compare for Table
 pub impl Eq for Table
 pub impl Hash for Table
@@ -293,8 +292,10 @@ pub fn[V : @engine.ToParam] UpdateQuery::set(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_gte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] UpdateQuery::where_like(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_lt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_lte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] UpdateQuery::where_ne(Self, String, V) -> Self
 pub impl Eq for UpdateQuery
 pub impl Show for UpdateQuery
 pub impl ToJson for UpdateQuery
@@ -329,10 +330,12 @@ pub impl @json.FromJson for Where
 
 pub enum WhereType {
   Eq
+  Ne
   Gt
   Lt
   Gte
   Lte
+  Like
 }
 pub impl Eq for WhereType
 pub impl Show for WhereType

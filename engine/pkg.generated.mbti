@@ -2,6 +2,7 @@
 package "oboard/morm/engine"
 
 import {
+  "moonbitlang/core/bigint",
   "moonbitlang/core/json",
 }
 
@@ -11,6 +12,16 @@ pub async fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
 pub fn render_default_sql(Statement) -> (String, FixedArray[Param])
 
 pub fn[T : ToParam] to_param(T) -> Param
+
+pub async fn[E : Engine] tx_begin(E) -> QueryResult
+
+pub async fn[E : Engine] tx_commit(E) -> QueryResult
+
+pub async fn[E : Engine] tx_rollback(E) -> QueryResult
+
+pub async fn[E : Engine] tx_rollback_to_savepoint(E, String) -> QueryResult
+
+pub async fn[E : Engine] tx_savepoint(E, String) -> QueryResult
 
 // Errors
 
@@ -46,8 +57,15 @@ pub impl @json.FromJson for OrderBy
 pub(all) enum Param {
   Null
   Bool(Bool)
+  Byte(Byte)
   Int(Int)
+  Int16(Int16)
+  UInt16(UInt16)
+  UInt(UInt)
+  UInt64(UInt64)
   Int64(Int64)
+  BigInt(@bigint.BigInt)
+  Float(Float)
   Double(Double)
   String(String)
   Bytes(Bytes)
@@ -72,6 +90,7 @@ pub impl @json.FromJson for QueryResult
 pub(all) struct SelectStatement {
   select : String
   from : String
+  joins : FixedArray[String]
   where_ : FixedArray[Where]
   order_by : FixedArray[OrderBy]
   limit : Int?
@@ -136,10 +155,12 @@ pub impl @json.FromJson for Where
 
 pub(all) enum WhereType {
   Eq
+  Ne
   Gt
   Lt
   Gte
   Lte
+  Like
 }
 pub impl Eq for WhereType
 pub impl Show for WhereType
@@ -151,6 +172,11 @@ pub impl @json.FromJson for WhereType
 // Traits
 pub(open) trait Engine {
   render(Self, Statement) -> (String, FixedArray[Param])
+  tx_begin_sql(Self) -> String
+  tx_commit_sql(Self) -> String
+  tx_rollback_sql(Self) -> String
+  tx_savepoint_sql(Self, String) -> String
+  tx_rollback_to_savepoint_sql(Self, String) -> String
   async migrate_table(Self, Json) -> QueryResult
   async exec_raw(Self, String, FixedArray[Param]) -> QueryResult
   close(Self) -> Unit
@@ -165,11 +191,17 @@ pub(open) trait ToParam {
 }
 pub impl ToParam for Unit
 pub impl ToParam for Bool
+pub impl ToParam for Byte
 pub impl ToParam for Int
+pub impl ToParam for Int16
 pub impl ToParam for Int64
+pub impl ToParam for UInt
+pub impl ToParam for UInt16
+pub impl ToParam for UInt64
 pub impl ToParam for Float
 pub impl ToParam for Double
 pub impl ToParam for String
 pub impl ToParam for Bytes
+pub impl ToParam for @bigint.BigInt
 pub impl ToParam for Json
 

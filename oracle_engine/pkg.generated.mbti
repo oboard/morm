@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/oracle_engine"
+
+import {
+  "oboard/morm/engine",
+}
+
+// Values
+pub fn build_tns_connect_packet(String, Int, Int, Int, Int) -> Bytes
+
+// Errors
+
+// Types and methods
+pub struct OracleEngine {
+  host : String
+  port : Int
+  user : String
+  password : String
+  service : String
+}
+pub fn OracleEngine::open(String) -> Result[Self, String]
+pub async fn OracleEngine::ping(Self) -> Bool
+pub impl @engine.Engine for OracleEngine
+
+pub(all) enum TNSPacketType {
+  Connect
+  Accept
+  Ack
+  Refuse
+  Redirect
+  Data
+  NullPacket
+  Abort
+  Resend
+  Marker
+  Attn
+  Ctrl
+}
+
+// Type aliases
+
+// Traits
+

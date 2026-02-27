@@ -100,6 +100,9 @@ pub fn Connection::open(String, loc~ : SourceLoc) -> Self raise SqliteError
 #callsite(autofill(loc))
 pub fn Connection::prepare(Self, String, loc~ : SourceLoc) -> Statement raise SqliteError
 
+type SQLiteEngine
+pub fn SQLiteEngine::open(String) -> Self
+
 pub(all) enum SQLiteValue {
   Null
   Integer(Int64)

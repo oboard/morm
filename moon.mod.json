@@ -11,5 +11,6 @@
   "repository": "https://github.com/oboard/morm",
   "license": "Apache-2.0",
   "keywords": [],
-  "description": ""
+  "description": "",
+  "preferred-target": "native"
 }

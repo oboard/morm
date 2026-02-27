@@ -45,6 +45,82 @@ async test "mysql real connection" {
 }
 
 ///|
+async test "mysql sql execution coverage" {
+  let engine = match
+    MySQLEngine::open("mysql://root:123456@127.0.0.1:13306/morm_test") {
+    Ok(e) => e
+    Err(_) => panic()
+  }
+
+  ignore(engine.exec_raw("DROP TABLE IF EXISTS morm_engine_tx_test", []))
+  inspect(
+    engine.exec_raw(
+      "CREATE TABLE morm_engine_tx_test (id INT PRIMARY KEY, name VARCHAR(64), score DOUBLE, active BOOLEAN)",
+      [],
+    ).ok,
+    content="true",
+  )
+
+  inspect(
+    engine.exec_raw(
+      "INSERT INTO morm_engine_tx_test (id, name, score, active) VALUES (?, ?, ?, ?)",
+      [
+        @engine.Int(1),
+        @engine.String("A"),
+        @engine.Double(10.5),
+        @engine.Bool(true),
+      ],
+    ).ok,
+    content="true",
+  )
+  inspect(
+    engine.exec_raw(
+      "INSERT INTO morm_engine_tx_test (id, name, score, active) VALUES (?, ?, ?, ?)",
+      [
+        @engine.Int(2),
+        @engine.String("B"),
+        @engine.Double(20.5),
+        @engine.Bool(false),
+      ],
+    ).ok,
+    content="true",
+  )
+
+  inspect(
+    engine.exec_raw("UPDATE morm_engine_tx_test SET score = ? WHERE id = ?", [
+      @engine.Double(88.8),
+      @engine.Int(2),
+    ]).ok,
+    content="true",
+  )
+  let q = engine.exec_raw(
+    "SELECT id, name, score FROM morm_engine_tx_test WHERE id = ?",
+    [@engine.Int(2)],
+  )
+  inspect(q.ok, content="true")
+  inspect(q.rows.length(), content="1")
+  json_inspect(q.rows[0], content={ "id": 2, "name": "B", "score": 88.8 })
+
+  inspect(
+    engine.exec_raw("DELETE FROM morm_engine_tx_test WHERE id = ?", [
+      @engine.Int(2),
+    ]).ok,
+    content="true",
+  )
+  let after_delete = engine.exec_raw(
+    "SELECT COUNT(*) AS c FROM morm_engine_tx_test",
+    [],
+  )
+  inspect(after_delete.ok, content="true")
+  json_inspect(after_delete.rows[0], content={ "c": 1 })
+
+  let bad_sql = engine.exec_raw("SELECT * FROM morm_engine_tx_test WHERE", [])
+  inspect(bad_sql.ok, content="false")
+
+  engine.close()
+}
+
+///|
 test "mysql compatible dsn schemes" {
   inspect(
     MySQLEngine::open("mariadb://root@127.0.0.1:3306/test") is Ok(_),

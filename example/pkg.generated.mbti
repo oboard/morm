@@ -36,8 +36,6 @@ pub impl @morm.Entity for Student
 pub struct StudentMapperImpl {
   engine : &@engine.Engine
 }
-pub fn[Q : @engine.QueryBuilder] StudentMapperImpl::exec_query_sync(Self, Q) -> @engine.QueryResult
-pub fn StudentMapperImpl::exec_raw_sync(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
 pub fn StudentMapperImpl::new(&@engine.Engine) -> Self
 pub impl StudentMapper for StudentMapperImpl
 
@@ -57,12 +55,12 @@ pub impl @morm.Entity for Teacher
 
 // Traits
 pub trait StudentMapper {
-  find_student_by_id(Self, Int) -> Student?
-  find_student_by_name(Self, String) -> Student?
-  find_students_by_age(Self, Int) -> FixedArray[Student]
-  find_students_by_age_and_name(Self, Int, String) -> FixedArray[Student]
-  count_students_by_age(Self, Int) -> Int?
-  find_all(Self) -> FixedArray[Student]
-  all(Self) -> FixedArray[Student]
+  async find_student_by_id(Self, Int) -> Student?
+  async find_student_by_name(Self, String) -> Student?
+  async find_students_by_age(Self, Int) -> FixedArray[Student]
+  async find_students_by_age_and_name(Self, Int, String) -> FixedArray[Student]
+  async count_students_by_age(Self, Int) -> Int?
+  async find_all(Self) -> FixedArray[Student]
+  async all(Self) -> FixedArray[Student]
 }
 
