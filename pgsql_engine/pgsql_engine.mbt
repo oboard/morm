@@ -121,42 +121,6 @@ fn fail(message : String) -> @engine.QueryResult {
 }
 
 ///|
-fn i32_be(v : Int) -> Bytes {
-  let b = @buffer.new()
-  b.write_byte(((v >> 24) & 0xff).to_byte())
-  b.write_byte(((v >> 16) & 0xff).to_byte())
-  b.write_byte(((v >> 8) & 0xff).to_byte())
-  b.write_byte((v & 0xff).to_byte())
-  b.to_bytes()
-}
-
-///|
-fn read_i16_be(buf : Bytes, idx : Int) -> Int {
-  (buf[idx].to_int() << 8) | buf[idx + 1].to_int()
-}
-
-///|
-fn read_i32_be(buf : Bytes, idx : Int) -> Int {
-  let b0 = buf[idx].to_int()
-  let b1 = buf[idx + 1].to_int()
-  let b2 = buf[idx + 2].to_int()
-  let b3 = buf[idx + 3].to_int()
-  if b0 >= 128 {
-    -(((255 - b0) << 24) | ((255 - b1) << 16) | ((255 - b2) << 8) | (255 - b3)) - 1
-  } else {
-    (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
-  }
-}
-
-///|
-fn concat_bytes(a : Bytes, b : Bytes) -> Bytes {
-  let out = @buffer.new()
-  out.write_bytes(a)
-  out.write_bytes(b)
-  out.to_bytes()
-}
-
-///|
 fn cstring(data : Bytes, start : Int) -> (String, Int)? {
   if start < 0 || start >= data.length() {
     return None
@@ -174,10 +138,10 @@ fn cstring(data : Bytes, start : Int) -> (String, Int)? {
 ///|
 fn pg_md5_password(user : String, password : String, salt : Bytes) -> String {
   let inner = @crypto.bytes_to_hex_string(
-    @crypto.md5(concat_bytes(@utf8.encode(password), @utf8.encode(user))),
+    @crypto.md5(@utf8.encode(password) + @utf8.encode(user)),
   )
   let outer = @crypto.bytes_to_hex_string(
-    @crypto.md5(concat_bytes(@utf8.encode(inner), salt)),
+    @crypto.md5(@utf8.encode(inner) + salt),
   )
   "md5" + outer
 }
@@ -209,10 +173,10 @@ fn parse_error_response(payload : Bytes) -> String {
 
 ///|
 fn json_from_text(text : String) -> Json {
-  if text == "t" || text == "true" || text == "TRUE" {
+  if text is ("t" | "true" | "TRUE") {
     return Json::boolean(true)
   }
-  if text == "f" || text == "false" || text == "FALSE" {
+  if text is ("f" | "false" | "FALSE") {
     return Json::boolean(false)
   }
   let i = @strconv.parse_int(text) catch { _ => -2147483648 }
@@ -242,7 +206,14 @@ fn parse_rows_affected(command_complete : String) -> Int {
 async fn read_message(conn : @socket.Tcp) -> (Byte, Bytes)? {
   let tag = conn.read_exactly(1) catch { _ => return None }
   let nbuf = conn.read_exactly(4) catch { _ => return None }
-  let len = read_i32_be(nbuf, 0)
+  let len = match nbuf {
+    [u8be(b0), u8be(b1), u8be(b2), u8be(b3)] =>
+      (b0.reinterpret_as_int() << 24) |
+      (b1.reinterpret_as_int() << 16) |
+      (b2.reinterpret_as_int() << 8) |
+      b3.reinterpret_as_int()
+    _ => return None
+  }
   if len < 4 {
     return None
   }
@@ -254,7 +225,7 @@ async fn read_message(conn : @socket.Tcp) -> (Byte, Bytes)? {
 async fn write_tagged(conn : @socket.Tcp, tag : Byte, payload : Bytes) -> Bool {
   let h = @buffer.new()
   h.write_byte(tag)
-  h.write_bytes(i32_be(payload.length() + 4))
+  h.write_int_be(payload.length() + 4)
   conn.write(h.to_bytes()) catch {
     _ => return false
   }
@@ -267,7 +238,7 @@ async fn write_tagged(conn : @socket.Tcp, tag : Byte, payload : Bytes) -> Bool {
 ///|
 async fn send_startup(conn : @socket.Tcp, cfg : PgSQLEngine) -> Bool {
   let body = @buffer.new()
-  body.write_bytes(i32_be(196608)) // protocol 3.0
+  body.write_int_be(196608) // protocol 3.0
   body.write_bytes(@utf8.encode("user"))
   body.write_byte(0)
   body.write_bytes(@utf8.encode(cfg.user))
@@ -278,7 +249,9 @@ async fn send_startup(conn : @socket.Tcp, cfg : PgSQLEngine) -> Bool {
   body.write_byte(0)
   body.write_byte(0)
   let data = body.to_bytes()
-  conn.write(i32_be(data.length() + 4)) catch {
+  let len_buf = @buffer.new()
+  len_buf.write_int_be(data.length() + 4)
+  conn.write(len_buf.to_bytes()) catch {
     _ => return false
   }
   conn.write(data) catch {
@@ -309,7 +282,14 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
       if payload.length() < 4 {
         return fail("pgsql bad auth message")
       }
-      let kind = read_i32_be(payload, 0)
+      let kind = match payload[:4] {
+        [u8be(b0), u8be(b1), u8be(b2), u8be(b3)] =>
+          (b0.reinterpret_as_int() << 24) |
+          (b1.reinterpret_as_int() << 16) |
+          (b2.reinterpret_as_int() << 8) |
+          b3.reinterpret_as_int()
+        _ => return fail("pgsql bad auth message")
+      }
       if kind == 0 {
         ()
       } else if kind == 3 {
@@ -366,7 +346,11 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
         return fail("pgsql bad row-description")
       }
       cols.clear()
-      let count = read_i16_be(payload, 0)
+      let count = match payload[:2] {
+        [u8be(b0), u8be(b1)] =>
+          (b0.reinterpret_as_int() << 8) | b1.reinterpret_as_int()
+        _ => return fail("pgsql bad row-description")
+      }
       let mut pos = 2
       let mut i = 0
       while i < count {
@@ -385,7 +369,11 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
       if payload.length() < 2 {
         return fail("pgsql bad data-row")
       }
-      let count = read_i16_be(payload, 0)
+      let count = match payload[:2] {
+        [u8be(b0), u8be(b1)] =>
+          (b0.reinterpret_as_int() << 8) | b1.reinterpret_as_int()
+        _ => return fail("pgsql bad data-row")
+      }
       let obj : Map[String, Json] = {}
       let mut pos = 2
       let mut i = 0
@@ -393,7 +381,14 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
         if pos + 4 > payload.length() {
           return fail("pgsql truncated data-row")
         }
-        let len = read_i32_be(payload, pos)
+        let len = match payload[pos:pos + 4] {
+          [u8be(b0), u8be(b1), u8be(b2), u8be(b3)] =>
+            (b0.reinterpret_as_int() << 24) |
+            (b1.reinterpret_as_int() << 16) |
+            (b2.reinterpret_as_int() << 8) |
+            b3.reinterpret_as_int()
+          _ => return fail("pgsql truncated data-row")
+        }
         pos = pos + 4
         let key = if i < cols.length() { cols[i] } else { "c" + i.to_string() }
         if len < 0 {
@@ -426,13 +421,14 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
 }
 
 ///|
-pub fn PgSQLEngine::ping(self : PgSQLEngine) -> Bool {
-  let mut ok = false
-  @async.run_async_main(() => {
-    let res = pg_query_async(self, "SELECT 1")
-    ok = res.ok
+pub async fn PgSQLEngine::ping(self : PgSQLEngine) -> Bool {
+  let res_opt = @async.with_timeout_opt(5000, () => {
+    pg_query_async(self, "SELECT 1")
   })
-  ok
+  match res_opt {
+    Some(res) => res.ok
+    None => false
+  }
 }
 
 ///|
@@ -467,15 +463,18 @@ pub impl @engine.Engine for PgSQLEngine with exec_raw(
   sql : String,
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
-  let mut res : @engine.QueryResult = {
-    ok: false,
-    rows_affected: 0,
-    rows: [],
-    error: Some("async execution did not return"),
-  }
   let query = inline_sql(sql, params)
-  @async.run_async_main(() => res = pg_query_async(self, query))
-  res
+  let res_opt = @async.with_timeout_opt(5000, () => pg_query_async(self, query))
+  match res_opt {
+    Some(v) => v
+    None =>
+      {
+        ok: false,
+        rows_affected: 0,
+        rows: [],
+        error: Some("pgsql query timeout"),
+      }
+  }
 }
 
 ///|

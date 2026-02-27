@@ -40,14 +40,14 @@ impl @engine.Engine for MySQLEngine with exec_raw(
 }
 
 ///|
-test "auto migrate" {
+async test "auto migrate" {
   let engine = MySQLEngine::open("mysql://root:123456@localhost:3306/test")
   @morm.auto_migrate(engine, [Student::table()])
   engine.close()
 }
 
 ///|
-test "mapper" {
+async test "mapper" {
   let engine = MySQLEngine::open("mysql://root:123456@localhost:3306/test")
   let studentMapper = StudentMapperImpl::new(engine)
   let student = studentMapper.find_student_by_name("Alice")

@@ -1,10 +1,10 @@
 ///|
-priv struct SQLiteEngine {
+struct SQLiteEngine {
   conn : Connection
 }
 
 ///|
-fn SQLiteEngine::open(filename : String) -> SQLiteEngine {
+pub fn SQLiteEngine::open(filename : String) -> SQLiteEngine {
   { conn: try! Connection::open(filename) }
 }
 

@@ -179,6 +179,7 @@ struct MapperMethodSpec {
   return_type : String
   returns_array : Bool
   returns_option : Bool
+  is_async : Bool
 }
 
 ///|
@@ -287,24 +288,20 @@ fn derive_builder_code(
   // 识别动作并提取 by 条件片段（与 entity 解耦）
   if method_name == "find_all" || method_name == "all" {
     return Some("@morm.select_from(\{table_expr})")
-  } else if method_name.has_prefix("find_") {
-    if method_name.strip_prefix("find_") is Some(rest) {
-      let parts = rest.split("_by_").collect()
-      if parts.length() >= 2 {
-        condition_part = parts[1].to_string()
-      } else if rest.strip_prefix("by_") is Some(by_rest) {
-        condition_part = by_rest.to_string()
-      }
+  } else if method_name.strip_prefix("find_") is Some(rest) {
+    let parts = rest.split("_by_").collect()
+    if parts.length() >= 2 {
+      condition_part = parts[1].to_string()
+    } else if rest.strip_prefix("by_") is Some(by_rest) {
+      condition_part = by_rest.to_string()
     }
-  } else if method_name.has_prefix("count_") {
+  } else if method_name.strip_prefix("count_") is Some(rest) {
     is_count = true
-    if method_name.strip_prefix("count_") is Some(rest) {
-      let parts = rest.split("_by_").collect()
-      if parts.length() >= 2 {
-        condition_part = parts[1].to_string()
-      } else if rest.strip_prefix("by_") is Some(by_rest) {
-        condition_part = by_rest.to_string()
-      }
+    let parts = rest.split("_by_").collect()
+    if parts.length() >= 2 {
+      condition_part = parts[1].to_string()
+    } else if rest.strip_prefix("by_") is Some(by_rest) {
+      condition_part = by_rest.to_string()
     }
   }
 
@@ -398,7 +395,7 @@ fn parse_mappers_from_ast(
           // 收集方法
           let mmethods : Array[MapperMethodSpec] = []
           methods.each(m => {
-            if m is { name: { name: mname, .. }, params, attrs, .. } {
+            if m is { name: { name: mname, .. }, params, attrs, is_async, .. } {
               // 提取 SQL
               let mut sql_opt : String? = None
               let mut builder_code_opt : String? = None
@@ -519,6 +516,7 @@ fn parse_mappers_from_ast(
                 return_type,
                 returns_array,
                 returns_option,
+                is_async: is_async is Some(_),
               })
             }
           })

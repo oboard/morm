@@ -107,28 +107,15 @@ fn fail(message : String) -> @engine.QueryResult {
 ///|
 fn le_u24(v : Int) -> Bytes {
   let b = @buffer.new()
-  b.write_byte((v & 0xff).to_byte())
-  b.write_byte(((v >> 8) & 0xff).to_byte())
-  b.write_byte(((v >> 16) & 0xff).to_byte())
-  b.to_bytes()
+  b.write_uint_le(v.reinterpret_as_uint())
+  b.to_bytes()[:3].to_bytes()
 }
 
 ///|
 fn le_u32(v : Int) -> Bytes {
   let b = @buffer.new()
-  b.write_byte((v & 0xff).to_byte())
-  b.write_byte(((v >> 8) & 0xff).to_byte())
-  b.write_byte(((v >> 16) & 0xff).to_byte())
-  b.write_byte(((v >> 24) & 0xff).to_byte())
-  b.to_bytes()
-}
-
-///|
-fn concat_bytes(a : Bytes, b : Bytes) -> Bytes {
-  let out = @buffer.new()
-  out.write_bytes(a)
-  out.write_bytes(b)
-  out.to_bytes()
+  b.write_uint_le(v.reinterpret_as_uint())
+  b.to_bytes()[:4].to_bytes()
 }
 
 ///|
@@ -151,7 +138,7 @@ fn mysql_native_token(password : String, seed : Bytes) -> Bytes {
   let pass = @utf8.encode(password)
   let s1 = @crypto.sha1(pass).unsafe_reinterpret_as_bytes()
   let s2 = @crypto.sha1(s1).unsafe_reinterpret_as_bytes()
-  let s3 = @crypto.sha1(concat_bytes(seed, s2)).unsafe_reinterpret_as_bytes()
+  let s3 = @crypto.sha1(seed + s2).unsafe_reinterpret_as_bytes()
   bytes_xor(s1, s3)
 }
 
@@ -164,7 +151,7 @@ fn caching_sha2_token(password : String, seed : Bytes) -> Bytes {
   let s1 = @crypto.sha256(pass).unsafe_reinterpret_as_bytes()
   let s2 = @crypto.sha256(s1).unsafe_reinterpret_as_bytes()
   let s3 = @crypto.sha256(s2).unsafe_reinterpret_as_bytes()
-  let s4 = @crypto.sha256(concat_bytes(s3, seed)).unsafe_reinterpret_as_bytes()
+  let s4 = @crypto.sha256(s3 + seed).unsafe_reinterpret_as_bytes()
   bytes_xor(s1, s4)
 }
 
@@ -269,10 +256,10 @@ fn parse_error_packet(payload : Bytes) -> String {
 
 ///|
 fn json_from_text(text : String) -> Json {
-  if text == "true" || text == "TRUE" {
+  if text is ("true" | "TRUE") {
     return Json::boolean(true)
   }
-  if text == "false" || text == "FALSE" {
+  if text is ("false" | "FALSE") {
     return Json::boolean(false)
   }
   let i = @strconv.parse_int(text) catch { _ => -2147483648 }
@@ -288,10 +275,32 @@ fn json_from_text(text : String) -> Json {
 
 ///|
 async fn read_packet(conn : @socket.Tcp) -> (Int, Bytes)? {
-  let hdr = conn.read_exactly(4) catch { _ => return None }
-  let len = hdr[0].to_int() | (hdr[1].to_int() << 8) | (hdr[2].to_int() << 16)
-  let seq = hdr[3].to_int()
-  let payload = conn.read_exactly(len) catch { _ => return None }
+  let hdr_opt = @async.with_timeout_opt(2000, () => conn.read_exactly(4))
+  if hdr_opt is None {
+    return None
+  }
+  let hdr = match hdr_opt {
+    Some(v) => v
+    None => return None
+  }
+  let (len, seq) = match hdr {
+    [u8be(b0), u8be(b1), u8be(b2), u8be(s)] =>
+      (
+        b0.reinterpret_as_int() |
+        (b1.reinterpret_as_int() << 8) |
+        (b2.reinterpret_as_int() << 16),
+        s.reinterpret_as_int(),
+      )
+    _ => return None
+  }
+  let payload_opt = @async.with_timeout_opt(3000, () => conn.read_exactly(len))
+  if payload_opt is None {
+    return None
+  }
+  let payload = match payload_opt {
+    Some(v) => v
+    None => return None
+  }
   Some((seq, payload))
 }
 
@@ -401,14 +410,16 @@ fn make_handshake_response(
   plugin : String,
   seed : Bytes,
 ) -> Bytes {
-  let client_caps = 0x00000200 | // CLIENT_PROTOCOL_41
+  let mut client_caps = 0x00000200 | // CLIENT_PROTOCOL_41
     0x00008000 | // CLIENT_SECURE_CONNECTION
     0x00000001 | // CLIENT_LONG_PASSWORD
     0x00000004 | // CLIENT_LONG_FLAG
     0x00002000 | // CLIENT_TRANSACTIONS
     0x00080000 | // CLIENT_PLUGIN_AUTH
-    0x01000000 | // CLIENT_DEPRECATE_EOF
-    0x00000800 // CLIENT_CONNECT_ATTRS (safe even if ignored)
+    0x01000000 // CLIENT_DEPRECATE_EOF
+  if cfg.database != "" {
+    client_caps = client_caps | 0x00000008 // CLIENT_CONNECT_WITH_DB
+  }
   let caps = client_caps & server_caps
   let auth = auth_token(plugin, cfg.password, seed)
 
@@ -605,20 +616,45 @@ async fn mysql_query_async(
     i = i + 1
   }
 
-  // EOF / OK after column definitions
-  let col_end = read_packet(conn) catch { _ => None }
-  if col_end is None {
-    return fail("mysql missing column-end packet")
+  // EOF / OK after column definitions may be present depending on server/client flags.
+  let mut pending_row : Bytes? = None
+  let after_cols = read_packet(conn) catch { _ => None }
+  if after_cols is None {
+    return fail("mysql missing packet after column definitions")
+  }
+  let (_, after_cols_payload) = after_cols.unwrap()
+  if !(after_cols_payload.length() > 0 &&
+    (
+      (
+        after_cols_payload[0].to_int() == 0xfe &&
+        after_cols_payload.length() < 9
+      ) ||
+      (
+        after_cols_payload[0].to_int() == 0x00 &&
+        after_cols_payload.length() < 9
+      )
+    )) {
+    pending_row = Some(after_cols_payload)
   }
 
   let rows : Array[Json] = []
   let mut done = false
+  let mut first_pending = pending_row
   while !done {
-    let p = read_packet(conn) catch { _ => None }
-    if p is None {
-      return fail("mysql row read failed")
+    let row_pkt = match first_pending {
+      Some(v) => {
+        first_pending = None
+        v
+      }
+      None => {
+        let p = read_packet(conn) catch { _ => None }
+        if p is None {
+          return fail("mysql row read failed")
+        }
+        let (_, pkt) = p.unwrap()
+        pkt
+      }
     }
-    let (_, row_pkt) = p.unwrap()
     if row_pkt.length() > 0 && row_pkt[0].to_int() == 0xff {
       return fail(parse_error_packet(row_pkt))
     }
@@ -660,13 +696,8 @@ async fn mysql_query_async(
 }
 
 ///|
-pub fn MySQLEngine::ping(self : MySQLEngine) -> Bool {
-  let mut ok = false
-  @async.run_async_main(() => {
-    let res = mysql_query_async(self, "SELECT 1")
-    ok = res.ok
-  })
-  ok
+pub async fn MySQLEngine::ping(self : MySQLEngine) -> Bool {
+  mysql_query_async(self, "SELECT 1").ok
 }
 
 ///|
@@ -701,15 +732,8 @@ pub impl @engine.Engine for MySQLEngine with exec_raw(
   sql : String,
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
-  let mut res : @engine.QueryResult = {
-    ok: false,
-    rows_affected: 0,
-    rows: [],
-    error: Some("async execution did not return"),
-  }
   let query = inline_sql(sql, params)
-  @async.run_async_main(() => res = mysql_query_async(self, query))
-  res
+  mysql_query_async(self, query)
 }
 
 ///|

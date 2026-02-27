@@ -1,5 +1,5 @@
 ///|
-pub fn[E : @engine.Engine] auto_migrate(
+pub async fn[E : @engine.Engine] auto_migrate(
   engine : E,
   tables : Array[Table],
 ) -> Unit {

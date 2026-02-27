@@ -18,7 +18,7 @@ pub struct PgSQLEngine {
   database : String
 }
 pub fn PgSQLEngine::open(String) -> Result[Self, String]
-pub fn PgSQLEngine::ping(Self) -> Bool
+pub async fn PgSQLEngine::ping(Self) -> Bool
 pub impl @engine.Engine for PgSQLEngine
 
 // Type aliases

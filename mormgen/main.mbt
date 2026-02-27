@@ -75,6 +75,51 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
     $|   \{impl_name}::{ engine, }
     $| }
     $|
+  let mut has_sync_methods = false
+  for m in spec.methods {
+    if !m.is_async {
+      has_sync_methods = true
+    }
+  }
+  let mapper_helpers = if has_sync_methods {
+    (
+      $| pub fn[Q : @engine.QueryBuilder] \{impl_name}::exec_query_sync(
+      $|   self : \{impl_name},
+      $|   q : Q,
+      $| ) -> @engine.QueryResult {
+      $|   let mut res : @engine.QueryResult = {
+      $|     ok: false,
+      $|     rows_affected: 0,
+      $|     rows: [],
+      $|     error: Some("async execution did not return"),
+      $|   }
+      $|   @async.run_async_main(() => {
+      $|     res = @engine.exec_query(self.engine, q)
+      $|   })
+      $|   res
+      $| }
+      $|
+      $| pub fn \{impl_name}::exec_raw_sync(
+      $|   self : \{impl_name},
+      $|   sql : String,
+      $|   params : FixedArray[@engine.Param],
+      $| ) -> @engine.QueryResult {
+      $|   let mut res : @engine.QueryResult = {
+      $|     ok: false,
+      $|     rows_affected: 0,
+      $|     rows: [],
+      $|     error: Some("async execution did not return"),
+      $|   }
+      $|   @async.run_async_main(() => {
+      $|     res = self.engine.exec_raw(sql, params)
+      $|   })
+      $|   res
+      $| }
+      $|
+    )
+  } else {
+    ""
+  }
   let mut impls = ""
   for m in spec.methods {
     let param_sig_parts : Array[String] = []
@@ -205,7 +250,7 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
     }
     impls = impls + method_header + body
   }
-  struct_def + mapper_fn + impls
+  struct_def + mapper_fn + mapper_helpers + impls
 }
 
 ///|

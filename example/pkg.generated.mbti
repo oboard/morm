@@ -36,6 +36,8 @@ pub impl @morm.Entity for Student
 pub struct StudentMapperImpl {
   engine : &@engine.Engine
 }
+pub fn[Q : @engine.QueryBuilder] StudentMapperImpl::exec_query_sync(Self, Q) -> @engine.QueryResult
+pub fn StudentMapperImpl::exec_raw_sync(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
 pub fn StudentMapperImpl::new(&@engine.Engine) -> Self
 pub impl StudentMapper for StudentMapperImpl
 

@@ -16,7 +16,7 @@ pub fn add_index(Table, Index) -> Table
 
 pub fn alter_table(String) -> AlterTable
 
-pub fn[E : @engine.Engine] auto_migrate(E, Array[Table]) -> Unit
+pub async fn[E : @engine.Engine] auto_migrate(E, Array[Table]) -> Unit
 
 pub fn begin_tx(@dialect.Dialect) -> String
 

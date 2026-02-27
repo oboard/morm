@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
+pub async fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
 
 pub fn render_default_sql(Statement) -> (String, FixedArray[Param])
 
@@ -151,8 +151,8 @@ pub impl @json.FromJson for WhereType
 // Traits
 pub(open) trait Engine {
   render(Self, Statement) -> (String, FixedArray[Param])
-  migrate_table(Self, Json) -> QueryResult
-  exec_raw(Self, String, FixedArray[Param]) -> QueryResult
+  async migrate_table(Self, Json) -> QueryResult
+  async exec_raw(Self, String, FixedArray[Param]) -> QueryResult
   close(Self) -> Unit
 }
 
