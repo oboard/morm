@@ -140,8 +140,8 @@ pub(open) trait Driver {
   open(Self, dsn : String) -> DbResult[Self]
   close(Self) -> DbResult[Self]
   ping(Self) -> DbResult[Unit]
-  exec(Self, sql : String, args : FixedArray[Json]) -> DbResult[Unit]
-  query(Self, sql : String, args : FixedArray[Json]) -> DbResult[
+  exec(Self, sql : String, args : FixedArray[@engine.Param]) -> DbResult[Unit]
+  query(Self, sql : String, args : FixedArray[@engine.Param]) -> DbResult[
     FixedArray[Json],
   ]
 }
@@ -166,7 +166,7 @@ pub(all) enum OrderBy {
 ///|
 pub struct Where {
   col : String
-  value : Json
+  value : @engine.Param
   ty : WhereType
 } derive(Eq, Show, ToJson, FromJson)
 
@@ -178,6 +178,18 @@ pub enum WhereType {
   Gte
   Lte
 } derive(Eq, Show, ToJson, FromJson)
+
+///|
+fn json_to_param(value : Json) -> @engine.Param {
+  match value {
+    Null => @engine.Null
+    True => @engine.Bool(true)
+    False => @engine.Bool(false)
+    Number(n, ..) => @engine.Double(n)
+    String(s) => @engine.String(s)
+    _ => @engine.String(value.stringify())
+  }
+}
 
 ///|
 pub fn select_from(table : String) -> Query {
@@ -204,32 +216,52 @@ pub fn select_raw(table : String, cols_expr : String) -> Query {
 }
 
 ///|
-pub fn Query::where_eq(self : Query, col : String, value : Json) -> Query {
-  let where_ = self.where_ + [{ col, value, ty: Eq }]
+pub fn[V : @engine.ToParam] Query::where_eq(
+  self : Query,
+  col : String,
+  value : V,
+) -> Query {
+  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Eq }]
   { ..self, where_, }
 }
 
 ///|
-pub fn Query::where_gt(self : Query, col : String, value : Json) -> Query {
-  let where_ = self.where_ + [{ col, value, ty: Gt }]
+pub fn[V : @engine.ToParam] Query::where_gt(
+  self : Query,
+  col : String,
+  value : V,
+) -> Query {
+  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Gt }]
   { ..self, where_, }
 }
 
 ///|
-pub fn Query::where_lt(self : Query, col : String, value : Json) -> Query {
-  let where_ = self.where_ + [{ col, value, ty: Lt }]
+pub fn[V : @engine.ToParam] Query::where_lt(
+  self : Query,
+  col : String,
+  value : V,
+) -> Query {
+  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Lt }]
   { ..self, where_, }
 }
 
 ///|
-pub fn Query::where_gte(self : Query, col : String, value : Json) -> Query {
-  let where_ = self.where_ + [{ col, value, ty: Gte }]
+pub fn[V : @engine.ToParam] Query::where_gte(
+  self : Query,
+  col : String,
+  value : V,
+) -> Query {
+  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Gte }]
   { ..self, where_, }
 }
 
 ///|
-pub fn Query::where_lte(self : Query, col : String, value : Json) -> Query {
-  let where_ = self.where_ + [{ col, value, ty: Lte }]
+pub fn[V : @engine.ToParam] Query::where_lte(
+  self : Query,
+  col : String,
+  value : V,
+) -> Query {
+  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Lte }]
   { ..self, where_, }
 }
 
@@ -311,7 +343,23 @@ fn format_set_sql(
 }
 
 ///|
-pub fn Query::to(self : Query, dialect : Dialect) -> (String, FixedArray[Json]) {
+fn param_to_inline_sql(value : @engine.Param) -> String {
+  match value {
+    @engine.Null => "NULL"
+    @engine.Bool(v) => if v { "TRUE" } else { "FALSE" }
+    @engine.Int(v) => v.to_string()
+    @engine.Int64(v) => v.to_string()
+    @engine.Double(v) => v.to_string()
+    @engine.String(v) => "'" + v + "'"
+    @engine.Bytes(v) => "'" + v.to_string() + "'"
+  }
+}
+
+///|
+pub fn Query::to(
+  self : Query,
+  dialect : Dialect,
+) -> (String, FixedArray[@engine.Param]) {
   let buf = @buffer.new()
   buf.write_string("SELECT ")
   if self.select.is_empty() {
@@ -363,6 +411,34 @@ pub fn Query::to(self : Query, dialect : Dialect) -> (String, FixedArray[Json]) 
     }
   }
   (buf.to_string(), self.where_.map(w => w.value))
+}
+
+///|
+pub impl @engine.QueryBuilder for Query with to_statement(self) -> @engine.Statement {
+  let where_ = self.where_.map(w => {
+    let ty = match w.ty {
+      Eq => @engine.Eq
+      Gt => @engine.Gt
+      Lt => @engine.Lt
+      Gte => @engine.Gte
+      Lte => @engine.Lte
+    }
+    @engine.Where::{ col: w.col, value: w.value, ty }
+  })
+  let order_by = self.order_by.map(ob => {
+    match ob {
+      Asc(col) => @engine.Asc(col)
+      Desc(col) => @engine.Desc(col)
+    }
+  })
+  @engine.Select({
+    select: self.select,
+    from: self.from,
+    where_,
+    order_by,
+    limit: self.limit,
+    offset: self.offset,
+  })
 }
 
 ///|
@@ -973,7 +1049,7 @@ pub fn AlterTable::to(
 pub struct InsertQuery {
   into : String
   columns : FixedArray[String]
-  values : FixedArray[Json]
+  values : FixedArray[@engine.Param]
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
@@ -989,7 +1065,7 @@ pub fn[E : Entity] InsertQuery::from(
   let json = entity.to_json()
   let columns = entity.table().columns.map(c => c.name)
   let values = if json is Object(obj) {
-    FixedArray::from_iter(obj.values())
+    FixedArray::from_iter(obj.values().map(v => json_to_param(v)))
   } else {
     []
   }
@@ -1007,7 +1083,7 @@ pub fn InsertQuery::columns(
 ///|
 pub fn InsertQuery::values(
   self : InsertQuery,
-  values : FixedArray[Json],
+  values : FixedArray[@engine.Param],
 ) -> InsertQuery {
   { ..self, values, }
 }
@@ -1016,7 +1092,7 @@ pub fn InsertQuery::values(
 pub fn InsertQuery::to(
   self : InsertQuery,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, FixedArray[@engine.Param]) {
   let buf = @buffer.new()
   buf.write_string("INSERT INTO ")
   buf.write_string(self.into)
@@ -1029,6 +1105,11 @@ pub fn InsertQuery::to(
   buf.write_string(placeholders(dialect, self.values.length(), 1))
   buf.write_string(")")
   (buf.to_string(), self.values)
+}
+
+///|
+pub impl @engine.QueryBuilder for InsertQuery with to_statement(self) -> @engine.Statement {
+  @engine.Insert({ into: self.into, columns: self.columns, values: self.values })
 }
 
 ///|
@@ -1052,7 +1133,7 @@ pub fn[E : Entity] UpsertQuery::from(
 ) -> UpsertQuery {
   let json = entity.to_json()
   let sets = if json is Object(obj) {
-    obj.map((col, value) => { col, value })
+    obj.map((col, value) => { col, value: json_to_param(value) })
   } else {
     {}
   }
@@ -1082,7 +1163,7 @@ pub fn[E : Entity] UpsertQuery::from(
 pub fn UpsertQuery::set(
   self : UpsertQuery,
   col : String,
-  value : Json,
+  value : @engine.Param,
 ) -> UpsertQuery {
   { ..self, sets: self.sets + [{ col, value }] }
 }
@@ -1099,7 +1180,7 @@ pub fn UpsertQuery::on_conflict(
 pub fn UpsertQuery::do_update_set(
   self : UpsertQuery,
   col : String,
-  value : Json,
+  value : @engine.Param,
 ) -> UpsertQuery {
   { ..self, update_sets: self.update_sets + [{ col, value }] }
 }
@@ -1108,7 +1189,7 @@ pub fn UpsertQuery::do_update_set(
 pub fn UpsertQuery::to(
   self : UpsertQuery,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, FixedArray[@engine.Param]) {
   let buf = @buffer.new()
   // INSERT 部分
   buf.write_string("INSERT INTO ")
@@ -1186,7 +1267,7 @@ pub fn UpsertQuery::to(
     }
     _ => abort("UpsertQuery::to: dialect not supported")
   }
-  let mut args : FixedArray[Json] = self.sets.map(s => s.value)
+  let mut args : FixedArray[@engine.Param] = self.sets.map(s => s.value)
   if !self.update_sets.is_empty() {
     args = args + self.update_sets.map(s => s.value)
   }
@@ -1194,10 +1275,25 @@ pub fn UpsertQuery::to(
 }
 
 ///|
+pub impl @engine.QueryBuilder for UpsertQuery with to_statement(self) -> @engine.Statement {
+  let sets = self.sets.map(s => @engine.Set::{ col: s.col, value: s.value })
+  let update_sets = self.update_sets.map(s => @engine.Set::{
+    col: s.col,
+    value: s.value,
+  })
+  @engine.Upsert({
+    table: self.table,
+    sets,
+    conflict_target: self.conflict_target,
+    update_sets,
+  })
+}
+
+///|
 // ---- UPDATE 构建器 ----
 pub struct Set {
   col : String
-  value : Json
+  value : @engine.Param
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
@@ -1220,7 +1316,7 @@ pub fn[E : Entity] UpdateQuery::from(
   let json = entity.to_json()
   let values = FixedArray::from_iter(
     if json is Object(obj) {
-      obj.map((k, v) => Set::{ col: k, value: v }).values()
+      obj.map((k, v) => Set::{ col: k, value: json_to_param(v) }).values()
     } else {
       [].iter()
     },
@@ -1229,57 +1325,57 @@ pub fn[E : Entity] UpdateQuery::from(
 }
 
 ///|
-pub fn UpdateQuery::set(
+pub fn[V : @engine.ToParam] UpdateQuery::set(
   self : UpdateQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> UpdateQuery {
-  { ..self, sets: self.sets + [{ col, value }] }
+  { ..self, sets: self.sets + [{ col, value: value.to_param() }] }
 }
 
 ///|
-pub fn UpdateQuery::where_eq(
+pub fn[V : @engine.ToParam] UpdateQuery::where_eq(
   self : UpdateQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Eq }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Eq }] }
 }
 
 ///|
-pub fn UpdateQuery::where_gt(
+pub fn[V : @engine.ToParam] UpdateQuery::where_gt(
   self : UpdateQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Gt }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Gt }] }
 }
 
 ///|
-pub fn UpdateQuery::where_lt(
+pub fn[V : @engine.ToParam] UpdateQuery::where_lt(
   self : UpdateQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Lt }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lt }] }
 }
 
 ///|
-pub fn UpdateQuery::where_gte(
+pub fn[V : @engine.ToParam] UpdateQuery::where_gte(
   self : UpdateQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Gte }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Gte }] }
 }
 
 ///|
-pub fn UpdateQuery::where_lte(
+pub fn[V : @engine.ToParam] UpdateQuery::where_lte(
   self : UpdateQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Lte }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lte }] }
 }
 
 ///|
@@ -1289,7 +1385,9 @@ pub fn UpdateQuery::to_mysql_sql(self : UpdateQuery) -> String {
   buf.write_string(self.table)
   buf.write_string(" SET ")
   buf.write_string(
-    self.sets.map(s => [s.col, "=", s.value.stringify()].join(" ")).join(", "),
+    self.sets
+    .map(s => [s.col, "=", param_to_inline_sql(s.value)].join(" "))
+    .join(", "),
   )
   if !self.where_.is_empty() {
     buf.write_string(" WHERE ")
@@ -1303,7 +1401,7 @@ pub fn UpdateQuery::to_mysql_sql(self : UpdateQuery) -> String {
           Gte => ">="
           Lte => "<="
         }
-        [w.col, ty, w.value.stringify()].join(" ")
+        [w.col, ty, param_to_inline_sql(w.value)].join(" ")
       })
       .join(" AND "),
     )
@@ -1315,7 +1413,7 @@ pub fn UpdateQuery::to_mysql_sql(self : UpdateQuery) -> String {
 pub fn UpdateQuery::to(
   self : UpdateQuery,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, FixedArray[@engine.Param]) {
   let buf = @buffer.new()
   buf.write_string("UPDATE ")
   buf.write_string(self.table)
@@ -1331,6 +1429,22 @@ pub fn UpdateQuery::to(
 }
 
 ///|
+pub impl @engine.QueryBuilder for UpdateQuery with to_statement(self) -> @engine.Statement {
+  let sets = self.sets.map(s => @engine.Set::{ col: s.col, value: s.value })
+  let where_ = self.where_.map(w => {
+    let ty = match w.ty {
+      Eq => @engine.Eq
+      Gt => @engine.Gt
+      Lt => @engine.Lt
+      Gte => @engine.Gte
+      Lte => @engine.Lte
+    }
+    @engine.Where::{ col: w.col, value: w.value, ty }
+  })
+  @engine.Update({ table: self.table, sets, where_ })
+}
+
+///|
 // ---- DELETE 构建器 ----
 pub struct DeleteQuery {
   from : String
@@ -1343,55 +1457,55 @@ pub fn delete_from(table : String) -> DeleteQuery {
 }
 
 ///|
-pub fn DeleteQuery::where_eq(
+pub fn[V : @engine.ToParam] DeleteQuery::where_eq(
   self : DeleteQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Eq }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Eq }] }
 }
 
 ///|
-pub fn DeleteQuery::where_gt(
+pub fn[V : @engine.ToParam] DeleteQuery::where_gt(
   self : DeleteQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Gt }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Gt }] }
 }
 
 ///|
-pub fn DeleteQuery::where_lt(
+pub fn[V : @engine.ToParam] DeleteQuery::where_lt(
   self : DeleteQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Lt }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lt }] }
 }
 
 ///|
-pub fn DeleteQuery::where_gte(
+pub fn[V : @engine.ToParam] DeleteQuery::where_gte(
   self : DeleteQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Gte }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Gte }] }
 }
 
 ///|
-pub fn DeleteQuery::where_lte(
+pub fn[V : @engine.ToParam] DeleteQuery::where_lte(
   self : DeleteQuery,
   col : String,
-  value : Json,
+  value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value, ty: Lte }] }
+  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lte }] }
 }
 
 ///|
 pub fn DeleteQuery::to(
   self : DeleteQuery,
   dialect : Dialect,
-) -> (String, FixedArray[Json]) {
+) -> (String, FixedArray[@engine.Param]) {
   let buf = @buffer.new()
   buf.write_string("DELETE FROM ")
   buf.write_string(self.from)
@@ -1400,6 +1514,21 @@ pub fn DeleteQuery::to(
     buf.write_string(format_where_sql(self.where_, dialect, 1))
   }
   (buf.to_string(), self.where_.map(w => w.value))
+}
+
+///|
+pub impl @engine.QueryBuilder for DeleteQuery with to_statement(self) -> @engine.Statement {
+  let where_ = self.where_.map(w => {
+    let ty = match w.ty {
+      Eq => @engine.Eq
+      Gt => @engine.Gt
+      Lt => @engine.Lt
+      Gte => @engine.Gte
+      Lte => @engine.Lte
+    }
+    @engine.Where::{ col: w.col, value: w.value, ty }
+  })
+  @engine.Delete({ from: self.from, where_ })
 }
 
 ///|
@@ -1413,8 +1542,10 @@ pub fn[E : Entity] DeleteQuery::from(
     Some(pk) => {
       let obj = if entity.to_json() is Object(obj) { obj } else { {} }
       match obj.get(pk) {
-        Some(v) =>
-          { ..self, where_: self.where_ + [{ col: pk, value: v, ty: Eq }] }
+        Some(v) => {
+          let pv = json_to_param(v)
+          { ..self, where_: self.where_ + [{ col: pk, value: pv, ty: Eq }] }
+        }
         None => self
       }
     }

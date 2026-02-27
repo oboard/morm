@@ -2,11 +2,6 @@
 priv struct MySQLEngine {}
 
 ///|
-impl @engine.Engine for MySQLEngine with dialect(_self) -> @dialect.Dialect {
-  MySQL
-}
-
-///|
 fn MySQLEngine::open(_url : String) -> MySQLEngine {
   MySQLEngine::{  }
 }
@@ -17,10 +12,27 @@ impl @engine.Engine for MySQLEngine with close(_self) -> Unit {
 }
 
 ///|
-impl @engine.Engine for MySQLEngine with exec(
+impl @engine.Engine for MySQLEngine with render(_self, stmt : @engine.Statement) -> (
+  String,
+  FixedArray[@engine.Param],
+) {
+  @engine.render_default_sql(stmt)
+}
+
+///|
+impl @engine.Engine for MySQLEngine with migrate_table(
+  _self,
+  table_schema : Json,
+) -> @engine.QueryResult {
+  println("migrate table: " + table_schema.stringify())
+  { ok: true, rows_affected: 0, rows: [], error: None }
+}
+
+///|
+impl @engine.Engine for MySQLEngine with exec_raw(
   _self,
   sql : String,
-  params : FixedArray[Json],
+  params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
   println(sql)
   println(params.to_json().stringify())
@@ -37,7 +49,7 @@ test "auto migrate" {
 ///|
 test "mapper" {
   let engine = MySQLEngine::open("mysql://root:123456@localhost:3306/test")
-  let studentMapper = Student::mapper(engine)
+  let studentMapper = make_StudentMapper(engine)
   let student = studentMapper.find_student_by_name("Alice")
   inspect(student.to_json(), content="Null")
 }

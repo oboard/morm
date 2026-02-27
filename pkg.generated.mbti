@@ -149,16 +149,17 @@ pub struct DeleteQuery {
   where_ : FixedArray[Where]
 }
 pub fn[E : Entity] DeleteQuery::from(Self, E) -> Self
-pub fn DeleteQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
-pub fn DeleteQuery::where_eq(Self, String, Json) -> Self
-pub fn DeleteQuery::where_gt(Self, String, Json) -> Self
-pub fn DeleteQuery::where_gte(Self, String, Json) -> Self
-pub fn DeleteQuery::where_lt(Self, String, Json) -> Self
-pub fn DeleteQuery::where_lte(Self, String, Json) -> Self
+pub fn DeleteQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
+pub fn[V : @engine.ToParam] DeleteQuery::where_eq(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] DeleteQuery::where_gt(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] DeleteQuery::where_gte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] DeleteQuery::where_lt(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] DeleteQuery::where_lte(Self, String, V) -> Self
 pub impl Eq for DeleteQuery
 pub impl Show for DeleteQuery
 pub impl ToJson for DeleteQuery
 pub impl @json.FromJson for DeleteQuery
+pub impl @engine.QueryBuilder for DeleteQuery
 
 pub(all) struct ForeignKey {
   name : String
@@ -209,16 +210,17 @@ pub impl @json.FromJson for IndexType
 pub struct InsertQuery {
   into : String
   columns : FixedArray[String]
-  values : FixedArray[Json]
+  values : FixedArray[@engine.Param]
 }
 pub fn InsertQuery::columns(Self, FixedArray[String]) -> Self
 pub fn[E : Entity] InsertQuery::from(Self, E) -> Self
-pub fn InsertQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
-pub fn InsertQuery::values(Self, FixedArray[Json]) -> Self
+pub fn InsertQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
+pub fn InsertQuery::values(Self, FixedArray[@engine.Param]) -> Self
 pub impl Eq for InsertQuery
 pub impl Show for InsertQuery
 pub impl ToJson for InsertQuery
 pub impl @json.FromJson for InsertQuery
+pub impl @engine.QueryBuilder for InsertQuery
 
 pub(all) enum OrderBy {
   Asc(String)
@@ -241,20 +243,21 @@ pub fn Query::limit(Self, Int) -> Self
 pub fn Query::offset(Self, Int) -> Self
 pub fn Query::order_by(Self, OrderBy) -> Self
 pub fn Query::page(Self, Int, Int) -> Self
-pub fn Query::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
-pub fn Query::where_eq(Self, String, Json) -> Self
-pub fn Query::where_gt(Self, String, Json) -> Self
-pub fn Query::where_gte(Self, String, Json) -> Self
-pub fn Query::where_lt(Self, String, Json) -> Self
-pub fn Query::where_lte(Self, String, Json) -> Self
+pub fn Query::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
+pub fn[V : @engine.ToParam] Query::where_eq(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] Query::where_gt(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] Query::where_gte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] Query::where_lt(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] Query::where_lte(Self, String, V) -> Self
 pub impl Eq for Query
 pub impl Show for Query
 pub impl ToJson for Query
 pub impl @json.FromJson for Query
+pub impl @engine.QueryBuilder for Query
 
 pub struct Set {
   col : String
-  value : Json
+  value : @engine.Param
 }
 pub impl Eq for Set
 pub impl Show for Set
@@ -289,18 +292,19 @@ pub struct UpdateQuery {
   where_ : FixedArray[Where]
 }
 pub fn[E : Entity] UpdateQuery::from(Self, E) -> Self
-pub fn UpdateQuery::set(Self, String, Json) -> Self
-pub fn UpdateQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
+pub fn[V : @engine.ToParam] UpdateQuery::set(Self, String, V) -> Self
+pub fn UpdateQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
 pub fn UpdateQuery::to_mysql_sql(Self) -> String
-pub fn UpdateQuery::where_eq(Self, String, Json) -> Self
-pub fn UpdateQuery::where_gt(Self, String, Json) -> Self
-pub fn UpdateQuery::where_gte(Self, String, Json) -> Self
-pub fn UpdateQuery::where_lt(Self, String, Json) -> Self
-pub fn UpdateQuery::where_lte(Self, String, Json) -> Self
+pub fn[V : @engine.ToParam] UpdateQuery::where_eq(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] UpdateQuery::where_gt(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] UpdateQuery::where_gte(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] UpdateQuery::where_lt(Self, String, V) -> Self
+pub fn[V : @engine.ToParam] UpdateQuery::where_lte(Self, String, V) -> Self
 pub impl Eq for UpdateQuery
 pub impl Show for UpdateQuery
 pub impl ToJson for UpdateQuery
 pub impl @json.FromJson for UpdateQuery
+pub impl @engine.QueryBuilder for UpdateQuery
 
 pub struct UpsertQuery {
   table : String
@@ -308,19 +312,20 @@ pub struct UpsertQuery {
   conflict_target : FixedArray[String]
   update_sets : FixedArray[Set]
 }
-pub fn UpsertQuery::do_update_set(Self, String, Json) -> Self
+pub fn UpsertQuery::do_update_set(Self, String, @engine.Param) -> Self
 pub fn[E : Entity] UpsertQuery::from(Self, E) -> Self
 pub fn UpsertQuery::on_conflict(Self, FixedArray[String]) -> Self
-pub fn UpsertQuery::set(Self, String, Json) -> Self
-pub fn UpsertQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[Json])
+pub fn UpsertQuery::set(Self, String, @engine.Param) -> Self
+pub fn UpsertQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
 pub impl Eq for UpsertQuery
 pub impl Show for UpsertQuery
 pub impl ToJson for UpsertQuery
 pub impl @json.FromJson for UpsertQuery
+pub impl @engine.QueryBuilder for UpsertQuery
 
 pub struct Where {
   col : String
-  value : Json
+  value : @engine.Param
   ty : WhereType
 }
 pub impl Eq for Where
@@ -348,8 +353,8 @@ pub(open) trait Driver {
   open(Self, String) -> Result[Self, DbError]
   close(Self) -> Result[Self, DbError]
   ping(Self) -> Result[Unit, DbError]
-  exec(Self, String, FixedArray[Json]) -> Result[Unit, DbError]
-  query(Self, String, FixedArray[Json]) -> Result[FixedArray[Json], DbError]
+  exec(Self, String, FixedArray[@engine.Param]) -> Result[Unit, DbError]
+  query(Self, String, FixedArray[@engine.Param]) -> Result[FixedArray[Json], DbError]
 }
 
 pub(open) trait Entity : ToJson + @json.FromJson {

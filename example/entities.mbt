@@ -1,5 +1,5 @@
 ///|
-#morm.entity(name="class")
+#morm.entity
 pub(all) struct Class {
   #morm.primary_key
   #morm.auto_increment
@@ -13,7 +13,7 @@ pub(all) struct Class {
 } derive(ToJson, FromJson)
 
 ///|
-#morm.entity(name="student")
+#morm.entity
 pub(all) struct Student {
   #morm.primary_key
   #morm.auto_increment
@@ -26,7 +26,7 @@ pub(all) struct Student {
 } derive(ToJson, FromJson)
 
 ///|
-#morm.entity(name="teacher")
+#morm.entity
 pub(all) struct Teacher {
   #morm.primary_key
   #morm.auto_increment

@@ -3,14 +3,61 @@ package "oboard/morm/engine"
 
 import {
   "moonbitlang/core/json",
-  "oboard/morm/dialect",
 }
 
 // Values
+pub fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
+
+pub fn render_default_sql(Statement) -> (String, FixedArray[Param])
+
+pub fn[T : ToParam] to_param(T) -> Param
 
 // Errors
 
 // Types and methods
+pub(all) struct DeleteStatement {
+  from : String
+  where_ : FixedArray[Where]
+}
+pub impl Eq for DeleteStatement
+pub impl Show for DeleteStatement
+pub impl ToJson for DeleteStatement
+pub impl @json.FromJson for DeleteStatement
+
+pub(all) struct InsertStatement {
+  into : String
+  columns : FixedArray[String]
+  values : FixedArray[Param]
+}
+pub impl Eq for InsertStatement
+pub impl Show for InsertStatement
+pub impl ToJson for InsertStatement
+pub impl @json.FromJson for InsertStatement
+
+pub(all) enum OrderBy {
+  Asc(String)
+  Desc(String)
+}
+pub impl Eq for OrderBy
+pub impl Show for OrderBy
+pub impl ToJson for OrderBy
+pub impl @json.FromJson for OrderBy
+
+pub(all) enum Param {
+  Null
+  Bool(Bool)
+  Int(Int)
+  Int64(Int64)
+  Double(Double)
+  String(String)
+  Bytes(Bytes)
+}
+pub impl Eq for Param
+pub impl Show for Param
+pub impl ToJson for Param
+pub impl @json.FromJson for Param
+pub impl ToParam for Param
+
 pub(all) struct QueryResult {
   ok : Bool
   rows_affected : Int
@@ -22,12 +69,107 @@ pub impl Show for QueryResult
 pub impl ToJson for QueryResult
 pub impl @json.FromJson for QueryResult
 
+pub(all) struct SelectStatement {
+  select : String
+  from : String
+  where_ : FixedArray[Where]
+  order_by : FixedArray[OrderBy]
+  limit : Int?
+  offset : Int?
+}
+pub impl Eq for SelectStatement
+pub impl Show for SelectStatement
+pub impl ToJson for SelectStatement
+pub impl @json.FromJson for SelectStatement
+
+pub(all) struct Set {
+  col : String
+  value : Param
+}
+pub impl Eq for Set
+pub impl Show for Set
+pub impl ToJson for Set
+pub impl @json.FromJson for Set
+
+pub(all) enum Statement {
+  Select(SelectStatement)
+  Insert(InsertStatement)
+  Upsert(UpsertStatement)
+  Update(UpdateStatement)
+  Delete(DeleteStatement)
+}
+pub impl Eq for Statement
+pub impl Show for Statement
+pub impl ToJson for Statement
+pub impl @json.FromJson for Statement
+
+pub(all) struct UpdateStatement {
+  table : String
+  sets : FixedArray[Set]
+  where_ : FixedArray[Where]
+}
+pub impl Eq for UpdateStatement
+pub impl Show for UpdateStatement
+pub impl ToJson for UpdateStatement
+pub impl @json.FromJson for UpdateStatement
+
+pub(all) struct UpsertStatement {
+  table : String
+  sets : FixedArray[Set]
+  conflict_target : FixedArray[String]
+  update_sets : FixedArray[Set]
+}
+pub impl Eq for UpsertStatement
+pub impl Show for UpsertStatement
+pub impl ToJson for UpsertStatement
+pub impl @json.FromJson for UpsertStatement
+
+pub(all) struct Where {
+  col : String
+  value : Param
+  ty : WhereType
+}
+pub impl Eq for Where
+pub impl Show for Where
+pub impl ToJson for Where
+pub impl @json.FromJson for Where
+
+pub(all) enum WhereType {
+  Eq
+  Gt
+  Lt
+  Gte
+  Lte
+}
+pub impl Eq for WhereType
+pub impl Show for WhereType
+pub impl ToJson for WhereType
+pub impl @json.FromJson for WhereType
+
 // Type aliases
 
 // Traits
 pub(open) trait Engine {
-  dialect(Self) -> @dialect.Dialect
-  exec(Self, String, FixedArray[Json]) -> QueryResult
+  render(Self, Statement) -> (String, FixedArray[Param])
+  migrate_table(Self, Json) -> QueryResult
+  exec_raw(Self, String, FixedArray[Param]) -> QueryResult
   close(Self) -> Unit
 }
+
+pub(open) trait QueryBuilder {
+  to_statement(Self) -> Statement
+}
+
+pub(open) trait ToParam {
+  to_param(Self) -> Param
+}
+pub impl ToParam for Unit
+pub impl ToParam for Bool
+pub impl ToParam for Int
+pub impl ToParam for Int64
+pub impl ToParam for Float
+pub impl ToParam for Double
+pub impl ToParam for String
+pub impl ToParam for Bytes
+pub impl ToParam for Json
 

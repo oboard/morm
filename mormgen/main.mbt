@@ -1,6 +1,6 @@
 ///|
 /// 变换阶段：从 EntitySpec 构建 @morm.Table，不接触解析细节
-fn transform_entity_to_table(spec : EntitySpec) -> @morm.Table {
+fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table {
   let columns : Array[@morm.Column] = []
   let foreign_keys : Array[@morm.ForeignKey] = []
   for f in spec.fields {
@@ -21,7 +21,13 @@ fn transform_entity_to_table(spec : EntitySpec) -> @morm.Table {
       collation: None,
     }
     columns.push(col)
-    if parse_foreign_key_for_field(spec.name, f.label, f.field_type, f.attrs)
+    if parse_foreign_key_for_field(
+        spec.name,
+        f.label,
+        f.field_type,
+        f.attrs,
+        source,
+      )
       is Some(fk) {
       foreign_keys.push(fk)
     }
@@ -39,8 +45,10 @@ fn transform_entity_to_table(spec : EntitySpec) -> @morm.Table {
 ///|
 /// 代码生成阶段：从表结构生成实现代码
 fn generate_entity_impl(name : String, table : @morm.Table) -> String {
-  "pub impl @oboard/morm.Entity for \{name} with table(_self) -> @oboard/morm.Table { \{name}::table() }\n" +
-  "pub fn \{name}::table() -> @morm.Table { try! @json.from_json(\{table.to_json().stringify()}) }"
+  (
+    $| pub impl @oboard/morm.Entity for \{name} with table(_self) -> @oboard/morm.Table { \{name}::table() }
+    $| pub fn \{name}::table() -> @morm.Table { try! @json.from_json(\{table.to_json().stringify()}) }
+  )
 }
 
 ///|
@@ -48,52 +56,166 @@ fn generate_entity_impl(name : String, table : @morm.Table) -> String {
 fn generate_mapper_code(spec : MapperSpec) -> String {
   let trait_name = spec.trait_name
   let entity_name = spec.entity_name
-  let struct_def = "pub struct \{trait_name}_ {\n  engine : &@engine.Engine\n}\n\n"
-  let mapper_fn = "pub fn \{entity_name}::mapper(engine : &@engine.Engine) -> \{trait_name}_ {\n  \{trait_name}_::{ engine, }\n}\n\n"
+  let table_expr = match spec.table_name {
+    Some(t) => "\"\{t}\""
+    None =>
+      match entity_name {
+        Some(n) => "\{n}::table().name"
+        None => "\"\""
+      }
+  }
+  let struct_def =
+    $| pub struct \{trait_name}_ {
+    $|   engine : &@engine.Engine
+    $| }
+    $|
+  let mapper_fn = match entity_name {
+    Some(n) =>
+      (
+        $| pub fn \{n}::mapper(engine : &@engine.Engine) -> \{trait_name}_ {
+        $|   \{trait_name}_::{ engine, }
+        $| }
+        $|
+      )
+    None =>
+      (
+        $| pub fn make_\{trait_name}(engine : &@engine.Engine) -> \{trait_name}_ {
+        $|   \{trait_name}_::{ engine, }
+        $| }
+        $|
+      )
+  }
   let mut impls = ""
   for m in spec.methods {
     let param_sig_parts : Array[String] = []
-    let json_args_parts : Array[String] = []
+    let query_args_parts : Array[String] = []
     for p in m.params {
       let (pname, ptype) = p
       param_sig_parts.push("\{pname} : \{ptype}")
-      json_args_parts.push("\{pname}.to_json()")
+      query_args_parts.push("@engine.to_param(\{pname})")
     }
     let param_sig = if param_sig_parts.length() == 0 {
       "self"
     } else {
       "self, " + param_sig_parts.join(", ")
     }
-    let json_args = "[" + json_args_parts.join(", ") + "]"
+    let query_args = "[" + query_args_parts.join(", ") + "]"
     // 返回类型字符串
-    let ret_type = if m.returns_array {
-      "FixedArray[\{m.return_entity}]"
+    let ret_type = m.return_type
+    let method_header =
+      $| pub impl \{trait_name} for \{trait_name}_ with \{m.name}(
+      $|   \{param_sig}
+      $| ) -> \{ret_type} {
+    let body = if m.name == "save" && m.params.length() == 1 {
+      if m.returns_option {
+        (
+          $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
+          $|   let res = @engine.exec_query(self.engine, q)
+          $|   if res.rows is [result, ..] {
+          $|     return Some(try! @json.from_json(result))
+          $|   }
+          $|   None
+          $| }
+          $|
+        )
+      } else {
+        let entity_ty = m.params[0].1
+        (
+          $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
+          $|   let res = @engine.exec_query(self.engine, q)
+          $|   if res.rows is [result, ..] {
+          $|     return (try! @json.from_json(result) : \{entity_ty})
+          $|   }
+          $|   panic()
+          $| }
+          $|
+        )
+      }
+    } else if m.name == "delete" && m.params.length() == 1 {
+      (
+        $|   let q = @morm.delete_from(\{table_expr}).from(entity)
+        $|   @engine.exec_query(self.engine, q).ok
+        $| }
+        $|
+      )
     } else {
-      "\{m.return_entity}?"
-    }
-    let method_header = "pub impl \{trait_name} for \{trait_name}_ with \{m.name}(\n  \{param_sig}\n) -> \{ret_type} {\n"
-    let body = match m.builder_code {
-      Some(code) =>
-        if m.returns_array {
-          "  let (sql, params) = \{code}\n  self.engine.exec(sql, params).rows.map(row => @json.from_json(\n      row,\n    ) catch {\n      _ => panic()\n    },\n  )\n}\n\n"
-        } else {
-          "  let (sql, params) = \{code}\n  if self.engine.exec(sql, params).rows\n    is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  None\n}\n\n"
-        }
-      None => {
-        let sql = m.sql.unwrap()
-        if m.returns_array {
-          "  self.engine.exec(\"\{sql}\", \{json_args}).rows.map(row => @json.from_json(\n      row,\n    ) catch {\n      _ => panic()\n    },\n  )\n}\n\n"
-        } else {
-          "  if self.engine.exec(\"\{sql}\", \{json_args}).rows\n    is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  None\n}\n\n"
+      match m.builder_code {
+        Some(code) =>
+          if m.returns_array {
+            (
+              $|   let q = \{code}
+              $|   @engine.exec_query(self.engine, q).rows.map(row => @json.from_json(
+              $|       row,
+              $|     ) catch {
+              $|       _ => panic()
+              $|     },
+              $|   )
+              $| }
+              $|
+            )
+          } else if m.returns_option {
+            (
+              $|   let q = \{code}
+              $|   if @engine.exec_query(self.engine, q).rows
+              $|     is [result, ..] {
+              $|     return Some(try! @json.from_json(result))
+              $|   }
+              $|   None
+              $| }
+              $|
+            )
+          } else {
+            (
+              $|   let q = \{code}
+              $|   if @engine.exec_query(self.engine, q).rows
+              $|     is [result, ..] {
+              $|     return (try! @json.from_json(result) : \{ret_type})
+              $|   }
+              $|   panic()
+              $| }
+              $|
+            )
+          }
+        None => {
+          let sql = m.sql.unwrap()
+          if m.returns_array {
+            (
+              $|   self.engine.exec_raw("\{sql}", \{query_args}).rows.map(row => @json.from_json(
+              $|       row,
+              $|     ) catch {
+              $|       _ => panic()
+              $|     },
+              $|   )
+              $| }
+              $|
+            )
+          } else if m.returns_option {
+            (
+              $|   if self.engine.exec_raw("\{sql}", \{query_args}).rows
+              $|     is [result, ..] {
+              $|     return Some(try! @json.from_json(result))
+              $|   }
+              $|   None
+              $| }
+              $|
+            )
+          } else {
+            (
+              $|   if self.engine.exec_raw("\{sql}", \{query_args}).rows
+              $|     is [result, ..] {
+              $|     return (try! @json.from_json(result) : \{ret_type})
+              $|   }
+              $|   panic()
+              $| }
+              $|
+            )
+          }
         }
       }
     }
     impls = impls + method_header + body
   }
-  // 追加默认的 save / delete 成员函数
-  let save_fn = "pub fn \{trait_name}_::save(\n  self : \{trait_name}_,\n  entity : \{entity_name},\n) -> \{entity_name}? {\n  let (sql, params) = @morm.upsert_into(\{entity_name}::table().name)\n    .from(entity)\n    .to(self.engine.dialect())\n  let res = self.engine.exec(sql, params)\n  if res.rows is [result, ..] {\n    return Some(try! @json.from_json(result))\n  }\n  // Fallback: read back by conflict keys when UPSERT does not return rows\n  let tbl = \{entity_name}::table()\n  let obj = if entity.to_json() is Object(obj) { obj } else { {} }\n  // try primary key first\n  match tbl.primary_key() {\n    Some(pk) => match obj.get(pk) {\n      Some(pkv) => {\n        let (sel_sql, sel_params) = @morm.select_from(tbl.name).where_eq(pk, pkv).to(self.engine.dialect())\n        if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {\n          return Some(try! @json.from_json(row))\n        }\n      }\n      None => ()\n    }\n    None => ()\n  }\n  // try first unique index with all values present\n  for idx in tbl.indexes {\n    match idx.index_type {\n      Unique => {\n        let mut q = @morm.select_from(tbl.name)\n        let mut ok = true\n        for col in idx.columns {\n          match obj.get(col) {\n            Some(v) => q = q.where_eq(col, v)\n            None => { ok = false; break }\n          }\n        }\n        if ok {\n          let (sel_sql, sel_params) = q.to(self.engine.dialect())\n          if self.engine.exec(sel_sql, sel_params).rows is [row, ..] {\n            return Some(try! @json.from_json(row))\n          }\n        }\n        break\n      }\n      _ => ()\n    }\n  }\n  None\n}\n\n"
-  let delete_fn = "pub fn \{trait_name}_::delete(self : \{trait_name}_, entity : \{entity_name}) -> Bool {\n  let primary_key = \{entity_name}::table().primary_key()\n  if primary_key is Some(_) {\n    let (sql, params) = @morm.delete_from(\{entity_name}::table().name)\n      .from(entity)\n      .to(self.engine.dialect())\n    self.engine.exec(sql, params).ok\n  } else {\n    false\n  }\n}\n\n"
-  struct_def + mapper_fn + impls + save_fn + delete_fn
+  struct_def + mapper_fn + impls
 }
 
 ///|
@@ -132,7 +254,7 @@ fn main {
     //
     let codes : Array[String] = []
     specs.each(spec => {
-      let table = transform_entity_to_table(spec)
+      let table = transform_entity_to_table(spec, source_content)
       let code = generate_entity_impl(spec.name, table)
       codes.push(code)
     })

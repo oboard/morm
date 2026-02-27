@@ -1,4 +1,4 @@
 import {
-  "oboard/morm/dialect",
+  "moonbitlang/core/buffer",
   "moonbitlang/core/json",
 }

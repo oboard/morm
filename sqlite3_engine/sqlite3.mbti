@@ -1,0 +1,128 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "myfreess/sqlite3"
+
+// Values
+const SQLITE_ABORT : Int = 4
+
+const SQLITE_AUTH : Int = 23
+
+const SQLITE_BLOB : Int = 2
+
+const SQLITE_BUSY : Int = 5
+
+const SQLITE_CANTOPEN : Int = 14
+
+const SQLITE_CONSTRAINT : Int = 19
+
+const SQLITE_CORRUPT : Int = 11
+
+const SQLITE_DONE : Int = 101
+
+const SQLITE_EMPTY : Int = 16
+
+const SQLITE_ERROR : Int = 1
+
+const SQLITE_ERROR_MISSING_COLLSEQ : Int = 257
+
+const SQLITE_FLOAT : Int = 2
+
+const SQLITE_FORMAT : Int = 24
+
+const SQLITE_FULL : Int = 13
+
+const SQLITE_INTEGER : Int = 1
+
+const SQLITE_INTERNAL : Int = 2
+
+const SQLITE_INTERRUPT : Int = 9
+
+const SQLITE_IOERR : Int = 10
+
+const SQLITE_LOCKED : Int = 6
+
+const SQLITE_MISMATCH : Int = 20
+
+const SQLITE_MISUSE : Int = 21
+
+const SQLITE_NOLFS : Int = 22
+
+const SQLITE_NOMEM : Int = 7
+
+const SQLITE_NOTADB : Int = 26
+
+const SQLITE_NOTFOUND : Int = 12
+
+const SQLITE_NOTICE : Int = 27
+
+const SQLITE_OK : Int = 0
+
+const SQLITE_OK_LOAD_PERMANENTLY : Int = 256
+
+const SQLITE_PERM : Int = 3
+
+const SQLITE_PROTOCOL : Int = 15
+
+const SQLITE_RANGE : Int = 25
+
+const SQLITE_READONLY : Int = 8
+
+const SQLITE_ROW : Int = 100
+
+const SQLITE_SCHEMA : Int = 17
+
+const SQLITE_TOOBIG : Int = 18
+
+const SQLITE_WARNING : Int = 28
+
+// Errors
+pub suberror SqliteError (Int, SourceLoc)
+impl Show for SqliteError
+
+// Types and methods
+#external
+pub type Connection
+#callsite(autofill(loc))
+fn Connection::close(Self, loc~ : SourceLoc) -> Unit raise SqliteError
+fn Connection::get_errmsg(Self) -> String
+#callsite(autofill(loc))
+fn Connection::open(String, loc~ : SourceLoc) -> Self raise SqliteError
+#callsite(autofill(loc))
+fn Connection::prepare(Self, String, loc~ : SourceLoc) -> Statement raise SqliteError
+
+#external
+pub type Statement
+#callsite(autofill(loc))
+fn[T : Bind] Statement::bind(Self, index~ : Int, val~ : T, loc~ : SourceLoc) -> Unit raise SqliteError
+#callsite(autofill(loc))
+fn Statement::bind_string_as_blob(Self, index~ : Int, val~ : String, loc~ : SourceLoc) -> Unit raise SqliteError
+fn[T : Column] Statement::column(Self, index~ : Int) -> T
+fn Statement::column_blob_as_string(Self, index~ : Int) -> String
+# Column metadata
+fn Statement::column_count(Self) -> Int
+fn Statement::column_type(Self, index~ : Int) -> Int
+fn Statement::column_name(Self, index~ : Int) -> String
+#callsite(autofill(loc))
+fn Statement::finalize(Self, loc~ : SourceLoc) -> Unit raise SqliteError
+#callsite(autofill(loc))
+fn Statement::step(Self, loc~ : SourceLoc) -> Bool raise SqliteError
+#callsite(autofill(loc))
+fn Statement::step_once(Self, loc~ : SourceLoc) -> Unit raise SqliteError
+#callsite(autofill(loc))
+fn Statement::bind_null(Self, index~ : Int, loc~ : SourceLoc) -> Unit raise SqliteError
+
+// Type aliases
+
+// Traits
+trait Bind
+impl Bind for Int
+impl Bind for Int64
+impl Bind for Double
+impl Bind for Bytes
+impl Bind for String
+
+trait Column
+impl Column for Int
+impl Column for Int64
+impl Column for Double
+impl Column for Bytes
+

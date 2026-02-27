@@ -1,0 +1,157 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/sqlite3_engine"
+
+import {
+  "moonbitlang/core/json",
+  "oboard/morm/engine",
+}
+
+// Values
+pub const SQLITE_ABORT : Int = 4
+
+pub const SQLITE_AUTH : Int = 23
+
+pub const SQLITE_BLOB : Int = 4
+
+pub const SQLITE_BUSY : Int = 5
+
+pub const SQLITE_CANTOPEN : Int = 14
+
+pub const SQLITE_CONSTRAINT : Int = 19
+
+pub const SQLITE_CORRUPT : Int = 11
+
+pub const SQLITE_DONE : Int = 101
+
+pub const SQLITE_EMPTY : Int = 16
+
+pub const SQLITE_ERROR : Int = 1
+
+pub const SQLITE_ERROR_MISSING_COLLSEQ : Int = 257
+
+pub const SQLITE_FLOAT : Int = 2
+
+pub const SQLITE_FORMAT : Int = 24
+
+pub const SQLITE_FULL : Int = 13
+
+pub const SQLITE_INTEGER : Int = 1
+
+pub const SQLITE_INTERNAL : Int = 2
+
+pub const SQLITE_INTERRUPT : Int = 9
+
+pub const SQLITE_IOERR : Int = 10
+
+pub const SQLITE_LOCKED : Int = 6
+
+pub const SQLITE_MISMATCH : Int = 20
+
+pub const SQLITE_MISUSE : Int = 21
+
+pub const SQLITE_NOLFS : Int = 22
+
+pub const SQLITE_NOMEM : Int = 7
+
+pub const SQLITE_NOTADB : Int = 26
+
+pub const SQLITE_NOTFOUND : Int = 12
+
+pub const SQLITE_NOTICE : Int = 27
+
+pub const SQLITE_NULL : Int = 5
+
+pub const SQLITE_OK : Int = 0
+
+pub const SQLITE_OK_LOAD_PERMANENTLY : Int = 256
+
+pub const SQLITE_PERM : Int = 3
+
+pub const SQLITE_PROTOCOL : Int = 15
+
+pub const SQLITE_RANGE : Int = 25
+
+pub const SQLITE_READONLY : Int = 8
+
+pub const SQLITE_ROW : Int = 100
+
+pub const SQLITE_SCHEMA : Int = 17
+
+pub const SQLITE_TEXT : Int = 3
+
+pub const SQLITE_TOOBIG : Int = 18
+
+pub const SQLITE_WARNING : Int = 28
+
+// Errors
+pub suberror SqliteError {
+  SqliteError((Int, SourceLoc))
+}
+pub impl Show for SqliteError
+
+// Types and methods
+#external
+pub type Connection
+#callsite(autofill(loc))
+pub fn Connection::close(Self, loc~ : SourceLoc) -> Unit raise SqliteError
+pub fn Connection::get_errmsg(Self) -> String
+#callsite(autofill(loc))
+pub fn Connection::open(String, loc~ : SourceLoc) -> Self raise SqliteError
+#callsite(autofill(loc))
+pub fn Connection::prepare(Self, String, loc~ : SourceLoc) -> Statement raise SqliteError
+
+pub(all) enum SQLiteValue {
+  Null
+  Integer(Int64)
+  Real(Double)
+  Text(String)
+  Blob(Bytes)
+}
+pub impl Eq for SQLiteValue
+pub impl Show for SQLiteValue
+pub impl ToJson for SQLiteValue
+pub impl @json.FromJson for SQLiteValue
+pub impl @engine.ToParam for SQLiteValue
+
+#external
+pub type Statement
+#callsite(autofill(loc))
+pub fn[T : Bind] Statement::bind(Self, index~ : Int, val~ : T, loc~ : SourceLoc) -> Unit raise SqliteError
+#callsite(autofill(loc))
+pub fn Statement::bind_null(Self, index~ : Int, loc~ : SourceLoc) -> Unit raise SqliteError
+#callsite(autofill(loc))
+pub fn Statement::bind_string_as_blob(Self, index~ : Int, val~ : String, loc~ : SourceLoc) -> Unit raise SqliteError
+#callsite(autofill(loc))
+pub fn Statement::bind_text(Self, index~ : Int, val~ : String, loc~ : SourceLoc) -> Unit raise SqliteError
+pub fn[T : Column] Statement::column(Self, index~ : Int) -> T
+pub fn Statement::column_blob_as_string(Self, index~ : Int) -> String
+pub fn Statement::column_count(Self) -> Int
+pub fn Statement::column_name(Self, index~ : Int) -> String
+pub fn Statement::column_type(Self, index~ : Int) -> Int
+#callsite(autofill(loc))
+pub fn Statement::finalize(Self, loc~ : SourceLoc) -> Unit raise SqliteError
+#callsite(autofill(loc))
+pub fn Statement::step(Self, loc~ : SourceLoc) -> Bool raise SqliteError
+#callsite(autofill(loc))
+pub fn Statement::step_once(Self, loc~ : SourceLoc) -> Unit raise SqliteError
+
+// Type aliases
+
+// Traits
+pub trait Bind {
+  bind(Statement, Int, Self, loc~ : SourceLoc) -> Unit raise SqliteError
+}
+pub impl Bind for Bool
+pub impl Bind for Int
+pub impl Bind for Int64
+pub impl Bind for Double
+pub impl Bind for String
+pub impl Bind for Bytes
+
+trait Column
+pub impl Column for Int
+pub impl Column for Int64
+pub impl Column for Double
+pub impl Column for String
+pub impl Column for Bytes
+

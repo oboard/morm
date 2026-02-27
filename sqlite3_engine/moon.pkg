@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/core/encoding/utf8" @encoding/utf8,
+  "moonbitlang/core/json",
+  "oboard/morm/engine",
+  "moonbitlang/core/buffer",
+}
+
+options(
+  "native-stub": [ "mbt_sqlite3.c", "sqlite3.c" ],
+  "supported-targets": [ "native" ],
+)

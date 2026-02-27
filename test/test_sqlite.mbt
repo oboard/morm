@@ -16,7 +16,12 @@ test "query-sql-sqlite" {
 
 ///|
 test "insert-sql-sqlite" {
-  let vals : FixedArray[Json] = [1, "Alice", 20, "2000-01-01"]
+  let vals : FixedArray[@engine.Param] = [
+    @engine.Int(1),
+    @engine.String("Alice"),
+    @engine.Int(20),
+    @engine.String("2000-01-01"),
+  ]
   let (sql, _) = @morm.insert_into("students")
     .columns(["id", "name", "age", "birth_date"])
     .values(vals)

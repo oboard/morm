@@ -102,21 +102,91 @@ fn collect_orm_attributes(
 }
 
 ///|
+/// 与 collect_orm_attributes 相同，但会尝试基于位置信息恢复完整 attribute 文本
+fn collect_orm_attributes_from_source(
+  attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
+  source : String,
+) -> Array[ORMAttribute] {
+  let results : Array[ORMAttribute] = []
+  attrs.each(attr => {
+    let mut raw = attr.raw
+    if raw.has_prefix("#morm.") && !raw.contains("(") {
+      let recovered = recover_attr_raw(source, attr)
+      if recovered != "" {
+        raw = recovered
+      }
+    }
+    if raw.has_prefix("#morm.") {
+      let mut name = raw
+      let mut params_part = ""
+      if raw.find("(") is Some(open_idx) {
+        name = raw[0:open_idx].to_string() catch { _ => raw }
+        if raw.find(")") is Some(close_idx) {
+          params_part = raw[open_idx + 1:close_idx].to_string() catch {
+            _ => ""
+          }
+        }
+      }
+      let m : Map[String, String] = Map::new()
+      let mut i = 0
+      let n = params_part.length()
+      while i < n {
+        let rest = params_part[i:].to_string() catch { _ => "" }
+        if rest.find(",") is Some(comma_rel) {
+          let comma_abs = i + comma_rel
+          let pair = params_part[i:comma_abs].to_string() catch { _ => "" }
+          i = comma_abs + 1
+          if pair.find("=") is Some(eq_idx) {
+            let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
+            let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
+            if vrest.has_prefix("\"") {
+              let vrest_tail = vrest[1:].to_string() catch { _ => "" }
+              if vrest_tail.find("\"") is Some(end_rel) {
+                let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
+                m.set(k, v)
+              }
+            }
+          }
+        } else {
+          let pair = params_part[i:].to_string() catch { _ => "" }
+          i = n
+          if pair.find("=") is Some(eq_idx) {
+            let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
+            let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
+            if vrest.has_prefix("\"") {
+              let vrest_tail = vrest[1:].to_string() catch { _ => "" }
+              if vrest_tail.find("\"") is Some(end_rel) {
+                let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
+                m.set(k, v)
+              }
+            }
+          }
+        }
+      }
+      results.push({ name, value: m })
+    }
+  })
+  results
+}
+
+///|
 /// Mapper 方法规格：方法名、SQL、参数与返回实体名
 struct MapperMethodSpec {
   name : String
   sql : String? // 显式 SQL
   builder_code : String? // 构建器代码
   params : Array[(String, String)] // (param_name, type_name)
-  return_entity : String
+  return_type : String
   returns_array : Bool
+  returns_option : Bool
 }
 
 ///|
 /// Mapper 规格：Trait 名称、实体名、方法列表
 struct MapperSpec {
   trait_name : String
-  entity_name : String
+  entity_name : String?
+  table_name : String?
   methods : Array[MapperMethodSpec]
 }
 
@@ -202,50 +272,43 @@ fn recover_attr_raw(
 
 ///|
 /// 从方法名推导构建器代码
-fn derive_builder_code(method_name : String, entity_name : String) -> String? {
-  let lower_entity = entity_name.to_lower()
-  let mut action = ""
-  let mut condition_part : StringView = ""
+fn derive_builder_code(
+  method_name : String,
+  entity_name : String,
+  table_name : String?,
+) -> String? {
+  let table_expr = match table_name {
+    Some(t) => "\"\{t}\""
+    None => "\{entity_name}::table().name"
+  }
+  let mut condition_part = ""
   let mut is_count = false
 
-  // 识别动作和去除前缀
+  // 识别动作并提取 by 条件片段（与 entity 解耦）
   if method_name == "find_all" || method_name == "all" {
-    return Some(
-      "@morm.select_from(\{entity_name}::table().name).to(self.engine.dialect())",
-    )
+    return Some("@morm.select_from(\{table_expr})")
   } else if method_name.has_prefix("find_") {
-    action = "find"
-    let prefix1 = "find_\{lower_entity}_by_"
-    let prefix2 = "find_by_"
-    if method_name.strip_prefix(prefix1) is Some(rest) {
-      condition_part = rest
-    } else if method_name.strip_prefix(prefix2) is Some(rest) {
-      condition_part = rest
-    } else {
-      // 处理复数情况
-      let prefix3 = "find_\{lower_entity}s_by_"
-      if method_name.strip_prefix(prefix3) is Some(rest) {
-        condition_part = rest
+    if method_name.strip_prefix("find_") is Some(rest) {
+      if rest.find("_by_") is Some(pos) {
+        let idx = pos + 4
+        condition_part = rest[idx:].to_string() catch { _ => "" }
+      } else if rest.strip_prefix("by_") is Some(by_rest) {
+        condition_part = by_rest.to_string()
       }
     }
   } else if method_name.has_prefix("count_") {
-    action = "count"
     is_count = true
-    let prefix1 = "count_\{lower_entity}_by_"
-    let prefix2 = "count_by_"
-    if method_name.strip_prefix(prefix1) is Some(rest) {
-      condition_part = rest
-    } else if method_name.strip_prefix(prefix2) is Some(rest) {
-      condition_part = rest
-    } else {
-      let prefix3 = "count_\{lower_entity}s_by_"
-      if method_name.strip_prefix(prefix3) is Some(rest) {
-        condition_part = rest
+    if method_name.strip_prefix("count_") is Some(rest) {
+      if rest.find("_by_") is Some(pos) {
+        let idx = pos + 4
+        condition_part = rest[idx:].to_string() catch { _ => "" }
+      } else if rest.strip_prefix("by_") is Some(by_rest) {
+        condition_part = by_rest.to_string()
       }
     }
   }
 
-  if action == "" || condition_part == "" {
+  if condition_part == "" {
     return None
   }
 
@@ -257,16 +320,16 @@ fn derive_builder_code(method_name : String, entity_name : String) -> String? {
 
   // 构建代码
   let start = if is_count {
-    "@morm.select_raw(\{entity_name}::table().name, \"count(*)\")"
+    "@morm.select_raw(\{table_expr}, \"count(*)\")"
   } else {
-    "@morm.select_from(\{entity_name}::table().name)"
+    "@morm.select_from(\{table_expr})"
   }
 
   let wheres_arr : Array[String] = []
-  fields.each(f => wheres_arr.push(".where_eq(\"\{f}\", \{f}.to_json())"))
+  fields.each(f => wheres_arr.push(".where_eq(\"\{f}\", \{f})"))
   let wheres = wheres_arr.join("")
 
-  Some("\{start}\{wheres}.to(self.engine.dialect())")
+  Some("\{start}\{wheres}")
 }
 
 ///|
@@ -287,8 +350,9 @@ fn parse_mappers_from_ast(
       @syntax.Impl::TopTrait(trait_decl) =>
         if trait_decl is { name: { name: trait_name, .. }, methods, attrs, .. } {
           // println("Found TopTrait: \{trait_name}")
-          // 读取实体名
+          // 读取 mapper 绑定信息（entity 可选，table 可选）
           let mut entity_name_opt : String? = None
+          let mut table_name_opt : String? = None
           attrs.each(attr => {
             // println("  Attr: \{attr.raw}")
             let mut raw_text = attr.raw
@@ -299,14 +363,38 @@ fn parse_mappers_from_ast(
                   raw_text = recovered
                 }
               }
-              entity_name_opt = extract_text_inside_parens(raw_text)
+              if extract_text_inside_parens(raw_text) is Some(inner) {
+                if inner.contains("=") {
+                  lexmatch inner {
+                    (_before, "entity=\"" ("[^\"]*" as entity) "\"", _after) =>
+                      entity_name_opt = Some(entity.to_string())
+                    _ => ()
+                  }
+                  lexmatch inner {
+                    (_before, "table=\"" ("[^\"]*" as table) "\"", _after) =>
+                      table_name_opt = Some(table.to_string())
+                    _ => ()
+                  }
+                } else {
+                  let plain = trim_key(inner)
+                  // 兼容旧写法 #morm.mapper(Student)
+                  if entity_table_map.get(plain) is Some(tbl) {
+                    entity_name_opt = Some(plain)
+                    table_name_opt = Some(tbl)
+                  } else {
+                    table_name_opt = Some(plain)
+                  }
+                }
+              }
             }
           })
-          if entity_name_opt is None {
-            // println("  No entity name found for \{trait_name}")
-            return
+          if table_name_opt is None {
+            if entity_name_opt is Some(entity_name) {
+              if entity_table_map.get(entity_name) is Some(tbl) {
+                table_name_opt = Some(tbl)
+              }
+            }
           }
-          let entity_name = entity_name_opt.unwrap()
           // 收集方法
           let mmethods : Array[MapperMethodSpec] = []
           methods.each(m => {
@@ -330,7 +418,14 @@ fn parse_mappers_from_ast(
 
               // 如果没有显式 query 注解，尝试从方法名推导构建器代码
               if sql_opt is None {
-                builder_code_opt = derive_builder_code(mname, entity_name)
+                builder_code_opt = derive_builder_code(
+                  mname,
+                  match entity_name_opt {
+                    Some(n) => n
+                    None => ""
+                  },
+                  table_name_opt,
+                )
               }
 
               if sql_opt is None && builder_code_opt is None {
@@ -366,7 +461,8 @@ fn parse_mappers_from_ast(
               })
               // 检查返回类型是否为 Array
               let mut returns_array = false
-              let mut return_entity = "String" // default fallback
+              let mut returns_option = false
+              let mut return_type = "String?"
 
               match m.return_type {
                 Some(ty) =>
@@ -389,12 +485,12 @@ fn parse_mappers_from_ast(
                             )
                           ) => {
                             returns_array = true
-                            return_entity = inner
+                            return_type = "FixedArray[\{inner}]"
                           }
                           _ => ()
                         }
                       } else {
-                        return_entity = n
+                        return_type = n
                       }
                     Option(
                       ty=Name(
@@ -406,7 +502,10 @@ fn parse_mappers_from_ast(
                         ..
                       ),
                       ..
-                    ) => return_entity = inner
+                    ) => {
+                      returns_option = true
+                      return_type = "\{inner}?"
+                    }
                     _ => ()
                   }
                 None => ()
@@ -417,12 +516,18 @@ fn parse_mappers_from_ast(
                 sql: sql_opt,
                 builder_code: builder_code_opt,
                 params: plist,
-                return_entity,
+                return_type,
                 returns_array,
+                returns_option,
               })
             }
           })
-          specs.push({ trait_name, entity_name, methods: mmethods })
+          specs.push({
+            trait_name,
+            entity_name: entity_name_opt,
+            table_name: table_name_opt,
+            methods: mmethods,
+          })
         }
       _ => ()
     }
@@ -436,12 +541,14 @@ fn parse_mappers_from_ast(
 fn parse_foreign_key_for_field(
   current_table : String,
   field_label : String,
-  _field_type : String,
+  field_type : String,
   attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
+  source : String,
 ) -> @morm.ForeignKey? {
   // 一次性收集并解析 attributes
-  let parsed = collect_orm_attributes(attrs)
+  let parsed = collect_orm_attributes_from_source(attrs, source)
   // 查找 foreign_key 项
+  let mut has_foreign_key = false
   let mut fkargs_refs : String? = None
   let mut fkargs_table : String? = None
   let mut fkargs_column : String? = None
@@ -449,6 +556,7 @@ fn parse_foreign_key_for_field(
   let mut fkargs_on_update : String? = None
   parsed.each(a => {
     if a.name == "#morm.foreign_key" {
+      has_foreign_key = true
       if a.value.get("references") is Some(v) {
         fkargs_refs = Some(v)
       }
@@ -465,12 +573,14 @@ fn parse_foreign_key_for_field(
         fkargs_on_update = Some(v)
       }
     }
+    if a.name == "#morm.on_delete_cascade" {
+      fkargs_on_delete = Some("CASCADE")
+    }
+    if a.name == "#morm.on_update_cascade" {
+      fkargs_on_update = Some("CASCADE")
+    }
   })
-  if fkargs_refs is None &&
-    fkargs_table is None &&
-    fkargs_column is None &&
-    fkargs_on_delete is None &&
-    fkargs_on_update is None {
+  if !has_foreign_key {
     return None
   }
   // 支持 references="Table.column" 或分别提供 table/column
@@ -495,6 +605,21 @@ fn parse_foreign_key_for_field(
   if referenced_column == "" {
     if fkargs_column is Some(c) {
       referenced_column = c
+    }
+  }
+
+  // 兜底：仅声明 #morm.foreign_key 时，按常见命名推断 <name>_id -> <name>.id
+  if referenced_table == "" && referenced_column == "" {
+    if field_label.has_suffix("_id") && field_label.length() > 3 {
+      try {
+        referenced_table = field_label[0:field_label.length() - 3].to_string()
+        referenced_column = "id"
+      } catch {
+        _ => ()
+      }
+    } else {
+      referenced_table = field_type.to_lower()
+      referenced_column = "id"
     }
   }
 
@@ -605,15 +730,8 @@ fn parse_entities_from_ast(
       if type_decl is { tycon: name, components: Record(params), attrs, .. } {
         let orm_attrs = collect_orm_attributes(attrs)
         let mut has_entity = false
-        let mut table_name = name
-        orm_attrs.each(a => {
-          if a.name == "#morm.entity" {
-            has_entity = true
-            if a.value.get("name") is Some(custom_name) {
-              table_name = custom_name
-            }
-          }
-        })
+        let table_name = name.to_lower()
+        orm_attrs.each(a => if a.name == "#morm.entity" { has_entity = true })
         if !has_entity {
           return
         }

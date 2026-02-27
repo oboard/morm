@@ -19,7 +19,7 @@ MoonBit 生态下的轻量级 ORM。目标很直接：
 
 2. 在你的 `moon.pkg` 添加
 
-```moonbit
+```moonbit nocheck
 options(
   "pre-build": [
     {
@@ -44,7 +44,7 @@ options(
 - `impl @morm.Entity` 与 `table()` 元数据
 - 各数据库方言下的建表 / 迁移 SQL
 - 基于 `#morm.query` 的类型安全 Mapper 方法（含 `save` / `delete`）
-- 统一返回 `(String, FixedArray[Json])` 的参数化 SQL 构造器
+- 统一返回 `(String, FixedArray[@engine.Param])` 的参数化 SQL 构造器
 
 核心设计取舍：
 
@@ -198,7 +198,7 @@ let deleted = mapper.delete(stu)
 
 ## SQL 构造器与方言占位符
 
-`morm.mbt` 内部提供一组构造器，统一返回 `(sql : String, params : FixedArray[Json])`：
+`morm.mbt` 内部提供一组构造器，统一返回 `(sql : String, params : FixedArray[@engine.Param])`：
 
 - `select_from(table)`
 - `insert_into(table)`

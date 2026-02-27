@@ -6,5 +6,4 @@ import {
 
 import {
   "oboard/morm/engine",
-  "oboard/morm/dialect",
 } for "test"
