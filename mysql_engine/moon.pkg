@@ -1,0 +1,10 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/socket",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/json" @json,
+  "moonbitlang/core/strconv",
+  "oboard/morm",
+  "oboard/morm/dialect",
+  "oboard/morm/engine",
+}

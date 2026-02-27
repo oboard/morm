@@ -5,7 +5,7 @@ test "query-sql" {
     .where_eq("name", "Alice")
     .order_by(Desc("id"))
     .page(2, 5)
-  let (sql, _) = q1.to(MySQL)
+  let (sql, _) = @engine.render_default_sql(q1.to_statement())
   inspect(
     sql,
     content=(
@@ -22,10 +22,10 @@ test "insert-sql" {
     @engine.Int(20),
     @engine.String("2000-01-01"),
   ]
-  let (sql, _) = @morm.insert_into("students")
+  let q = @morm.insert_into("students")
     .columns(["id", "name", "age", "birth_date"])
     .values(vals)
-    .to(MySQL)
+  let (sql, _) = @engine.render_default_sql(q.to_statement())
   inspect(
     sql,
     content=(
@@ -36,17 +36,19 @@ test "insert-sql" {
 
 ///|
 test "update-sql" {
-  let (sql, _) = @morm.update("students")
+  let q = @morm.update("students")
     .set("name", "Bob")
     .set("age", 21)
     .where_eq("id", 1)
-    .to(MySQL)
+  let (sql, _) = @engine.render_default_sql(q.to_statement())
   inspect(sql, content="UPDATE students SET name = ?, age = ? WHERE id = ?")
 }
 
 ///|
 test "delete-sql" {
-  let (sql, _) = @morm.delete_from("students").where_eq("id", 1).to(MySQL)
+  let (sql, _) = @engine.render_default_sql(
+    @morm.delete_from("students").where_eq("id", 1).to_statement(),
+  )
   inspect(
     sql,
     content=(

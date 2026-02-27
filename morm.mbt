@@ -356,64 +356,6 @@ fn param_to_inline_sql(value : @engine.Param) -> String {
 }
 
 ///|
-pub fn Query::to(
-  self : Query,
-  dialect : Dialect,
-) -> (String, FixedArray[@engine.Param]) {
-  let buf = @buffer.new()
-  buf.write_string("SELECT ")
-  if self.select.is_empty() {
-    buf.write_string("*")
-  } else {
-    buf.write_string(self.select)
-  }
-  buf.write_string(" FROM ")
-  buf.write_string(self.from)
-  if !self.where_.is_empty() {
-    buf.write_string(" WHERE ")
-    buf.write_string(format_where_sql(self.where_, dialect, 1))
-  }
-  if !self.order_by.is_empty() {
-    buf.write_string(" ORDER BY ")
-    buf.write_string(
-      self.order_by
-      .map(ob => {
-        match ob {
-          Asc(col) => "\{col} ASC"
-          Desc(col) => "\{col} DESC"
-        }
-      })
-      .join(", "),
-    )
-  }
-  match dialect {
-    Oracle | SqlServer => {
-      if self.offset is Some(offset) {
-        buf.write_string(" OFFSET ")
-        buf.write_string(offset.to_string())
-        buf.write_string(" ROWS")
-      }
-      if self.limit is Some(limit) {
-        buf.write_string(" FETCH NEXT ")
-        buf.write_string(limit.to_string())
-        buf.write_string(" ROWS ONLY")
-      }
-    }
-    _ => {
-      if self.limit is Some(limit) {
-        buf.write_string(" LIMIT ")
-        buf.write_string(limit.to_string())
-      }
-      if self.offset is Some(offset) {
-        buf.write_string(" OFFSET ")
-        buf.write_string(offset.to_string())
-      }
-    }
-  }
-  (buf.to_string(), self.where_.map(w => w.value))
-}
-
-///|
 pub impl @engine.QueryBuilder for Query with to_statement(self) -> @engine.Statement {
   let where_ = self.where_.map(w => {
     let ty = match w.ty {
@@ -1089,25 +1031,6 @@ pub fn InsertQuery::values(
 }
 
 ///|
-pub fn InsertQuery::to(
-  self : InsertQuery,
-  dialect : Dialect,
-) -> (String, FixedArray[@engine.Param]) {
-  let buf = @buffer.new()
-  buf.write_string("INSERT INTO ")
-  buf.write_string(self.into)
-  if !self.columns.is_empty() {
-    buf.write_string(" (")
-    buf.write_string(self.columns.join(", "))
-    buf.write_string(")")
-  }
-  buf.write_string(" VALUES (")
-  buf.write_string(placeholders(dialect, self.values.length(), 1))
-  buf.write_string(")")
-  (buf.to_string(), self.values)
-}
-
-///|
 pub impl @engine.QueryBuilder for InsertQuery with to_statement(self) -> @engine.Statement {
   @engine.Insert({ into: self.into, columns: self.columns, values: self.values })
 }
@@ -1183,95 +1106,6 @@ pub fn UpsertQuery::do_update_set(
   value : @engine.Param,
 ) -> UpsertQuery {
   { ..self, update_sets: self.update_sets + [{ col, value }] }
-}
-
-///|
-pub fn UpsertQuery::to(
-  self : UpsertQuery,
-  dialect : Dialect,
-) -> (String, FixedArray[@engine.Param]) {
-  let buf = @buffer.new()
-  // INSERT 部分
-  buf.write_string("INSERT INTO ")
-  buf.write_string(self.table)
-  buf.write_string(" (")
-  buf.write_string(self.sets.map(s => s.col).join(", "))
-  buf.write_string(") VALUES (")
-  buf.write_string(placeholders(dialect, self.sets.length(), 1))
-  buf.write_string(")")
-
-  // 冲突处理部分
-  match dialect {
-    PgSQL => {
-      if !self.conflict_target.is_empty() {
-        buf.write_string(" ON CONFLICT (")
-        buf.write_string(self.conflict_target.join(", "))
-        buf.write_string(")")
-      }
-      if !self.update_sets.is_empty() {
-        buf.write_string(" DO UPDATE SET ")
-        let parts : Array[String] = []
-        let mut i = 0
-        for s in self.update_sets {
-          parts.push(
-            [s.col, "=", param_placeholder(dialect, self.sets.length() + 1 + i)].join(
-              " ",
-            ),
-          )
-          i = i + 1
-        }
-        buf.write_string(parts.join(", "))
-      } else {
-        buf.write_string(" DO NOTHING")
-      }
-      buf.write_string(" RETURNING *")
-    }
-    MySQL =>
-      if !self.update_sets.is_empty() {
-        buf.write_string(" ON DUPLICATE KEY UPDATE ")
-        let parts : Array[String] = []
-        let mut i = 0
-        for s in self.update_sets {
-          parts.push(
-            [s.col, "=", param_placeholder(dialect, self.sets.length() + 1 + i)].join(
-              " ",
-            ),
-          )
-          i = i + 1
-        }
-        buf.write_string(parts.join(", "))
-      }
-    Sqlite3 => {
-      if !self.conflict_target.is_empty() {
-        buf.write_string(" ON CONFLICT (")
-        buf.write_string(self.conflict_target.join(", "))
-        buf.write_string(")")
-      }
-      if !self.update_sets.is_empty() {
-        buf.write_string(" DO UPDATE SET ")
-        let parts : Array[String] = []
-        let mut i = 0
-        for s in self.update_sets {
-          parts.push(
-            [s.col, "=", param_placeholder(dialect, self.sets.length() + 1 + i)].join(
-              " ",
-            ),
-          )
-          i = i + 1
-        }
-        buf.write_string(parts.join(", "))
-      } else {
-        buf.write_string(" DO NOTHING")
-      }
-      buf.write_string(" RETURNING *")
-    }
-    _ => abort("UpsertQuery::to: dialect not supported")
-  }
-  let mut args : FixedArray[@engine.Param] = self.sets.map(s => s.value)
-  if !self.update_sets.is_empty() {
-    args = args + self.update_sets.map(s => s.value)
-  }
-  (buf.to_string(), FixedArray::from_array(args))
 }
 
 ///|
@@ -1379,56 +1213,6 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_lte(
 }
 
 ///|
-pub fn UpdateQuery::to_mysql_sql(self : UpdateQuery) -> String {
-  let buf = @buffer.new()
-  buf.write_string("UPDATE ")
-  buf.write_string(self.table)
-  buf.write_string(" SET ")
-  buf.write_string(
-    self.sets
-    .map(s => [s.col, "=", param_to_inline_sql(s.value)].join(" "))
-    .join(", "),
-  )
-  if !self.where_.is_empty() {
-    buf.write_string(" WHERE ")
-    buf.write_string(
-      self.where_
-      .map(w => {
-        let ty = match w.ty {
-          Eq => "="
-          Gt => ">"
-          Lt => "<"
-          Gte => ">="
-          Lte => "<="
-        }
-        [w.col, ty, param_to_inline_sql(w.value)].join(" ")
-      })
-      .join(" AND "),
-    )
-  }
-  buf.to_string()
-}
-
-///|
-pub fn UpdateQuery::to(
-  self : UpdateQuery,
-  dialect : Dialect,
-) -> (String, FixedArray[@engine.Param]) {
-  let buf = @buffer.new()
-  buf.write_string("UPDATE ")
-  buf.write_string(self.table)
-  buf.write_string(" SET ")
-  buf.write_string(format_set_sql(self.sets, dialect, 1))
-  if !self.where_.is_empty() {
-    buf.write_string(" WHERE ")
-    buf.write_string(
-      format_where_sql(self.where_, dialect, self.sets.length() + 1),
-    )
-  }
-  (buf.to_string(), self.sets.map(s => s.value) + self.where_.map(w => w.value))
-}
-
-///|
 pub impl @engine.QueryBuilder for UpdateQuery with to_statement(self) -> @engine.Statement {
   let sets = self.sets.map(s => @engine.Set::{ col: s.col, value: s.value })
   let where_ = self.where_.map(w => {
@@ -1499,21 +1283,6 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_lte(
   value : V,
 ) -> DeleteQuery {
   { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lte }] }
-}
-
-///|
-pub fn DeleteQuery::to(
-  self : DeleteQuery,
-  dialect : Dialect,
-) -> (String, FixedArray[@engine.Param]) {
-  let buf = @buffer.new()
-  buf.write_string("DELETE FROM ")
-  buf.write_string(self.from)
-  if !self.where_.is_empty() {
-    buf.write_string(" WHERE ")
-    buf.write_string(format_where_sql(self.where_, dialect, 1))
-  }
-  (buf.to_string(), self.where_.map(w => w.value))
 }
 
 ///|

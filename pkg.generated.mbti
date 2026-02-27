@@ -149,7 +149,6 @@ pub struct DeleteQuery {
   where_ : FixedArray[Where]
 }
 pub fn[E : Entity] DeleteQuery::from(Self, E) -> Self
-pub fn DeleteQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
 pub fn[V : @engine.ToParam] DeleteQuery::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_gte(Self, String, V) -> Self
@@ -214,7 +213,6 @@ pub struct InsertQuery {
 }
 pub fn InsertQuery::columns(Self, FixedArray[String]) -> Self
 pub fn[E : Entity] InsertQuery::from(Self, E) -> Self
-pub fn InsertQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
 pub fn InsertQuery::values(Self, FixedArray[@engine.Param]) -> Self
 pub impl Eq for InsertQuery
 pub impl Show for InsertQuery
@@ -243,7 +241,6 @@ pub fn Query::limit(Self, Int) -> Self
 pub fn Query::offset(Self, Int) -> Self
 pub fn Query::order_by(Self, OrderBy) -> Self
 pub fn Query::page(Self, Int, Int) -> Self
-pub fn Query::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
 pub fn[V : @engine.ToParam] Query::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gte(Self, String, V) -> Self
@@ -293,8 +290,6 @@ pub struct UpdateQuery {
 }
 pub fn[E : Entity] UpdateQuery::from(Self, E) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::set(Self, String, V) -> Self
-pub fn UpdateQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
-pub fn UpdateQuery::to_mysql_sql(Self) -> String
 pub fn[V : @engine.ToParam] UpdateQuery::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_gte(Self, String, V) -> Self
@@ -316,7 +311,6 @@ pub fn UpsertQuery::do_update_set(Self, String, @engine.Param) -> Self
 pub fn[E : Entity] UpsertQuery::from(Self, E) -> Self
 pub fn UpsertQuery::on_conflict(Self, FixedArray[String]) -> Self
 pub fn UpsertQuery::set(Self, String, @engine.Param) -> Self
-pub fn UpsertQuery::to(Self, @dialect.Dialect) -> (String, FixedArray[@engine.Param])
 pub impl Eq for UpsertQuery
 pub impl Show for UpsertQuery
 pub impl ToJson for UpsertQuery

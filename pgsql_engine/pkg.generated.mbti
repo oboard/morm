@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/pgsql_engine"
+
+import {
+  "oboard/morm/engine",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct PgSQLEngine {
+  host : String
+  port : Int
+  user : String
+  password : String
+  database : String
+}
+pub fn PgSQLEngine::open(String) -> Result[Self, String]
+pub fn PgSQLEngine::ping(Self) -> Bool
+pub impl @engine.Engine for PgSQLEngine
+
+// Type aliases
+
+// Traits
+

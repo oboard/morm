@@ -8,6 +8,7 @@ import {
 }
 
 // Values
+pub fn make_StudentMapper(&@engine.Engine) -> StudentMapper_
 
 // Errors
 
@@ -28,7 +29,6 @@ pub(all) struct Student {
   age : Int
   birth_date : String
 }
-pub fn Student::mapper(&@engine.Engine) -> StudentMapper_
 pub fn Student::table() -> @morm.Table
 pub impl ToJson for Student
 pub impl @json.FromJson for Student
@@ -37,8 +37,6 @@ pub impl @morm.Entity for Student
 pub struct StudentMapper_ {
   engine : &@engine.Engine
 }
-pub fn StudentMapper_::delete(Self, Student) -> Bool
-pub fn StudentMapper_::save(Self, Student) -> Student?
 pub impl StudentMapper for StudentMapper_
 
 pub(all) struct Teacher {

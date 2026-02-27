@@ -62,7 +62,8 @@ test "generated entity" {
     age: 20,
     birth_date: "2003-01-01",
   }
-  let (sql1, params1) = @morm.insert_into("students").from(student).to(MySQL)
+  let q1 = @morm.insert_into("students").from(student)
+  let (sql1, params1) = @engine.render_default_sql(q1.to_statement())
   inspect(
     sql1,
     content=(
@@ -109,7 +110,8 @@ test "generated entity" {
 ///|
 test "generated class with foreign key" {
   let class_obj = Class::{ id: 10, name: "Math 101", teacher_id: 1 }
-  let (sql2, params2) = @morm.insert_into("classes").from(class_obj).to(MySQL)
+  let q2 = @morm.insert_into("classes").from(class_obj)
+  let (sql2, params2) = @engine.render_default_sql(q2.to_statement())
   inspect(
     sql2,
     content=(

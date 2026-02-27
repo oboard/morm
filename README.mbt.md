@@ -196,9 +196,9 @@ let saved = mapper.save(stu)
 let deleted = mapper.delete(stu)
 ```
 
-## SQL 构造器与方言占位符
+## SQL 构造器与渲染
 
-`morm.mbt` 内部提供一组构造器，统一返回 `(sql : String, params : FixedArray[@engine.Param])`：
+`morm.mbt` 提供一组查询构造器：
 
 - `select_from(table)`
 - `insert_into(table)`
@@ -206,13 +206,7 @@ let deleted = mapper.delete(stu)
 - `delete_from(table)`
 - `upsert_into(table)`
 
-占位符会根据方言自动切换：
-
-- PostgreSQL：`$1`, `$2`, ...
-- Oracle：`:1`, `:2`, ...
-- MySQL / Sqlite / SQL Server：`?`
-
-例如：
+通过 `to_statement()` + `@engine.render_default_sql(...)` 得到 SQL 和参数：
 
 ```moonbit nocheck
 let q = @morm.select_from("students")
@@ -221,13 +215,13 @@ let q = @morm.select_from("students")
   .order_by(Desc("id"))
   .offset(5)
   .limit(5)
-let (sql, params) = q.to(PgSQL)
+let (sql, params) = @engine.render_default_sql(q.to_statement())
 ```
 
 `sql` 会是：
 
 ```text
-SELECT * FROM students WHERE id = $1 AND name = $2 ORDER BY id DESC LIMIT 5 OFFSET 5
+SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
 ```
 
 `params` 则是对应顺序的 JSON 数组。

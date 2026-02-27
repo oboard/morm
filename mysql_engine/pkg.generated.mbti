@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/mysql_engine"
+
+import {
+  "oboard/morm/engine",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct MySQLEngine {
+  host : String
+  port : Int
+  user : String
+  password : String
+  database : String
+}
+pub fn MySQLEngine::open(String) -> Result[Self, String]
+pub fn MySQLEngine::ping(Self) -> Bool
+pub impl @engine.Engine for MySQLEngine
+
+// Type aliases
+
+// Traits
+

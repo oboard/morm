@@ -289,9 +289,9 @@ fn derive_builder_code(
     return Some("@morm.select_from(\{table_expr})")
   } else if method_name.has_prefix("find_") {
     if method_name.strip_prefix("find_") is Some(rest) {
-      if rest.find("_by_") is Some(pos) {
-        let idx = pos + 4
-        condition_part = rest[idx:].to_string() catch { _ => "" }
+      let parts = rest.split("_by_").collect()
+      if parts.length() >= 2 {
+        condition_part = parts[1].to_string()
       } else if rest.strip_prefix("by_") is Some(by_rest) {
         condition_part = by_rest.to_string()
       }
@@ -299,9 +299,9 @@ fn derive_builder_code(
   } else if method_name.has_prefix("count_") {
     is_count = true
     if method_name.strip_prefix("count_") is Some(rest) {
-      if rest.find("_by_") is Some(pos) {
-        let idx = pos + 4
-        condition_part = rest[idx:].to_string() catch { _ => "" }
+      let parts = rest.split("_by_").collect()
+      if parts.length() >= 2 {
+        condition_part = parts[1].to_string()
       } else if rest.strip_prefix("by_") is Some(by_rest) {
         condition_part = by_rest.to_string()
       }

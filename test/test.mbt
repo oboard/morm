@@ -6,31 +6,35 @@ test "query" {
     .order_by(Desc("id"))
     .offset(5)
     .limit(5)
-  let (sql_pg, _) = q.to(PgSQL)
+  let (sql_pg, _) = @engine.render_default_sql(q.to_statement())
   inspect(
     sql_pg,
     content=(
-      #|SELECT * FROM students WHERE id = $1 AND name = $2 ORDER BY id DESC LIMIT 5 OFFSET 5
+      #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
-  let (sql_my, _) = q.to(MySQL)
+  let (sql_my, _) = @engine.render_default_sql(q.to_statement())
   inspect(
     sql_my,
     content=(
       #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
-  let (sql_ora, _) = q.to(Oracle)
+  let (sql_ora, _) = @engine.render_default_sql(q.to_statement())
   inspect(
     sql_ora,
-    content="SELECT * FROM students WHERE id = :1 AND name = :2 ORDER BY id DESC OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY",
+    content=(
+      #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
+    ),
   )
-  let (sql_ss, _) = q.to(SqlServer)
+  let (sql_ss, _) = @engine.render_default_sql(q.to_statement())
   inspect(
     sql_ss,
-    content="SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC OFFSET 5 ROWS FETCH NEXT 5 ROWS ONLY",
+    content=(
+      #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
+    ),
   )
-  let (sql_sqlite, _) = q.to(Sqlite3)
+  let (sql_sqlite, _) = @engine.render_default_sql(q.to_statement())
   inspect(
     sql_sqlite,
     content=(
