@@ -1,5 +1,5 @@
 import {
-  "moonbitlang/async/process",
+  "moonbitlang/async/socket",
   "moonbitlang/core/buffer",
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/json",

@@ -1,4 +1,9 @@
 import {
   "oboard/morm",
   "oboard/morm/engine",
+  "moonbitlang/core/json",
 }
+
+import {
+  "moonbitlang/async",
+} for "test"

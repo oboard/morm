@@ -175,6 +175,7 @@ struct MapperMethodSpec {
   name : String
   sql : String? // 显式 SQL
   builder_code : String? // 构建器代码
+  fetch_join : String? // 查询时追加 JOIN（JPA JOIN FETCH 风格）
   params : Array[(String, String)] // (param_name, type_name)
   return_type : String
   returns_array : Bool
@@ -399,6 +400,7 @@ fn parse_mappers_from_ast(
               // 提取 SQL
               let mut sql_opt : String? = None
               let mut builder_code_opt : String? = None
+              let mut fetch_join_opt : String? = None
 
               attrs.each(a => {
                 let mut raw_text = a.raw
@@ -410,6 +412,27 @@ fn parse_mappers_from_ast(
                     }
                   }
                   sql_opt = extract_quoted_string_in_parens(raw_text)
+                }
+                if raw_text.has_prefix("#morm.fetch") ||
+                  raw_text.has_prefix("#morm.fetch_graph") ||
+                  raw_text.has_prefix("#morm.load_graph") {
+                  if extract_quoted_string_in_parens(raw_text) is None {
+                    let recovered = recover_attr_raw(source, a)
+                    if recovered != "" {
+                      raw_text = recovered
+                    }
+                  }
+                  if extract_quoted_string_in_parens(raw_text) is Some(join_sql) {
+                    fetch_join_opt = Some(join_sql)
+                  } else if extract_text_inside_parens(raw_text) is Some(inner) {
+                    lexmatch inner {
+                      (_before, "join=\"" ("[^\"]*" as join_sql) "\"", _after) =>
+                        fetch_join_opt = Some(join_sql.to_string())
+                      (_before, "joins=\"" ("[^\"]*" as join_sql) "\"", _after) =>
+                        fetch_join_opt = Some(join_sql.to_string())
+                      _ => ()
+                    }
+                  }
                 }
               })
 
@@ -512,6 +535,7 @@ fn parse_mappers_from_ast(
                 name: mname,
                 sql: sql_opt,
                 builder_code: builder_code_opt,
+                fetch_join: fetch_join_opt,
                 params: plist,
                 return_type,
                 returns_array,
@@ -547,6 +571,8 @@ fn parse_foreign_key_for_field(
   let parsed = collect_orm_attributes_from_source(attrs, source)
   // 查找 foreign_key 项
   let mut has_foreign_key = false
+  let mut is_many_to_one = false
+  let mut fk_column_name = field_label
   let mut fkargs_refs : String? = None
   let mut fkargs_table : String? = None
   let mut fkargs_column : String? = None
@@ -563,6 +589,29 @@ fn parse_foreign_key_for_field(
       }
       if a.value.get("column") is Some(v) {
         fkargs_column = Some(v)
+        fk_column_name = v
+      }
+      if a.value.get("on_delete") is Some(v) {
+        fkargs_on_delete = Some(v)
+      }
+      if a.value.get("on_update") is Some(v) {
+        fkargs_on_update = Some(v)
+      }
+    }
+    if a.name == "#morm.many_to_one" {
+      has_foreign_key = true
+      is_many_to_one = true
+      if a.value.get("references") is Some(v) {
+        fkargs_refs = Some(v)
+      }
+      if a.value.get("table") is Some(v) {
+        fkargs_table = Some(v)
+      }
+      if a.value.get("column") is Some(v) {
+        fkargs_column = Some(v)
+      }
+      if a.value.get("fk") is Some(v) {
+        fk_column_name = v
       }
       if a.value.get("on_delete") is Some(v) {
         fkargs_on_delete = Some(v)
@@ -580,6 +629,9 @@ fn parse_foreign_key_for_field(
   })
   if !has_foreign_key {
     return None
+  }
+  if is_many_to_one && fk_column_name == field_label {
+    fk_column_name = field_label + "_id"
   }
   // 支持 references="Table.column" 或分别提供 table/column
   let mut referenced_table = ""
@@ -627,7 +679,7 @@ fn parse_foreign_key_for_field(
   }
   let constraint_name = "fk_" + current_table + "_" + field_label
   let mut fk = @morm.ForeignKey::new(
-    constraint_name, field_label, referenced_table, referenced_column,
+    constraint_name, fk_column_name, referenced_table, referenced_column,
   )
 
   // 可选 on_delete / on_update 参数（CASCADE/SET NULL/RESTRICT/NO ACTION）
@@ -642,6 +694,38 @@ fn parse_foreign_key_for_field(
     }
   }
   Some(fk)
+}
+
+///|
+fn field_is_one_to_many(
+  attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
+  source : String,
+) -> Bool {
+  let parsed = collect_orm_attributes_from_source(attrs, source)
+  let mut hit = false
+  parsed.each(a => if a.name == "#morm.one_to_many" { hit = true })
+  hit
+}
+
+///|
+fn field_many_to_one_fk_column(
+  field_label : String,
+  attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
+  source : String,
+) -> String? {
+  let parsed = collect_orm_attributes_from_source(attrs, source)
+  for a in parsed {
+    if a.name == "#morm.many_to_one" {
+      if a.value.get("fk") is Some(v) {
+        return Some(v)
+      }
+      if a.value.get("column") is Some(v) {
+        return Some(v)
+      }
+      return Some(field_label + "_id")
+    }
+  }
+  None
 }
 
 ///|

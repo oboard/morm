@@ -187,6 +187,7 @@ pub(all) struct Set {
 pub(all) struct SelectStatement {
   select : String
   from : String
+  joins : FixedArray[String]
   where_ : FixedArray[Where]
   order_by : FixedArray[OrderBy]
   limit : Int?
@@ -371,7 +372,7 @@ fn format_set_sql(sets : FixedArray[Set]) -> String {
 pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
   match stmt {
     Select(select_stmt) => {
-      let { select, from, where_, order_by, limit, offset } = select_stmt
+      let { select, from, joins, where_, order_by, limit, offset } = select_stmt
       let buf = @buffer.new()
       buf.write_string("SELECT ")
       if select.is_empty() {
@@ -381,6 +382,10 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
       }
       buf.write_string(" FROM ")
       buf.write_string(from)
+      if !joins.is_empty() {
+        buf.write_string(" ")
+        buf.write_string(joins.join(" "))
+      }
       if !where_.is_empty() {
         buf.write_string(" WHERE ")
         buf.write_string(format_where_sql(where_))

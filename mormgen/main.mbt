@@ -4,11 +4,22 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
   let columns : Array[@morm.Column] = []
   let foreign_keys : Array[@morm.ForeignKey] = []
   for f in spec.fields {
-    let db_type = map_type_to_db_by_name(f.field_type, f.attrs)
+    if field_is_one_to_many(f.attrs, source) {
+      continue
+    }
+    let fk_col_opt = field_many_to_one_fk_column(f.label, f.attrs, source)
+    let db_type = match fk_col_opt {
+      Some(_) => @morm.ColumnType::Int
+      None => map_type_to_db_by_name(f.field_type, f.attrs)
+    }
     let (is_primary_key, is_auto_increment, _) = collect_field_flags(f.attrs)
     let is_nullable = f.nullable && !is_primary_key
+    let col_name = match fk_col_opt {
+      Some(n) => n
+      None => f.label
+    }
     let col : @morm.Column = {
-      name: f.label,
+      name: col_name,
       column_type: db_type,
       size: 0,
       nullable: is_nullable,
@@ -174,42 +185,56 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
         $|
       )
     } else {
+      let builder_code_with_fetch = match m.fetch_join {
+        Some(join_sql) => {
+          let join_escaped = join_sql.replace(old="\"", new="\\\"")
+          match m.builder_code {
+            Some(code) => Some(code + ".join(\"" + join_escaped + "\")")
+            None => None
+          }
+        }
+        None => m.builder_code
+      }
       match m.builder_code {
-        Some(code) =>
-          if m.returns_array {
-            (
-              $|   let q = \{code}
-              $|   @engine.exec_query(self.engine, q).rows.map(row => @json.from_json(
-              $|       row,
-              $|     ) catch {
-              $|       _ => panic()
-              $|     },
-              $|   )
-              $| }
-              $|
-            )
-          } else if m.returns_option {
-            (
-              $|   let q = \{code}
-              $|   if @engine.exec_query(self.engine, q).rows
-              $|     is [result, ..] {
-              $|     return Some(try! @json.from_json(result))
-              $|   }
-              $|   None
-              $| }
-              $|
-            )
-          } else {
-            (
-              $|   let q = \{code}
-              $|   if @engine.exec_query(self.engine, q).rows
-              $|     is [result, ..] {
-              $|     return (try! @json.from_json(result) : \{ret_type})
-              $|   }
-              $|   panic()
-              $| }
-              $|
-            )
+        Some(_) =>
+          match builder_code_with_fetch {
+            Some(code) =>
+              if m.returns_array {
+                (
+                  $|   let q = \{code}
+                  $|   @engine.exec_query(self.engine, q).rows.map(row => @json.from_json(
+                  $|       row,
+                  $|     ) catch {
+                  $|       _ => panic()
+                  $|     },
+                  $|   )
+                  $| }
+                  $|
+                )
+              } else if m.returns_option {
+                (
+                  $|   let q = \{code}
+                  $|   if @engine.exec_query(self.engine, q).rows
+                  $|     is [result, ..] {
+                  $|     return Some(try! @json.from_json(result))
+                  $|   }
+                  $|   None
+                  $| }
+                  $|
+                )
+              } else {
+                (
+                  $|   let q = \{code}
+                  $|   if @engine.exec_query(self.engine, q).rows
+                  $|     is [result, ..] {
+                  $|     return (try! @json.from_json(result) : \{ret_type})
+                  $|   }
+                  $|   panic()
+                  $| }
+                  $|
+                )
+              }
+            None => panic()
           }
         None => {
           let sql = m.sql.unwrap()

@@ -148,6 +148,7 @@ pub(open) trait Driver {
 pub struct Query {
   select : String
   from : String
+  joins : FixedArray[String]
   where_ : FixedArray[Where]
   order_by : FixedArray[OrderBy]
   limit : Int?
@@ -191,10 +192,188 @@ fn json_to_param(value : Json) -> @engine.Param {
 }
 
 ///|
+fn build_in_sql(table : String, key_col : String, count : Int) -> String {
+  let marks : Array[String] = []
+  let mut i = 0
+  while i < count {
+    marks.push("?")
+    i = i + 1
+  }
+  "SELECT * FROM " +
+  table +
+  " WHERE " +
+  key_col +
+  " IN (" +
+  marks.join(", ") +
+  ")"
+}
+
+///|
+fn[O : ToJson] collect_owner_key_params(
+  owners : FixedArray[O],
+  owner_key : String,
+) -> FixedArray[@engine.Param] {
+  let seen : Map[String, Bool] = Map::new()
+  let params : Array[@engine.Param] = []
+  for owner in owners {
+    if owner.to_json() is Object(obj) {
+      if obj.get(owner_key) is Some(v) {
+        if v is Null {
+          continue
+        }
+        let key = v.stringify()
+        if seen.get(key) is None {
+          seen.set(key, true)
+          params.push(json_to_param(v))
+        }
+      }
+    }
+  }
+  FixedArray::from_array(params)
+}
+
+///|
+pub(all) enum AssociationKind {
+  BelongsTo
+  HasMany
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub(all) struct Association {
+  name : String
+  kind : AssociationKind
+  owner_key : String
+  target_table : String
+  target_key : String
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub fn belongs_to(
+  name : String,
+  owner_key : String,
+  target_table : String,
+  target_key : String,
+) -> Association {
+  { name, kind: BelongsTo, owner_key, target_table, target_key }
+}
+
+///|
+pub fn has_many(
+  name : String,
+  owner_key : String,
+  target_table : String,
+  target_key : String,
+) -> Association {
+  { name, kind: HasMany, owner_key, target_table, target_key }
+}
+
+///|
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs_to(
+  engine : E,
+  owners : FixedArray[O],
+  owner_key : String,
+  target_table : String,
+  target_key : String,
+) -> Map[String, T] {
+  let key_params = collect_owner_key_params(owners, owner_key)
+  let out : Map[String, T] = Map::new()
+  if key_params.is_empty() {
+    return out
+  }
+  let sql = build_in_sql(target_table, target_key, key_params.length())
+  let res = engine.exec_raw(sql, key_params)
+  if !res.ok {
+    return out
+  }
+  for row in res.rows {
+    if row is Object(obj) {
+      if obj.get(target_key) is Some(v) {
+        let key = v.stringify()
+        let entity : T = @json.from_json(row) catch { _ => continue }
+        out.set(key, entity)
+      }
+    }
+  }
+  out
+}
+
+///|
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_many(
+  engine : E,
+  owners : FixedArray[O],
+  owner_key : String,
+  target_table : String,
+  target_key : String,
+) -> Map[String, Array[T]] {
+  let key_params = collect_owner_key_params(owners, owner_key)
+  let out : Map[String, Array[T]] = Map::new()
+  if key_params.is_empty() {
+    return out
+  }
+  let sql = build_in_sql(target_table, target_key, key_params.length())
+  let res = engine.exec_raw(sql, key_params)
+  if !res.ok {
+    return out
+  }
+  for row in res.rows {
+    if row is Object(obj) {
+      if obj.get(target_key) is Some(v) {
+        let key = v.stringify()
+        let entity : T = @json.from_json(row) catch { _ => continue }
+        if out.get(key) is Some(items) {
+          items.push(entity)
+          out.set(key, items)
+        } else {
+          out.set(key, [entity])
+        }
+      }
+    }
+  }
+  out
+}
+
+///|
+pub(all) enum PreloadResult[T] {
+  One(Map[String, T])
+  Many(Map[String, Array[T]])
+}
+
+///|
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(
+  engine : E,
+  owners : FixedArray[O],
+  association : Association,
+) -> PreloadResult[T] {
+  match association.kind {
+    BelongsTo =>
+      One(
+        preload_belongs_to(
+          engine,
+          owners,
+          association.owner_key,
+          association.target_table,
+          association.target_key,
+        ),
+      )
+    HasMany =>
+      Many(
+        preload_has_many(
+          engine,
+          owners,
+          association.owner_key,
+          association.target_table,
+          association.target_key,
+        ),
+      )
+  }
+}
+
+///|
 pub fn select_from(table : String) -> Query {
   {
     select: "*",
     from: table,
+    joins: [],
     where_: [],
     order_by: [],
     limit: None,
@@ -207,6 +386,7 @@ pub fn select_raw(table : String, cols_expr : String) -> Query {
   {
     select: cols_expr,
     from: table,
+    joins: [],
     where_: [],
     order_by: [],
     limit: None,
@@ -290,6 +470,11 @@ pub fn Query::order_by(self : Query, order_by : OrderBy) -> Query {
 }
 
 ///|
+pub fn Query::join(self : Query, join_sql : String) -> Query {
+  { ..self, joins: self.joins + [join_sql] }
+}
+
+///|
 pub fn Query::limit(self : Query, n : Int) -> Query {
   { ..self, limit: Some(n) }
 }
@@ -327,6 +512,7 @@ pub impl @engine.QueryBuilder for Query with to_statement(self) -> @engine.State
   @engine.Select({
     select: self.select,
     from: self.from,
+    joins: self.joins,
     where_,
     order_by,
     limit: self.limit,
