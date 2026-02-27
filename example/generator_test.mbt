@@ -114,7 +114,7 @@ test "generated entity" {
   )
   inspect(
     params1.to_json().stringify(),
-    content="[1,\"Alice\",20,\"2003-01-01\"]",
+    content="[\"1\",\"Alice\",20,\"2003-01-01\"]",
   )
   let table = Student::table()
 
@@ -127,7 +127,7 @@ test "generated entity" {
   // 验证 id 列
   let id_col = table.columns[0]
   assert_eq(id_col.name, "id")
-  assert_eq(id_col.column_type, Int)
+  assert_eq(id_col.column_type, BigInt)
   assert_eq(id_col.primary_key, true)
   assert_eq(id_col.auto_increment, true)
   assert_eq(id_col.nullable, false)
@@ -160,7 +160,7 @@ test "generated class with foreign key" {
       #|INSERT INTO classes (id, name, teacher_id) VALUES (?, ?, ?)
     ),
   )
-  inspect(params2.to_json().stringify(), content="[10,\"Math 101\",1]")
+  inspect(params2.to_json().stringify(), content="[\"10\",\"Math 101\",1]")
   let table = Class::table()
 
   // 表名
@@ -195,7 +195,7 @@ test {
     birth_date: None,
   }
   json_inspect(teacher, content={
-    "id": 1,
+    "id": "1",
     "name": "666",
     "major": "English",
     "age": 12,
@@ -208,7 +208,7 @@ test {
     birth_date: Some("2022-03-04"),
   }
   json_inspect(teacher, content={
-    "id": 1,
+    "id": "1",
     "name": "666",
     "major": "English",
     "age": 12,

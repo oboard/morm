@@ -31,6 +31,11 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 
 ///|
 fn parse_pg_dsn(dsn : String) -> PgSQLEngine? {
+  let dsn = if dsn.strip_prefix("jdbc:") is Some(rest) {
+    rest.to_string()
+  } else {
+    dsn
+  }
   let raw = if dsn.strip_prefix("postgres://") is Some(rest) {
     rest.to_string()
   } else if dsn.strip_prefix("postgresql://") is Some(rest) {
@@ -38,6 +43,20 @@ fn parse_pg_dsn(dsn : String) -> PgSQLEngine? {
   } else if dsn.strip_prefix("gaussdb://") is Some(rest) {
     rest.to_string()
   } else if dsn.strip_prefix("cockroachdb://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("opengauss://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("mogdb://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("kingbase://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("kingbase8://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("highgo://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("vastbase://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("ivorysql://") is Some(rest) {
     rest.to_string()
   } else {
     return None

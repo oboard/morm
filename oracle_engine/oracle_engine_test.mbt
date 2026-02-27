@@ -19,3 +19,12 @@ async test "oracle native tns handshake" {
 
   engine.close()
 }
+
+///|
+test "oracle compatible dsn schemes" {
+  inspect(
+    OracleEngine::open("jdbc:oracle://system:oracle@127.0.0.1:1521/XEPDB1")
+    is Ok(_),
+    content="true",
+  )
+}

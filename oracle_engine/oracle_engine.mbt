@@ -31,6 +31,11 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 
 ///|
 fn parse_oracle_dsn(dsn : String) -> OracleEngine? {
+  let dsn = if dsn.strip_prefix("jdbc:") is Some(rest) {
+    rest.to_string()
+  } else {
+    dsn
+  }
   let raw = if dsn.strip_prefix("oracle://") is Some(rest) {
     rest.to_string()
   } else {

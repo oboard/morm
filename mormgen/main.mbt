@@ -54,11 +54,152 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
 }
 
 ///|
+fn escape_mbt_string(s : String) -> String {
+  s
+  .replace(old="\\", new="\\\\")
+  .replace(old="\"", new="\\\"")
+  .replace(old="\n", new="\\n")
+  .replace(old="\r", new="\\r")
+  .replace(old="\t", new="\\t")
+}
+
+///|
+fn mbt_string(s : String) -> String {
+  "\"" + escape_mbt_string(s) + "\""
+}
+
+///|
+fn mbt_opt_string(v : String?) -> String {
+  match v {
+    Some(text) => "Some(" + mbt_string(text) + ")"
+    None => "None"
+  }
+}
+
+///|
+fn render_column_type(ty : @morm.ColumnType) -> String {
+  match ty {
+    TinyInt => "@morm.ColumnType::TinyInt"
+    SmallInt => "@morm.ColumnType::SmallInt"
+    MediumInt => "@morm.ColumnType::MediumInt"
+    Int => "@morm.ColumnType::Int"
+    BigInt => "@morm.ColumnType::BigInt"
+    Float => "@morm.ColumnType::Float"
+    Double => "@morm.ColumnType::Double"
+    Decimal(p, s) => "@morm.ColumnType::Decimal(\{p}, \{s})"
+    Char(len) => "@morm.ColumnType::Char(\{len})"
+    VarChar(len) => "@morm.ColumnType::VarChar(\{len})"
+    Text => "@morm.ColumnType::Text"
+    MediumText => "@morm.ColumnType::MediumText"
+    LongText => "@morm.ColumnType::LongText"
+    Binary(len) => "@morm.ColumnType::Binary(\{len})"
+    VarBinary(len) => "@morm.ColumnType::VarBinary(\{len})"
+    Blob => "@morm.ColumnType::Blob"
+    MediumBlob => "@morm.ColumnType::MediumBlob"
+    LongBlob => "@morm.ColumnType::LongBlob"
+    Date => "@morm.ColumnType::Date"
+    Time => "@morm.ColumnType::Time"
+    DateTime => "@morm.ColumnType::DateTime"
+    Timestamp => "@morm.ColumnType::Timestamp"
+    Year => "@morm.ColumnType::Year"
+    Json => "@morm.ColumnType::Json"
+    JsonB => "@morm.ColumnType::JsonB"
+    Boolean => "@morm.ColumnType::Boolean"
+  }
+}
+
+///|
+fn render_index_type(ty : @morm.IndexType) -> String {
+  match ty {
+    Primary => "@morm.IndexType::Primary"
+    Unique => "@morm.IndexType::Unique"
+    Index => "@morm.IndexType::Index"
+    FullText => "@morm.IndexType::FullText"
+    Spatial => "@morm.IndexType::Spatial"
+  }
+}
+
+///|
+fn render_column(col : @morm.Column) -> String {
+  (
+    $|      {
+    $|        name: \{mbt_string(col.name)},
+    $|        column_type: \{render_column_type(col.column_type)},
+    $|        size: \{col.size},
+    $|        nullable: \{col.nullable},
+    $|        auto_increment: \{col.auto_increment},
+    $|        primary_key: \{col.primary_key},
+    $|        unique: \{col.unique},
+    $|        comment: \{mbt_string(col.comment)},
+    $|        charset: \{mbt_opt_string(col.charset)},
+    $|        collation: \{mbt_opt_string(col.collation)},
+    $|        default_value: \{mbt_opt_string(col.default_value)},
+    $|      }
+  )
+}
+
+///|
+fn render_index(idx : @morm.Index) -> String {
+  let cols = idx.columns.map(c => mbt_string(c)).join(", ")
+  (
+    $|      {
+    $|        name: \{mbt_string(idx.name)},
+    $|        index_type: \{render_index_type(idx.index_type)},
+    $|        columns: [\{cols}],
+    $|        comment: \{mbt_string(idx.comment)},
+    $|      }
+  )
+}
+
+///|
+fn render_foreign_key(fk : @morm.ForeignKey) -> String {
+  (
+    $|      {
+    $|        name: \{mbt_string(fk.name)},
+    $|        column: \{mbt_string(fk.column)},
+    $|        referenced_table: \{mbt_string(fk.referenced_table)},
+    $|        referenced_column: \{mbt_string(fk.referenced_column)},
+    $|        on_delete: \{mbt_string(fk.on_delete)},
+    $|        on_update: \{mbt_string(fk.on_update)},
+    $|      }
+  )
+}
+
+///|
+fn render_table_literal(table : @morm.Table) -> String {
+  let columns = table.columns.map(render_column).join(",\n")
+  let indexes = table.indexes.map(render_index).join(",\n")
+  let foreign_keys = table.foreign_keys.map(render_foreign_key).join(",\n")
+  (
+    $| @morm.Table::{
+    $|   name: \{mbt_string(table.name)},
+    $|   columns: [
+    $|\{columns}
+    $|   ],
+    $|   indexes: [
+    $|\{indexes}
+    $|   ],
+    $|   foreign_keys: [
+    $|\{foreign_keys}
+    $|   ],
+    $|   engine: \{mbt_string(table.engine)},
+    $|   charset: \{mbt_string(table.charset)},
+    $|   collation: \{mbt_string(table.collation)},
+    $|   comment: \{mbt_string(table.comment)},
+    $|   auto_increment: \{table.auto_increment},
+    $| }
+  )
+}
+
+///|
 /// 代码生成阶段：从表结构生成实现代码
 fn generate_entity_impl(name : String, table : @morm.Table) -> String {
+  let table_literal = render_table_literal(table)
   (
     $| pub impl @oboard/morm.Entity for \{name} with table(_self) -> @oboard/morm.Table { \{name}::table() }
-    $| pub fn \{name}::table() -> @morm.Table { try! @json.from_json(\{table.to_json().stringify()}) }
+    $| pub fn \{name}::table() -> @morm.Table {
+    $|\{table_literal}
+    $| }
   )
 }
 

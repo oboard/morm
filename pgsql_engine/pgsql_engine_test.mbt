@@ -130,4 +130,36 @@ test "pgsql compatible dsn schemes" {
     PgSQLEngine::open("cockroachdb://root@127.0.0.1:26257/test") is Ok(_),
     content="true",
   )
+  inspect(
+    PgSQLEngine::open("opengauss://postgres@127.0.0.1:5432/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    PgSQLEngine::open("mogdb://postgres@127.0.0.1:5432/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    PgSQLEngine::open("kingbase://system@127.0.0.1:54321/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    PgSQLEngine::open("kingbase8://system@127.0.0.1:54321/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    PgSQLEngine::open("highgo://sysdba@127.0.0.1:5866/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    PgSQLEngine::open("vastbase://postgres@127.0.0.1:5432/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    PgSQLEngine::open("ivorysql://postgres@127.0.0.1:5432/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    PgSQLEngine::open("jdbc:postgresql://postgres@127.0.0.1:5432/test") is Ok(_),
+    content="true",
+  )
 }

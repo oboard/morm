@@ -130,4 +130,28 @@ test "mysql compatible dsn schemes" {
     MySQLEngine::open("tidb://root@127.0.0.1:4000/test") is Ok(_),
     content="true",
   )
+  inspect(
+    MySQLEngine::open("oceanbase://root@127.0.0.1:2881/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    MySQLEngine::open("polardb://root@127.0.0.1:3306/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    MySQLEngine::open("doris://root@127.0.0.1:9030/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    MySQLEngine::open("starrocks://root@127.0.0.1:9030/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    MySQLEngine::open("selectdb://root@127.0.0.1:9030/test") is Ok(_),
+    content="true",
+  )
+  inspect(
+    MySQLEngine::open("jdbc:mysql://root@127.0.0.1:3306/test") is Ok(_),
+    content="true",
+  )
 }

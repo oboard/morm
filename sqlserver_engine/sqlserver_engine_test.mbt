@@ -104,3 +104,15 @@ async test "sqlserver sql execution coverage" {
 
   engine.close()
 }
+
+///|
+test "sqlserver compatible dsn schemes" {
+  inspect(
+    SQLServerEngine::open("mssql://sa@127.0.0.1:1433/master") is Ok(_),
+    content="true",
+  )
+  inspect(
+    SQLServerEngine::open("jdbc:sqlserver://sa@127.0.0.1:1433/master") is Ok(_),
+    content="true",
+  )
+}

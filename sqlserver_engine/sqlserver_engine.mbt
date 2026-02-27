@@ -31,7 +31,16 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 
 ///|
 fn parse_sqlserver_dsn(dsn : String) -> SQLServerEngine? {
+  let dsn = if dsn.strip_prefix("jdbc:") is Some(rest) {
+    rest.to_string()
+  } else {
+    dsn
+  }
   let raw = if dsn.strip_prefix("sqlserver://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("mssql://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("jtds:sqlserver://") is Some(rest) {
     rest.to_string()
   } else {
     return None

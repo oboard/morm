@@ -31,11 +31,26 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 
 ///|
 fn parse_mysql_dsn(dsn : String) -> MySQLEngine? {
+  let dsn = if dsn.strip_prefix("jdbc:") is Some(rest) {
+    rest.to_string()
+  } else {
+    dsn
+  }
   let raw = if dsn.strip_prefix("mysql://") is Some(rest) {
     rest.to_string()
   } else if dsn.strip_prefix("mariadb://") is Some(rest) {
     rest.to_string()
   } else if dsn.strip_prefix("tidb://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("oceanbase://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("polardb://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("doris://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("starrocks://") is Some(rest) {
+    rest.to_string()
+  } else if dsn.strip_prefix("selectdb://") is Some(rest) {
     rest.to_string()
   } else {
     return None
