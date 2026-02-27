@@ -54,7 +54,9 @@ fn parse_oracle_dsn(dsn : String) -> OracleEngine? {
   }
   let main = first_part(raw, "?")
   let query = if raw.find("?") is Some(i) {
-    raw[i + 1:].to_string() catch { _ => "" }
+    raw[i + 1:].to_string() catch {
+      _ => ""
+    }
   } else {
     ""
   }
@@ -136,6 +138,18 @@ fn shell_escape_single(text : String) -> String {
 }
 
 ///|
+fn normalize_oracle_batch(sql : String) -> String {
+  let stmts : Array[String] = []
+  for part in sql.split(";").collect() {
+    let stmt = part.to_string().trim().to_string()
+    if stmt != "" {
+      stmts.push(stmt)
+    }
+  }
+  stmts.join(";\n")
+}
+
+///|
 fn parse_oracle_output(stdout : String) -> FixedArray[Json] {
   let rows : Array[Json] = []
   let lines = stdout.split("\n").collect()
@@ -162,20 +176,22 @@ fn parse_oracle_output(stdout : String) -> FixedArray[Json] {
 
 ///|
 async fn run_sqlplus(cfg : OracleEngine, sql : String) -> @engine.QueryResult {
-  let conn =
-    shell_escape_single(cfg.user) +
+  let conn = shell_escape_single(cfg.user) +
     "/" +
     shell_escape_single(cfg.password) +
     "@//localhost:" +
     cfg.port.to_string() +
     "/" +
     shell_escape_single(cfg.service)
-  let command =
-    "printf '%s\\n' 'set heading off feedback off pagesize 0 verify off echo off trimspool on linesize 32767 colsep |' '" +
-    shell_escape_single(sql) +
-    ";' 'exit' | sqlplus -s '" +
+  let batch = normalize_oracle_batch(sql)
+  let command = "cat <<'SQL' | sqlplus -s '" +
     conn +
-    "'"
+    "'\n" +
+    "set heading off feedback off pagesize 0 verify off echo off trimspool on linesize 32767 colsep |\n" +
+    batch +
+    ";\n" +
+    "exit\n" +
+    "SQL"
 
   let (code, out, err) = @process.collect_output("docker", [
     "exec",
@@ -205,10 +221,10 @@ pub async fn OracleEngine::ping(self : OracleEngine) -> Bool {
 }
 
 ///|
-pub impl @engine.Engine for OracleEngine with render(_self, stmt : @engine.Statement) -> (
-  String,
-  FixedArray[@engine.Param],
-) {
+pub impl @engine.Engine for OracleEngine with render(
+  _self,
+  stmt : @engine.Statement,
+) -> (String, FixedArray[@engine.Param]) {
   @engine.render_default_sql(stmt)
 }
 

@@ -54,7 +54,9 @@ fn parse_sqlserver_dsn(dsn : String) -> SQLServerEngine? {
   }
   let main = first_part(raw, "?")
   let query = if raw.find("?") is Some(i) {
-    raw[i + 1:].to_string() catch { _ => "" }
+    raw[i + 1:].to_string() catch {
+      _ => ""
+    }
   } else {
     ""
   }
@@ -164,8 +166,7 @@ fn parse_table_output(stdout : String) -> FixedArray[Json] {
 
 ///|
 async fn run_sqlcmd(cfg : SQLServerEngine, sql : String) -> @engine.QueryResult {
-  let script =
-    "cat <<'SQL' | /opt/mssql-tools18/bin/sqlcmd -C -b -S localhost," +
+  let script = "cat <<'SQL' | /opt/mssql-tools18/bin/sqlcmd -C -b -S localhost," +
     cfg.port.to_string() +
     " -U '" +
     shell_escape_single(cfg.user) +
@@ -202,10 +203,10 @@ pub async fn SQLServerEngine::ping(self : SQLServerEngine) -> Bool {
 }
 
 ///|
-pub impl @engine.Engine for SQLServerEngine with render(_self, stmt : @engine.Statement) -> (
-  String,
-  FixedArray[@engine.Param],
-) {
+pub impl @engine.Engine for SQLServerEngine with render(
+  _self,
+  stmt : @engine.Statement,
+) -> (String, FixedArray[@engine.Param]) {
   @engine.render_default_sql(stmt)
 }
 

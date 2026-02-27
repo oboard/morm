@@ -1,5 +1,4 @@
 import {
   "oboard/morm",
-  "oboard/morm/dialect",
   "oboard/morm/engine",
 }

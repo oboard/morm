@@ -1,9 +1,7 @@
 ///|
 async test "oracle real connection with transaction batch" {
   let engine = match
-    OracleEngine::open(
-      "oracle://system:oracle@morm-oracle:1521/XEPDB1",
-    ) {
+    OracleEngine::open("oracle://system:oracle@morm-oracle:1521/XEPDB1") {
     Ok(e) => e
     Err(_) => panic()
   }
@@ -24,10 +22,7 @@ async test "oracle real connection with transaction batch" {
   )
   inspect(batch_res.ok, content="true")
 
-  let query_res = engine.exec_raw(
-    "SELECT COUNT(*) FROM morm_engine_test",
-    [],
-  )
+  let query_res = engine.exec_raw("SELECT COUNT(*) FROM morm_engine_test", [])
   inspect(query_res.ok, content="true")
   inspect(query_res.rows.length() > 0, content="true")
 
