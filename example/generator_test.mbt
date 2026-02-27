@@ -83,6 +83,20 @@ async test "mapper" {
 }
 
 ///|
+async test "mapper relation annotations" {
+  let engine = MySQLEngine::open("mysql://root:123456@localhost:3306/test")
+  let enrollment_mapper = EnrollmentMapperImpl::new(engine)
+  let rows = enrollment_mapper.find_enrollments_by_student_id(1)
+  inspect(rows.length(), content="0")
+  let raw_rows = enrollment_mapper.find_by_class_raw(2)
+  inspect(raw_rows.length(), content="0")
+  let with_student = enrollment_mapper.find_with_student_by_id(1)
+  inspect(with_student.to_json(), content="Null")
+  let with_class = enrollment_mapper.find_with_class_by_id(1)
+  inspect(with_class.to_json(), content="Null")
+}
+
+///|
 test "generated entity" {
   let student = Student::{
     id: 1,
@@ -200,4 +214,30 @@ test {
     "age": 12,
     "birth_date": "2022-03-04",
   })
+}
+
+///|
+test "generated enrollment relation table" {
+  let table = Enrollment::table()
+  assert_eq(table.name, "enrollment")
+  assert_eq(table.columns.length(), 4)
+  assert_eq(table.columns[1].name, "student_id")
+  assert_eq(table.columns[2].name, "class_id")
+  assert_eq(table.foreign_keys.length(), 2)
+  let fk1 = table.foreign_keys[0]
+  assert_eq(fk1.column, "student_id")
+  assert_eq(fk1.referenced_table, "student")
+  assert_eq(fk1.referenced_column, "id")
+  assert_eq(fk1.on_delete, "CASCADE")
+  let fk2 = table.foreign_keys[1]
+  assert_eq(fk2.column, "class_id")
+  assert_eq(fk2.referenced_table, "class")
+  assert_eq(fk2.referenced_column, "id")
+}
+
+///|
+test "generated one_to_many is skipped from columns" {
+  let table = StudentAggregate::table()
+  assert_eq(table.columns.length(), 1)
+  assert_eq(table.columns[0].name, "id")
 }

@@ -96,3 +96,67 @@ pub impl StudentMapper for StudentMapperImpl with all(self) -> FixedArray[
     }
   })
 }
+
+///|
+pub struct EnrollmentMapperImpl {
+  engine : &@engine.Engine
+}
+
+///|
+pub fn EnrollmentMapperImpl::new(
+  engine : &@engine.Engine,
+) -> EnrollmentMapperImpl {
+  EnrollmentMapperImpl::{ engine, }
+}
+
+///|
+pub impl EnrollmentMapper for EnrollmentMapperImpl with find_enrollments_by_student_id(
+  self,
+  student_id : Int,
+) -> FixedArray[Enrollment] {
+  let q = @morm.select_from("enrollment").where_eq("student_id", student_id)
+  @engine.exec_query(self.engine, q).rows.map(row => {
+    @json.from_json(row) catch {
+      _ => panic()
+    }
+  })
+}
+
+///|
+pub impl EnrollmentMapper for EnrollmentMapperImpl with find_by_class_raw(
+  self,
+  class_id : Int,
+) -> FixedArray[Enrollment] {
+  self.engine.exec_raw(
+    "SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?",
+    [@engine.to_param(class_id)],
+  ).rows.map(row => @json.from_json(row) catch { _ => panic() })
+}
+
+///|
+pub impl EnrollmentMapper for EnrollmentMapperImpl with find_with_student_by_id(
+  self,
+  id : Int,
+) -> Enrollment? {
+  let q = @morm.select_from("enrollment")
+    .where_eq("id", id)
+    .join("LEFT JOIN student ON student.id = enrollment.student_id")
+  if @engine.exec_query(self.engine, q).rows is [result, ..] {
+    return Some(try! @json.from_json(result))
+  }
+  None
+}
+
+///|
+pub impl EnrollmentMapper for EnrollmentMapperImpl with find_with_class_by_id(
+  self,
+  id : Int,
+) -> Enrollment? {
+  let q = @morm.select_from("enrollment")
+    .where_eq("id", id)
+    .join("LEFT JOIN class ON class.id = enrollment.class_id")
+  if @engine.exec_query(self.engine, q).rows is [result, ..] {
+    return Some(try! @json.from_json(result))
+  }
+  None
+}

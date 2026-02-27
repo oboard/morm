@@ -13,7 +13,7 @@ import {
 
 // Types and methods
 pub(all) struct Class {
-  id : Int
+  id : Int64
   name : String
   teacher_id : Int
 }
@@ -22,8 +22,25 @@ pub impl ToJson for Class
 pub impl @json.FromJson for Class
 pub impl @morm.Entity for Class
 
+pub(all) struct Enrollment {
+  id : Int64
+  student : Student
+  klass : Class
+  note : String
+}
+pub fn Enrollment::table() -> @morm.Table
+pub impl ToJson for Enrollment
+pub impl @json.FromJson for Enrollment
+pub impl @morm.Entity for Enrollment
+
+pub struct EnrollmentMapperImpl {
+  engine : &@engine.Engine
+}
+pub fn EnrollmentMapperImpl::new(&@engine.Engine) -> Self
+pub impl EnrollmentMapper for EnrollmentMapperImpl
+
 pub(all) struct Student {
-  id : Int
+  id : Int64
   name : String
   age : Int
   birth_date : String
@@ -33,6 +50,15 @@ pub impl ToJson for Student
 pub impl @json.FromJson for Student
 pub impl @morm.Entity for Student
 
+pub(all) struct StudentAggregate {
+  id : Int64
+  enrollments : FixedArray[Int]
+}
+pub fn StudentAggregate::table() -> @morm.Table
+pub impl ToJson for StudentAggregate
+pub impl @json.FromJson for StudentAggregate
+pub impl @morm.Entity for StudentAggregate
+
 pub struct StudentMapperImpl {
   engine : &@engine.Engine
 }
@@ -40,7 +66,7 @@ pub fn StudentMapperImpl::new(&@engine.Engine) -> Self
 pub impl StudentMapper for StudentMapperImpl
 
 pub(all) struct Teacher {
-  id : Int
+  id : Int64
   name : String
   major : String
   age : Int
@@ -54,6 +80,13 @@ pub impl @morm.Entity for Teacher
 // Type aliases
 
 // Traits
+pub trait EnrollmentMapper {
+  async find_enrollments_by_student_id(Self, Int) -> FixedArray[Enrollment]
+  async find_by_class_raw(Self, Int) -> FixedArray[Enrollment]
+  async find_with_student_by_id(Self, Int) -> Enrollment?
+  async find_with_class_by_id(Self, Int) -> Enrollment?
+}
+
 pub trait StudentMapper {
   async find_student_by_id(Self, Int) -> Student?
   async find_student_by_name(Self, String) -> Student?
