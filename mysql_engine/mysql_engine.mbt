@@ -100,34 +100,570 @@ fn inline_sql(sql : String, params : FixedArray[@engine.Param]) -> String {
 }
 
 ///|
-async fn exec_tcp(cfg : MySQLEngine, payload : String) -> @engine.QueryResult {
-  let conn = @socket.Tcp::connect_to_host(cfg.host, port=cfg.port) catch {
-    _ =>
-      return {
-        ok: false,
-        rows_affected: 0,
-        rows: [],
-        error: Some("mysql connect failed"),
+fn fail(message : String) -> @engine.QueryResult {
+  { ok: false, rows_affected: 0, rows: [], error: Some(message) }
+}
+
+///|
+fn le_u24(v : Int) -> Bytes {
+  let b = @buffer.new()
+  b.write_byte((v & 0xff).to_byte())
+  b.write_byte(((v >> 8) & 0xff).to_byte())
+  b.write_byte(((v >> 16) & 0xff).to_byte())
+  b.to_bytes()
+}
+
+///|
+fn le_u32(v : Int) -> Bytes {
+  let b = @buffer.new()
+  b.write_byte((v & 0xff).to_byte())
+  b.write_byte(((v >> 8) & 0xff).to_byte())
+  b.write_byte(((v >> 16) & 0xff).to_byte())
+  b.write_byte(((v >> 24) & 0xff).to_byte())
+  b.to_bytes()
+}
+
+///|
+fn concat_bytes(a : Bytes, b : Bytes) -> Bytes {
+  let out = @buffer.new()
+  out.write_bytes(a)
+  out.write_bytes(b)
+  out.to_bytes()
+}
+
+///|
+fn bytes_xor(a : Bytes, b : Bytes) -> Bytes {
+  let n = if a.length() < b.length() { a.length() } else { b.length() }
+  let out = @buffer.new()
+  let mut i = 0
+  while i < n {
+    out.write_byte((a[i].to_int() ^ b[i].to_int()).to_byte())
+    i = i + 1
+  }
+  out.to_bytes()
+}
+
+///|
+fn mysql_native_token(password : String, seed : Bytes) -> Bytes {
+  if password == "" {
+    return b""
+  }
+  let pass = @utf8.encode(password)
+  let s1 = @crypto.sha1(pass).unsafe_reinterpret_as_bytes()
+  let s2 = @crypto.sha1(s1).unsafe_reinterpret_as_bytes()
+  let s3 = @crypto.sha1(concat_bytes(seed, s2)).unsafe_reinterpret_as_bytes()
+  bytes_xor(s1, s3)
+}
+
+///|
+fn caching_sha2_token(password : String, seed : Bytes) -> Bytes {
+  if password == "" {
+    return b""
+  }
+  let pass = @utf8.encode(password)
+  let s1 = @crypto.sha256(pass).unsafe_reinterpret_as_bytes()
+  let s2 = @crypto.sha256(s1).unsafe_reinterpret_as_bytes()
+  let s3 = @crypto.sha256(s2).unsafe_reinterpret_as_bytes()
+  let s4 = @crypto.sha256(concat_bytes(s3, seed)).unsafe_reinterpret_as_bytes()
+  bytes_xor(s1, s4)
+}
+
+///|
+fn auth_token(plugin : String, password : String, seed : Bytes) -> Bytes {
+  if plugin == "mysql_native_password" {
+    mysql_native_token(password, seed)
+  } else if plugin == "caching_sha2_password" {
+    caching_sha2_token(password, seed)
+  } else if password == "" {
+    b""
+  } else {
+    mysql_native_token(password, seed)
+  }
+}
+
+///|
+fn lenenc_int(data : Bytes, pos : Int) -> (Int, Int)? {
+  if pos >= data.length() {
+    return None
+  }
+  let first = data[pos].to_int()
+  if first < 0xfb {
+    Some((first, pos + 1))
+  } else if first == 0xfc {
+    if pos + 2 >= data.length() {
+      None
+    } else {
+      Some((data[pos + 1].to_int() | (data[pos + 2].to_int() << 8), pos + 3))
+    }
+  } else if first == 0xfd {
+    if pos + 3 >= data.length() {
+      None
+    } else {
+      Some(
+        (
+          data[pos + 1].to_int() |
+          (data[pos + 2].to_int() << 8) |
+          (data[pos + 3].to_int() << 16),
+          pos + 4,
+        ),
+      )
+    }
+  } else {
+    None
+  }
+}
+
+///|
+fn lenenc_str(data : Bytes, pos : Int) -> (String?, Int)? {
+  if pos >= data.length() {
+    return None
+  }
+  if data[pos].to_int() == 0xfb {
+    return Some((None, pos + 1))
+  }
+  match lenenc_int(data, pos) {
+    Some((len, next)) =>
+      if next + len > data.length() {
+        None
+      } else {
+        Some(
+          (
+            Some(@utf8.decode_lossy(data[next:next + len].to_bytes())),
+            next + len,
+          ),
+        )
       }
+    None => None
+  }
+}
+
+///|
+fn parse_ok_affected_rows(payload : Bytes) -> Int {
+  if payload.length() <= 1 {
+    return 0
+  }
+  match lenenc_int(payload, 1) {
+    Some((n, _)) => n
+    None => 0
+  }
+}
+
+///|
+fn parse_error_packet(payload : Bytes) -> String {
+  if payload.length() < 3 {
+    return "mysql error"
+  }
+  let code = payload[1].to_int() | (payload[2].to_int() << 8)
+  if payload.length() > 9 && payload[3] == b'#' {
+    let msg = @utf8.decode_lossy(payload[9:payload.length()].to_bytes())
+    "mysql error \{code}: " + msg
+  } else {
+    let msg = if payload.length() > 3 {
+      @utf8.decode_lossy(payload[3:payload.length()].to_bytes())
+    } else {
+      ""
+    }
+    "mysql error \{code}: " + msg
+  }
+}
+
+///|
+fn json_from_text(text : String) -> Json {
+  if text == "true" || text == "TRUE" {
+    return Json::boolean(true)
+  }
+  if text == "false" || text == "FALSE" {
+    return Json::boolean(false)
+  }
+  let i = @strconv.parse_int(text) catch { _ => -2147483648 }
+  if i != -2147483648 || text == "-2147483648" {
+    return Json::number(i.to_double())
+  }
+  let d = @strconv.parse_double(text) catch { _ => -9.999999999999999e307 }
+  if d != -9.999999999999999e307 {
+    return Json::number(d)
+  }
+  Json::string(text)
+}
+
+///|
+async fn read_packet(conn : @socket.Tcp) -> (Int, Bytes)? {
+  let hdr = conn.read_exactly(4) catch { _ => return None }
+  let len = hdr[0].to_int() | (hdr[1].to_int() << 8) | (hdr[2].to_int() << 16)
+  let seq = hdr[3].to_int()
+  let payload = conn.read_exactly(len) catch { _ => return None }
+  Some((seq, payload))
+}
+
+///|
+async fn write_packet(conn : @socket.Tcp, seq : Int, payload : Bytes) -> Bool {
+  conn.write(le_u24(payload.length())) catch {
+    _ => return false
+  }
+  let s = @buffer.new()
+  s.write_byte((seq & 0xff).to_byte())
+  conn.write(s.to_bytes()) catch {
+    _ => return false
+  }
+  conn.write(payload) catch {
+    _ => return false
+  }
+  true
+}
+
+///|
+fn plugin_name_from_handshake(payload : Bytes) -> String {
+  let mut i = 1
+  while i < payload.length() && payload[i] != 0 {
+    i = i + 1
+  }
+  i = i + 1 // server_version terminator
+  if i + 4 + 8 + 1 + 2 + 1 + 2 + 2 + 1 + 10 > payload.length() {
+    return "mysql_native_password"
+  }
+  i = i + 4 // connection id
+  i = i + 8 // auth plugin data part 1
+  i = i + 1 // filler
+  let cap_low = payload[i].to_int() | (payload[i + 1].to_int() << 8)
+  i = i + 2
+  i = i + 1 + 2 // charset + status
+  let cap_high = payload[i].to_int() | (payload[i + 1].to_int() << 8)
+  let caps = cap_low | (cap_high << 16)
+  i = i + 2
+  let auth_len = payload[i].to_int()
+  i = i + 1 + 10
+  if (caps & 0x00080000) == 0 || i >= payload.length() {
+    return "mysql_native_password"
+  }
+  let mut j = i
+  let take = if auth_len > 8 { auth_len - 8 } else { 12 }
+  if take > 0 {
+    let mut skipped = 0
+    while j < payload.length() && skipped < take && payload[j] != 0 {
+      j = j + 1
+      skipped = skipped + 1
+    }
+  }
+  if j < payload.length() && payload[j] == 0 {
+    j = j + 1
+  }
+  let mut k = j
+  while k < payload.length() && payload[k] != 0 {
+    k = k + 1
+  }
+  if k > j {
+    @utf8.decode_lossy(payload[j:k].to_bytes())
+  } else {
+    "mysql_native_password"
+  }
+}
+
+///|
+fn seed_from_handshake(payload : Bytes) -> Bytes {
+  let out = @buffer.new()
+  let mut i = 1
+  while i < payload.length() && payload[i] != 0 {
+    i = i + 1
+  }
+  i = i + 1
+  if i + 4 + 8 + 1 > payload.length() {
+    return b""
+  }
+  i = i + 4
+  out.write_bytes(payload[i:i + 8].to_bytes())
+  i = i + 8 + 1
+  if i + 2 + 1 + 2 + 2 + 1 + 10 > payload.length() {
+    return out.to_bytes()
+  }
+  let cap_low = payload[i].to_int() | (payload[i + 1].to_int() << 8)
+  i = i + 2
+  i = i + 1 + 2
+  let cap_high = payload[i].to_int() | (payload[i + 1].to_int() << 8)
+  let caps = cap_low | (cap_high << 16)
+  i = i + 2
+  let auth_len = payload[i].to_int()
+  i = i + 1 + 10
+  if (caps & 0x00008000) != 0 && i < payload.length() {
+    let need = if auth_len > 8 { auth_len - 8 } else { 12 }
+    let mut j = 0
+    while i + j < payload.length() && j < need && payload[i + j] != 0 {
+      out.write_byte(payload[i + j])
+      j = j + 1
+    }
+  }
+  out.to_bytes()
+}
+
+///|
+fn make_handshake_response(
+  cfg : MySQLEngine,
+  server_caps : Int,
+  plugin : String,
+  seed : Bytes,
+) -> Bytes {
+  let client_caps = 0x00000200 | // CLIENT_PROTOCOL_41
+    0x00008000 | // CLIENT_SECURE_CONNECTION
+    0x00000001 | // CLIENT_LONG_PASSWORD
+    0x00000004 | // CLIENT_LONG_FLAG
+    0x00002000 | // CLIENT_TRANSACTIONS
+    0x00080000 | // CLIENT_PLUGIN_AUTH
+    0x01000000 | // CLIENT_DEPRECATE_EOF
+    0x00000800 // CLIENT_CONNECT_ATTRS (safe even if ignored)
+  let caps = client_caps & server_caps
+  let auth = auth_token(plugin, cfg.password, seed)
+
+  let b = @buffer.new()
+  b.write_bytes(le_u32(caps))
+  b.write_bytes(le_u32(1024 * 1024))
+  b.write_byte(45) // utf8mb4_general_ci
+  let mut i = 0
+  while i < 23 {
+    b.write_byte(0)
+    i = i + 1
+  }
+  b.write_bytes(@utf8.encode(cfg.user))
+  b.write_byte(0)
+  b.write_byte(auth.length().to_byte())
+  b.write_bytes(auth)
+  if cfg.database != "" {
+    b.write_bytes(@utf8.encode(cfg.database))
+    b.write_byte(0)
+  }
+  b.write_bytes(@utf8.encode(plugin))
+  b.write_byte(0)
+  b.to_bytes()
+}
+
+///|
+fn parse_server_caps(payload : Bytes) -> Int {
+  let mut i = 1
+  while i < payload.length() && payload[i] != 0 {
+    i = i + 1
+  }
+  i = i + 1
+  if i + 4 + 8 + 1 + 2 + 1 + 2 + 2 > payload.length() {
+    return 0
+  }
+  i = i + 4 + 8 + 1
+  let low = payload[i].to_int() | (payload[i + 1].to_int() << 8)
+  i = i + 2 + 1 + 2
+  let high = payload[i].to_int() | (payload[i + 1].to_int() << 8)
+  low | (high << 16)
+}
+
+///|
+async fn mysql_query_async(
+  cfg : MySQLEngine,
+  sql : String,
+) -> @engine.QueryResult {
+  let conn = @socket.Tcp::connect_to_host(cfg.host, port=cfg.port) catch {
+    _ => return fail("mysql connect failed")
   }
   defer conn.close()
-  conn.write(payload) catch {
-    _ =>
-      return {
-        ok: false,
-        rows_affected: 0,
-        rows: [],
-        error: Some("mysql write failed"),
-      }
+
+  let handshake = read_packet(conn) catch { _ => None }
+  if handshake is None {
+    return fail("mysql handshake read failed")
   }
-  { ok: true, rows_affected: 0, rows: [], error: None }
+  let (_, hs_payload) = handshake.unwrap()
+  if hs_payload.length() == 0 {
+    return fail("mysql empty handshake")
+  }
+  if hs_payload[0].to_int() == 0xff {
+    return fail(parse_error_packet(hs_payload))
+  }
+
+  let server_caps = parse_server_caps(hs_payload)
+  let plugin = plugin_name_from_handshake(hs_payload)
+  let seed = seed_from_handshake(hs_payload)
+  let resp = make_handshake_response(cfg, server_caps, plugin, seed)
+
+  if !(write_packet(conn, 1, resp) catch { _ => false }) {
+    return fail("mysql handshake write failed")
+  }
+
+  let auth_res = read_packet(conn) catch { _ => None }
+  if auth_res is None {
+    return fail("mysql auth response read failed")
+  }
+  let (seq0, auth_payload0) = auth_res.unwrap()
+  let mut seq = seq0
+  let mut auth_payload = auth_payload0
+
+  if auth_payload.length() > 0 && auth_payload[0].to_int() == 0xfe {
+    // Auth switch request
+    let mut i = 1
+    while i < auth_payload.length() && auth_payload[i] != 0 {
+      i = i + 1
+    }
+    let switch_plugin = if i > 1 {
+      @utf8.decode_lossy(auth_payload[1:i].to_bytes())
+    } else {
+      "mysql_native_password"
+    }
+    let switch_seed = if i + 1 < auth_payload.length() {
+      auth_payload[i + 1:auth_payload.length()].to_bytes()
+    } else {
+      b""
+    }
+    let token = auth_token(switch_plugin, cfg.password, switch_seed)
+    if !(write_packet(conn, seq + 1, token) catch { _ => false }) {
+      return fail("mysql auth switch write failed")
+    }
+    let p = read_packet(conn) catch { _ => None }
+    if p is None {
+      return fail("mysql auth switch read failed")
+    }
+    let (s2, p2) = p.unwrap()
+    seq = s2
+    auth_payload = p2
+  }
+
+  if auth_payload.length() > 0 && auth_payload[0].to_int() == 0x01 {
+    // AuthMoreData (caching_sha2_password)
+    if auth_payload.length() >= 2 && auth_payload[1].to_int() == 0x03 {
+      let p = read_packet(conn) catch { _ => None }
+      if p is None {
+        return fail("mysql auth final read failed")
+      }
+      let (_, final_auth) = p.unwrap()
+      auth_payload = final_auth
+    } else {
+      return fail("mysql auth requires full authentication")
+    }
+  }
+
+  if auth_payload.length() == 0 {
+    return fail("mysql empty auth response")
+  }
+  if auth_payload[0].to_int() == 0xff {
+    return fail(parse_error_packet(auth_payload))
+  }
+  if auth_payload[0].to_int() != 0x00 {
+    return fail("mysql auth failed")
+  }
+
+  let q = @buffer.new()
+  q.write_byte(0x03) // COM_QUERY
+  q.write_bytes(@utf8.encode(sql))
+  if !(write_packet(conn, 0, q.to_bytes()) catch { _ => false }) {
+    return fail("mysql query write failed")
+  }
+
+  let first = read_packet(conn) catch { _ => None }
+  if first is None {
+    return fail("mysql query read failed")
+  }
+  let (_, first_payload) = first.unwrap()
+  if first_payload.length() == 0 {
+    return fail("mysql empty query response")
+  }
+
+  let tag = first_payload[0].to_int()
+  if tag == 0xff {
+    return fail(parse_error_packet(first_payload))
+  }
+  if tag == 0x00 {
+    let affected = parse_ok_affected_rows(first_payload)
+    return { ok: true, rows_affected: affected, rows: [], error: None }
+  }
+
+  let col_count = match lenenc_int(first_payload, 0) {
+    Some((n, _)) => n
+    None => return fail("mysql invalid column-count packet")
+  }
+
+  let cols : Array[String] = []
+  let mut i = 0
+  while i < col_count {
+    let p = read_packet(conn) catch { _ => None }
+    if p is None {
+      return fail("mysql column definition read failed")
+    }
+    let (_, col_def) = p.unwrap()
+    let (_, p1) = match lenenc_str(col_def, 0) {
+      Some(v) => v
+      None => return fail("mysql bad column definition")
+    }
+    let (_, p2) = match lenenc_str(col_def, p1) {
+      Some(v) => v
+      None => return fail("mysql bad column definition")
+    }
+    let (_, p3) = match lenenc_str(col_def, p2) {
+      Some(v) => v
+      None => return fail("mysql bad column definition")
+    }
+    let (_, p4) = match lenenc_str(col_def, p3) {
+      Some(v) => v
+      None => return fail("mysql bad column definition")
+    }
+    let (name, _) = match lenenc_str(col_def, p4) {
+      Some(v) => v
+      None => return fail("mysql bad column definition")
+    }
+    cols.push(name.unwrap_or("c" + i.to_string()))
+    i = i + 1
+  }
+
+  // EOF / OK after column definitions
+  let col_end = read_packet(conn) catch { _ => None }
+  if col_end is None {
+    return fail("mysql missing column-end packet")
+  }
+
+  let rows : Array[Json] = []
+  let mut done = false
+  while !done {
+    let p = read_packet(conn) catch { _ => None }
+    if p is None {
+      return fail("mysql row read failed")
+    }
+    let (_, row_pkt) = p.unwrap()
+    if row_pkt.length() > 0 && row_pkt[0].to_int() == 0xff {
+      return fail(parse_error_packet(row_pkt))
+    }
+    if row_pkt.length() > 0 &&
+      row_pkt[0].to_int() == 0xfe &&
+      row_pkt.length() < 9 {
+      done = true
+    } else if row_pkt.length() > 0 &&
+      row_pkt[0].to_int() == 0x00 &&
+      row_pkt.length() < 9 {
+      done = true
+    } else {
+      let obj : Map[String, Json] = {}
+      let mut pos = 0
+      let mut c = 0
+      while c < cols.length() {
+        let parsed = lenenc_str(row_pkt, pos)
+        if parsed is None {
+          return fail("mysql bad row packet")
+        }
+        let (v, np) = parsed.unwrap()
+        pos = np
+        obj[cols[c]] = match v {
+          Some(s) => json_from_text(s)
+          None => Json::null()
+        }
+        c = c + 1
+      }
+      rows.push(obj.to_json())
+    }
+  }
+
+  {
+    ok: true,
+    rows_affected: rows.length(),
+    rows: FixedArray::from_array(rows),
+    error: None,
+  }
 }
 
 ///|
 pub fn MySQLEngine::ping(self : MySQLEngine) -> Bool {
   let mut ok = false
   @async.run_async_main(() => {
-    let res = exec_tcp(self, "/* ping */")
+    let res = mysql_query_async(self, "SELECT 1")
     ok = res.ok
   })
   ok
@@ -172,7 +708,7 @@ pub impl @engine.Engine for MySQLEngine with exec_raw(
     error: Some("async execution did not return"),
   }
   let query = inline_sql(sql, params)
-  @async.run_async_main(() => res = exec_tcp(self, query))
+  @async.run_async_main(() => res = mysql_query_async(self, query))
   res
 }
 

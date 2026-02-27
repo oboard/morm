@@ -150,7 +150,7 @@ mormgen example/entities.mbt -o example/entities.g.mbt
 mormgen example/mapper.mbt -o example/mapper.g.mbt
 ```
 
-`entities.g.mbt` 会包含每个实体的 `impl @morm.Entity` 和 `table()`，`mapper.g.mbt` 会包含 mapper struct、`::mapper` 工厂函数以及基于 `#morm.query` 的方法实现。
+`entities.g.mbt` 会包含每个实体的 `impl @morm.Entity` 和 `table()`，`mapper.g.mbt` 会包含 mapper struct、`Struct::new` 工厂函数以及基于 `#morm.query` 的方法实现。
 
 ## Mapper 与查询
 
@@ -169,9 +169,9 @@ pub trait StudentMapper {
 
 生成器会为你生成：
 
-- `pub struct StudentMapper_ { engine : &@engine.Engine }`
-- `pub fn Student::mapper(engine : &@engine.Engine) -> StudentMapper_`
-- 对应的 `impl StudentMapper for StudentMapper_`，内部用参数化 SQL 调用 `engine.exec` / `engine.query`
+- `pub struct StudentMapperImpl { engine : &@engine.Engine }`
+- `pub fn StudentMapperImpl::new(engine : &@engine.Engine) -> StudentMapperImpl`
+- 对应的 `impl StudentMapper for StudentMapperImpl`，内部用参数化 SQL 调用 `engine.exec` / `engine.query`
 - 额外的通用方法：`save` 和 `delete`，直接基于实体的主键和唯一索引做 UPSERT / DELETE
 
 使用方式示例（简化）：
@@ -181,7 +181,7 @@ pub trait StudentMapper {
 let engine = MySQLEngine::open("mysql://...")
 
 ///|
-let mapper = Student::mapper(engine)
+let mapper = StudentMapperImpl::new(engine)
 
 ///|
 let stu = mapper.find_student_by_id(1)

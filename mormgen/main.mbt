@@ -55,6 +55,7 @@ fn generate_entity_impl(name : String, table : @morm.Table) -> String {
 /// 代码生成阶段：根据 MapperSpec 生成 struct、mapper 函数与方法实现
 fn generate_mapper_code(spec : MapperSpec) -> String {
   let trait_name = spec.trait_name
+  let impl_name = trait_name + "Impl"
   let entity_name = spec.entity_name
   let table_expr = match spec.table_name {
     Some(t) => "\"\{t}\""
@@ -65,26 +66,15 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
       }
   }
   let struct_def =
-    $| pub struct \{trait_name}_ {
+    $| pub struct \{impl_name} {
     $|   engine : &@engine.Engine
     $| }
     $|
-  let mapper_fn = match entity_name {
-    Some(n) =>
-      (
-        $| pub fn \{n}::mapper(engine : &@engine.Engine) -> \{trait_name}_ {
-        $|   \{trait_name}_::{ engine, }
-        $| }
-        $|
-      )
-    None =>
-      (
-        $| pub fn make_\{trait_name}(engine : &@engine.Engine) -> \{trait_name}_ {
-        $|   \{trait_name}_::{ engine, }
-        $| }
-        $|
-      )
-  }
+  let mapper_fn =
+    $| pub fn \{impl_name}::new(engine : &@engine.Engine) -> \{impl_name} {
+    $|   \{impl_name}::{ engine, }
+    $| }
+    $|
   let mut impls = ""
   for m in spec.methods {
     let param_sig_parts : Array[String] = []
@@ -103,7 +93,7 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
     // 返回类型字符串
     let ret_type = m.return_type
     let method_header =
-      $| pub impl \{trait_name} for \{trait_name}_ with \{m.name}(
+      $| pub impl \{trait_name} for \{impl_name} with \{m.name}(
       $|   \{param_sig}
       $| ) -> \{ret_type} {
     let body = if m.name == "save" && m.params.length() == 1 {

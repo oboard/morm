@@ -8,7 +8,6 @@ import {
 }
 
 // Values
-pub fn make_StudentMapper(&@engine.Engine) -> StudentMapper_
 
 // Errors
 
@@ -34,10 +33,11 @@ pub impl ToJson for Student
 pub impl @json.FromJson for Student
 pub impl @morm.Entity for Student
 
-pub struct StudentMapper_ {
+pub struct StudentMapperImpl {
   engine : &@engine.Engine
 }
-pub impl StudentMapper for StudentMapper_
+pub fn StudentMapperImpl::new(&@engine.Engine) -> Self
+pub impl StudentMapper for StudentMapperImpl
 
 pub(all) struct Teacher {
   id : Int

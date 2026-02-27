@@ -49,7 +49,7 @@ test "auto migrate" {
 ///|
 test "mapper" {
   let engine = MySQLEngine::open("mysql://root:123456@localhost:3306/test")
-  let studentMapper = make_StudentMapper(engine)
+  let studentMapper = StudentMapperImpl::new(engine)
   let student = studentMapper.find_student_by_name("Alice")
   inspect(student.to_json(), content="Null")
 }

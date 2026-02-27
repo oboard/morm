@@ -1,15 +1,15 @@
 ///|
-pub struct StudentMapper_ {
+pub struct StudentMapperImpl {
   engine : &@engine.Engine
 }
 
 ///|
-pub fn make_StudentMapper(engine : &@engine.Engine) -> StudentMapper_ {
-  StudentMapper_::{ engine, }
+pub fn StudentMapperImpl::new(engine : &@engine.Engine) -> StudentMapperImpl {
+  StudentMapperImpl::{ engine, }
 }
 
 ///|
-pub impl StudentMapper for StudentMapper_ with find_student_by_id(
+pub impl StudentMapper for StudentMapperImpl with find_student_by_id(
   self,
   id : Int,
 ) -> Student? {
@@ -21,7 +21,7 @@ pub impl StudentMapper for StudentMapper_ with find_student_by_id(
 }
 
 ///|
-pub impl StudentMapper for StudentMapper_ with find_student_by_name(
+pub impl StudentMapper for StudentMapperImpl with find_student_by_name(
   self,
   name : String,
 ) -> Student? {
@@ -33,7 +33,7 @@ pub impl StudentMapper for StudentMapper_ with find_student_by_name(
 }
 
 ///|
-pub impl StudentMapper for StudentMapper_ with find_students_by_age(
+pub impl StudentMapper for StudentMapperImpl with find_students_by_age(
   self,
   age : Int,
 ) -> FixedArray[Student] {
@@ -46,7 +46,7 @@ pub impl StudentMapper for StudentMapper_ with find_students_by_age(
 }
 
 ///|
-pub impl StudentMapper for StudentMapper_ with find_students_by_age_and_name(
+pub impl StudentMapper for StudentMapperImpl with find_students_by_age_and_name(
   self,
   age : Int,
   name : String,
@@ -62,7 +62,7 @@ pub impl StudentMapper for StudentMapper_ with find_students_by_age_and_name(
 }
 
 ///|
-pub impl StudentMapper for StudentMapper_ with count_students_by_age(
+pub impl StudentMapper for StudentMapperImpl with count_students_by_age(
   self,
   age : Int,
 ) -> Int? {
@@ -74,7 +74,7 @@ pub impl StudentMapper for StudentMapper_ with count_students_by_age(
 }
 
 ///|
-pub impl StudentMapper for StudentMapper_ with find_all(self) -> FixedArray[
+pub impl StudentMapper for StudentMapperImpl with find_all(self) -> FixedArray[
   Student,
 ] {
   let q = @morm.select_from("student")
@@ -86,7 +86,9 @@ pub impl StudentMapper for StudentMapper_ with find_all(self) -> FixedArray[
 }
 
 ///|
-pub impl StudentMapper for StudentMapper_ with all(self) -> FixedArray[Student] {
+pub impl StudentMapper for StudentMapperImpl with all(self) -> FixedArray[
+  Student,
+] {
   let q = @morm.select_from("student")
   @engine.exec_query(self.engine, q).rows.map(row => {
     @json.from_json(row) catch {
