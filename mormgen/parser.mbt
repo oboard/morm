@@ -341,7 +341,7 @@ fn resolve_mapper_param_name(
   inferred_names : Array[String],
   index : Int,
 ) -> String {
-  if parsed_name == "" || parsed_name == "_" {
+  if parsed_name == "" || parsed_name == "_" || parsed_name == "?binder" {
     return inferred_names[index]
   }
   parsed_name
@@ -539,8 +539,24 @@ fn parse_mappers_from_ast(
                     let resolved_name = resolve_mapper_param_name(
                       pname, inferred_param_names, param_index,
                     )
-                    plist.push((resolved_name, tname))
-                    param_index = param_index + 1
+                    if tname != "Self" {
+                      plist.push((resolved_name, tname))
+                      param_index = param_index + 1
+                    }
+                  }
+                  DiscardPositional(ty=Some(pty), ..) => {
+                    let tname = match pty {
+                      Name(
+                        constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
+                        ..
+                      ) => t
+                      _ => "String"
+                    }
+                    if tname != "Self" {
+                      let pname = inferred_param_names[param_index]
+                      plist.push((pname, tname))
+                      param_index = param_index + 1
+                    }
                   }
                   Labelled(binder={ name: pname, .. }, ty=Some(pty)) => {
                     let tname = match pty {
@@ -553,8 +569,10 @@ fn parse_mappers_from_ast(
                     let resolved_name = resolve_mapper_param_name(
                       pname, inferred_param_names, param_index,
                     )
-                    plist.push((resolved_name, tname))
-                    param_index = param_index + 1
+                    if tname != "Self" {
+                      plist.push((resolved_name, tname))
+                      param_index = param_index + 1
+                    }
                   }
                   _ => ()
                 }
