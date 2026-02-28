@@ -14,6 +14,8 @@ pub fn add_foreign_key(Table, ForeignKey) -> Table
 
 pub fn add_index(Table, Index) -> Table
 
+pub fn add_table_engine_option(Table, String, String) -> Table
+
 pub fn[T] after_create(T, (T) -> T) -> T
 
 pub fn[T] after_delete(T, (T) -> T) -> T
@@ -78,9 +80,19 @@ pub fn select_raw(String, String) -> Query
 
 pub fn[V : @engine.ToParam] soft_delete_by_id(String, String, V, deleted_col? : String) -> UpdateQuery
 
+pub fn table_catalog(Table, String) -> Table
+
 pub fn table_comment(Table, String) -> Table
 
 pub fn table_engine(Table, String) -> Table
+
+pub fn table_if_not_exists(Table, Bool) -> Table
+
+pub fn table_schema(Table, String) -> Table
+
+pub fn table_tablespace(Table, String) -> Table
+
+pub fn table_temporary(Table, Bool) -> Table
 
 pub fn unregister_driver_scheme(String) -> Unit
 
@@ -339,17 +351,23 @@ pub impl @json.FromJson for Set
 
 pub(all) struct Table {
   name : String
+  schema : String?
+  catalog : String?
   columns : FixedArray[Column]
   indexes : FixedArray[Index]
   foreign_keys : FixedArray[ForeignKey]
-  engine : String
-  charset : String
-  collation : String
+  temporary : Bool
+  if_not_exists : Bool
+  engine : String?
+  charset : String?
+  collation : String?
+  tablespace : String?
   comment : String
-  auto_increment : Int
+  auto_increment : Int?
+  engine_options : FixedArray[TableEngineOption]
 }
 pub fn Table::has_primary_key(Self) -> Bool
-pub fn Table::new(String, columns? : FixedArray[Column]) -> Self
+pub fn Table::new(String, columns? : FixedArray[Column], engine? : String) -> Self
 pub fn Table::primary_key(Self) -> String?
 pub impl Compare for Table
 pub impl Eq for Table
@@ -367,6 +385,17 @@ pub impl Eq for TableDiff
 pub impl Show for TableDiff
 pub impl ToJson for TableDiff
 pub impl @json.FromJson for TableDiff
+
+pub(all) struct TableEngineOption {
+  key : String
+  value : String
+}
+pub impl Compare for TableEngineOption
+pub impl Eq for TableEngineOption
+pub impl Hash for TableEngineOption
+pub impl Show for TableEngineOption
+pub impl ToJson for TableEngineOption
+pub impl @json.FromJson for TableEngineOption
 
 pub struct UpdateQuery {
   table : String

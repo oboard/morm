@@ -77,6 +77,14 @@ fn mbt_opt_string(v : String?) -> String {
 }
 
 ///|
+fn mbt_opt_int(v : Int?) -> String {
+  match v {
+    Some(value) => "Some(" + value.to_string() + ")"
+    None => "None"
+  }
+}
+
+///|
 fn render_column_type(ty : @morm.ColumnType) -> String {
   match ty {
     TinyInt => "@morm.ColumnType::TinyInt"
@@ -166,13 +174,28 @@ fn render_foreign_key(fk : @morm.ForeignKey) -> String {
 }
 
 ///|
+fn render_table_engine_option(option : @morm.TableEngineOption) -> String {
+  (
+    $|      {
+    $|        key: \{mbt_string(option.key)},
+    $|        value: \{mbt_string(option.value)},
+    $|      }
+  )
+}
+
+///|
 fn render_table_literal(table : @morm.Table) -> String {
   let columns = table.columns.map(render_column).join(",\n")
   let indexes = table.indexes.map(render_index).join(",\n")
   let foreign_keys = table.foreign_keys.map(render_foreign_key).join(",\n")
+  let engine_options = table.engine_options
+    .map(render_table_engine_option)
+    .join(",\n")
   (
     $| @morm.Table::{
     $|   name: \{mbt_string(table.name)},
+    $|   schema: \{mbt_opt_string(table.schema)},
+    $|   catalog: \{mbt_opt_string(table.catalog)},
     $|   columns: [
     $|\{columns}
     $|   ],
@@ -182,11 +205,17 @@ fn render_table_literal(table : @morm.Table) -> String {
     $|   foreign_keys: [
     $|\{foreign_keys}
     $|   ],
-    $|   engine: \{mbt_string(table.engine)},
-    $|   charset: \{mbt_string(table.charset)},
-    $|   collation: \{mbt_string(table.collation)},
+    $|   temporary: \{table.temporary},
+    $|   if_not_exists: \{table.if_not_exists},
+    $|   engine: \{mbt_opt_string(table.engine)},
+    $|   charset: \{mbt_opt_string(table.charset)},
+    $|   collation: \{mbt_opt_string(table.collation)},
+    $|   tablespace: \{mbt_opt_string(table.tablespace)},
     $|   comment: \{mbt_string(table.comment)},
-    $|   auto_increment: \{table.auto_increment},
+    $|   auto_increment: \{mbt_opt_int(table.auto_increment)},
+    $|   engine_options: [
+    $|\{engine_options}
+    $|   ],
     $| }
   )
 }

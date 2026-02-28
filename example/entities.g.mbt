@@ -7,6 +7,8 @@ pub impl @oboard/morm.Entity for Class with table(_self) -> @oboard/morm.Table {
 pub fn Class::table() -> @morm.Table {
   @morm.Table::{
     name: "class",
+    schema: None,
+    catalog: None,
     columns: [
       {
         name: "id",
@@ -85,11 +87,15 @@ pub fn Class::table() -> @morm.Table {
         on_update: "RESTRICT",
       },
     ],
-    engine: "InnoDB",
-    charset: "utf8mb4",
-    collation: "utf8mb4_unicode_ci",
+    temporary: false,
+    if_not_exists: true,
+    engine: Some("InnoDB"),
+    charset: Some("utf8mb4"),
+    collation: Some("utf8mb4_unicode_ci"),
+    tablespace: None,
     comment: "",
-    auto_increment: 1,
+    auto_increment: Some(1),
+    engine_options: [],
   }
 }
 
@@ -102,6 +108,8 @@ pub impl @oboard/morm.Entity for Student with table(_self) -> @oboard/morm.Table
 pub fn Student::table() -> @morm.Table {
   @morm.Table::{
     name: "student",
+    schema: None,
+    catalog: None,
     columns: [
       {
         name: "id",
@@ -158,11 +166,15 @@ pub fn Student::table() -> @morm.Table {
     ],
     indexes: [],
     foreign_keys: [],
-    engine: "InnoDB",
-    charset: "utf8mb4",
-    collation: "utf8mb4_unicode_ci",
+    temporary: false,
+    if_not_exists: true,
+    engine: Some("InnoDB"),
+    charset: Some("utf8mb4"),
+    collation: Some("utf8mb4_unicode_ci"),
+    tablespace: None,
     comment: "",
-    auto_increment: 1,
+    auto_increment: Some(1),
+    engine_options: [],
   }
 }
 
@@ -175,6 +187,8 @@ pub impl @oboard/morm.Entity for Teacher with table(_self) -> @oboard/morm.Table
 pub fn Teacher::table() -> @morm.Table {
   @morm.Table::{
     name: "teacher",
+    schema: None,
+    catalog: None,
     columns: [
       {
         name: "id",
@@ -244,11 +258,15 @@ pub fn Teacher::table() -> @morm.Table {
     ],
     indexes: [],
     foreign_keys: [],
-    engine: "InnoDB",
-    charset: "utf8mb4",
-    collation: "utf8mb4_unicode_ci",
+    temporary: false,
+    if_not_exists: true,
+    engine: Some("InnoDB"),
+    charset: Some("utf8mb4"),
+    collation: Some("utf8mb4_unicode_ci"),
+    tablespace: None,
     comment: "",
-    auto_increment: 1,
+    auto_increment: Some(1),
+    engine_options: [],
   }
 }
 
@@ -261,6 +279,8 @@ pub impl @oboard/morm.Entity for Enrollment with table(_self) -> @oboard/morm.Ta
 pub fn Enrollment::table() -> @morm.Table {
   @morm.Table::{
     name: "enrollment",
+    schema: None,
+    catalog: None,
     columns: [
       {
         name: "id",
@@ -334,11 +354,15 @@ pub fn Enrollment::table() -> @morm.Table {
         on_update: "RESTRICT",
       },
     ],
-    engine: "InnoDB",
-    charset: "utf8mb4",
-    collation: "utf8mb4_unicode_ci",
+    temporary: false,
+    if_not_exists: true,
+    engine: Some("InnoDB"),
+    charset: Some("utf8mb4"),
+    collation: Some("utf8mb4_unicode_ci"),
+    tablespace: None,
     comment: "",
-    auto_increment: 1,
+    auto_increment: Some(1),
+    engine_options: [],
   }
 }
 
@@ -351,6 +375,8 @@ pub impl @oboard/morm.Entity for StudentAggregate with table(_self) -> @oboard/m
 pub fn StudentAggregate::table() -> @morm.Table {
   @morm.Table::{
     name: "studentaggregate",
+    schema: None,
+    catalog: None,
     columns: [
       {
         name: "id",
@@ -368,10 +394,14 @@ pub fn StudentAggregate::table() -> @morm.Table {
     ],
     indexes: [],
     foreign_keys: [],
-    engine: "InnoDB",
-    charset: "utf8mb4",
-    collation: "utf8mb4_unicode_ci",
+    temporary: false,
+    if_not_exists: true,
+    engine: Some("InnoDB"),
+    charset: Some("utf8mb4"),
+    collation: Some("utf8mb4_unicode_ci"),
+    tablespace: None,
     comment: "",
-    auto_increment: 1,
+    auto_increment: Some(1),
+    engine_options: [],
   }
 }

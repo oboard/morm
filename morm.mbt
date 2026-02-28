@@ -65,8 +65,47 @@ pub fn table_comment(table : Table, text : String) -> Table {
 }
 
 ///|
+pub fn table_schema(table : Table, schema : String) -> Table {
+  { ..table, schema: Some(schema) }
+}
+
+///|
+pub fn table_catalog(table : Table, catalog : String) -> Table {
+  { ..table, catalog: Some(catalog) }
+}
+
+///|
+pub fn table_temporary(table : Table, temporary : Bool) -> Table {
+  { ..table, temporary, }
+}
+
+///|
+pub fn table_if_not_exists(table : Table, if_not_exists : Bool) -> Table {
+  { ..table, if_not_exists, }
+}
+
+///|
 pub fn table_engine(table : Table, engine : String) -> Table {
-  { ..table, engine, }
+  { ..table, engine: Some(engine) }
+}
+
+///|
+pub fn table_tablespace(table : Table, tablespace : String) -> Table {
+  { ..table, tablespace: Some(tablespace) }
+}
+
+///|
+pub fn add_table_engine_option(
+  table : Table,
+  key : String,
+  value : String,
+) -> Table {
+  let options = Array::new()
+  for option in table.engine_options {
+    options.push(option)
+  }
+  options.push({ key, value })
+  { ..table, engine_options: FixedArray::from_array(options) }
 }
 
 ///|

@@ -708,6 +708,49 @@ fn schema_get_bool(
 }
 
 ///|
+fn schema_get_engine_option(
+  obj : Map[String, Json],
+  key : String,
+  default : String,
+) -> String {
+  match obj.get("engine_options") {
+    Some([.. options]) => {
+      for option in options {
+        if option is Object(option_obj) &&
+          schema_get_string(option_obj, "key", "") == key {
+          return schema_get_string(option_obj, "value", default)
+        }
+      }
+      default
+    }
+    _ => default
+  }
+}
+
+///|
+fn sqlserver_table_name(obj : Map[String, Json], name : String) -> String {
+  if schema_get_bool(obj, "temporary", false) {
+    if name.strip_prefix("#") is Some(_) {
+      name
+    } else {
+      "#" + name
+    }
+  } else {
+    let schema = schema_get_string(obj, "schema", "")
+    let catalog = schema_get_string(obj, "catalog", "")
+    if catalog != "" && schema != "" {
+      "\{catalog}.\{schema}.\{name}"
+    } else if schema != "" {
+      "\{schema}.\{name}"
+    } else if catalog != "" {
+      "\{catalog}.\{name}"
+    } else {
+      name
+    }
+  }
+}
+
+///|
 fn sqlserver_type_from_json(v : Json) -> String {
   let from_name = fn(name : String, arg0 : Int, arg1 : Int) -> String {
     match name {
@@ -813,10 +856,11 @@ fn sqlserver_fk_def(fk_json : Json) -> String {
 ///|
 fn sqlserver_create_table_sql(table_schema : Json) -> String {
   if table_schema is Object(obj) {
-    let table_name = schema_get_string(obj, "name", "")
-    if table_name == "" {
+    let base_name = schema_get_string(obj, "name", "")
+    if base_name == "" {
       return ""
     }
+    let table_name = sqlserver_table_name(obj, base_name)
     let defs : Array[String] = []
     if obj.get("columns") is Some([.. v]) {
       for c in v {
@@ -835,7 +879,17 @@ fn sqlserver_create_table_sql(table_schema : Json) -> String {
       }
     }
     let defs_sql = defs.join(", ")
-    "IF OBJECT_ID('\{table_name}', 'U') IS NULL CREATE TABLE \{table_name} (\{defs_sql})"
+    let if_not_exists = schema_get_bool(obj, "if_not_exists", true)
+    let mut sql = if if_not_exists {
+      "IF OBJECT_ID('\{table_name}', 'U') IS NULL CREATE TABLE \{table_name} (\{defs_sql})"
+    } else {
+      "CREATE TABLE \{table_name} (\{defs_sql})"
+    }
+    let create_suffix = schema_get_engine_option(obj, "create_suffix", "")
+    if create_suffix != "" {
+      sql = sql + " " + create_suffix
+    }
+    sql
   } else {
     ""
   }
@@ -844,10 +898,11 @@ fn sqlserver_create_table_sql(table_schema : Json) -> String {
 ///|
 fn sqlserver_index_sqls(table_schema : Json) -> Array[String] {
   if table_schema is Object(obj) {
-    let table_name = schema_get_string(obj, "name", "")
-    if table_name == "" {
+    let base_name = schema_get_string(obj, "name", "")
+    if base_name == "" {
       return []
     }
+    let table_name = sqlserver_table_name(obj, base_name)
     let sqls : Array[String] = []
     if obj.get("indexes") is Some([.. v]) {
       for idx_json in v {

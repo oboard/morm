@@ -64,6 +64,38 @@ fn get_bool(obj : Map[String, Json], key : String, default : Bool) -> Bool {
 }
 
 ///|
+fn get_engine_option(
+  obj : Map[String, Json],
+  key : String,
+  default : String,
+) -> String {
+  match obj.get("engine_options") {
+    Some([.. options]) => {
+      for option in options {
+        if option is Object(option_obj) &&
+          get_string(option_obj, "key", "") == key {
+          return get_string(option_obj, "value", default)
+        }
+      }
+      default
+    }
+    _ => default
+  }
+}
+
+///|
+fn sqlite_table_name(obj : Map[String, Json], name : String) -> String {
+  let schema = get_string(obj, "schema", "")
+  let catalog = get_string(obj, "catalog", "")
+  let table_ns = if schema != "" { schema } else { catalog }
+  if table_ns != "" {
+    "\{table_ns}.\{name}"
+  } else {
+    name
+  }
+}
+
+///|
 fn json_array_values(v : Json) -> Array[Json] {
   match v {
     Array(arr) => arr
@@ -160,10 +192,11 @@ fn render_fk_def(fk_json : Json) -> String {
 ///|
 fn render_create_table_sql(table_schema : Json) -> String {
   if table_schema is Object(obj) {
-    let table_name = get_string(obj, "name", "")
-    if table_name == "" {
+    let base_name = get_string(obj, "name", "")
+    if base_name == "" {
       return ""
     }
+    let table_name = sqlite_table_name(obj, base_name)
     let column_defs : Array[String] = []
     match obj.get("columns") {
       Some(v) =>
@@ -186,7 +219,23 @@ fn render_create_table_sql(table_schema : Json) -> String {
       None => ()
     }
     let defs = column_defs.join(", ")
-    "CREATE TABLE IF NOT EXISTS \{table_name} (\{defs})"
+    let temporary = get_bool(obj, "temporary", false)
+    let if_not_exists = get_bool(obj, "if_not_exists", true)
+    let create_prefix = if temporary {
+      "CREATE TEMPORARY TABLE"
+    } else {
+      "CREATE TABLE"
+    }
+    let mut sql = if if_not_exists {
+      "\{create_prefix} IF NOT EXISTS \{table_name} (\{defs})"
+    } else {
+      "\{create_prefix} \{table_name} (\{defs})"
+    }
+    let create_suffix = get_engine_option(obj, "create_suffix", "")
+    if create_suffix != "" {
+      sql = sql + " " + create_suffix
+    }
+    sql
   } else {
     ""
   }
@@ -195,10 +244,11 @@ fn render_create_table_sql(table_schema : Json) -> String {
 ///|
 fn render_index_sqls(table_schema : Json) -> Array[String] {
   if table_schema is Object(obj) {
-    let table_name = get_string(obj, "name", "")
-    if table_name == "" {
+    let base_name = get_string(obj, "name", "")
+    if base_name == "" {
       return []
     }
+    let table_name = sqlite_table_name(obj, base_name)
     let sqls : Array[String] = []
     match obj.get("indexes") {
       Some(v) =>
