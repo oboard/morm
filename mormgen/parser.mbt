@@ -274,6 +274,80 @@ fn recover_attr_raw(
 }
 
 ///|
+/// 从方法名提取 `_by_` 后面的条件字段
+fn derive_method_condition_fields(method_name : String) -> Array[String] {
+  let mut condition_part = ""
+
+  if method_name.strip_prefix("find_") is Some(rest) {
+    let parts = rest.split("_by_").collect()
+    if parts.length() >= 2 {
+      condition_part = parts[1].to_string()
+    } else if rest.strip_prefix("by_") is Some(by_rest) {
+      condition_part = by_rest.to_string()
+    }
+  } else if method_name.strip_prefix("count_") is Some(rest) {
+    let parts = rest.split("_by_").collect()
+    if parts.length() >= 2 {
+      condition_part = parts[1].to_string()
+    } else if rest.strip_prefix("by_") is Some(by_rest) {
+      condition_part = by_rest.to_string()
+    }
+  }
+
+  if condition_part == "" {
+    return []
+  }
+
+  let fields : Array[String] = []
+  for field in condition_part.split("_and_") {
+    fields.push(field.to_string())
+  }
+  fields
+}
+
+///|
+/// 为没有显式名字的 mapper 参数补上推导名
+fn infer_mapper_param_names(method_name : String, count : Int) -> Array[String] {
+  let inferred : Array[String] = []
+
+  if count <= 0 {
+    return inferred
+  }
+
+  if method_name == "save" || method_name == "delete" {
+    inferred.push("entity")
+  } else {
+    for field in derive_method_condition_fields(method_name) {
+      inferred.push(field.to_string())
+    }
+  }
+
+  while inferred.length() < count {
+    inferred.push("arg" + (inferred.length() + 1).to_string())
+  }
+
+  let trimmed : Array[String] = []
+  let mut i = 0
+  while i < count {
+    trimmed.push(inferred[i])
+    i = i + 1
+  }
+  trimmed
+}
+
+///|
+fn resolve_mapper_param_name(
+  parsed_name : String,
+  inferred_names : Array[String],
+  index : Int,
+) -> String {
+  if parsed_name == "" || parsed_name == "_" {
+    return inferred_names[index]
+  }
+  parsed_name
+}
+
+///|
 /// 从方法名推导构建器代码
 fn derive_builder_code(
   method_name : String,
@@ -284,35 +358,14 @@ fn derive_builder_code(
     Some(t) => "\"\{t}\""
     None => "\{entity_name}::table().name"
   }
-  let mut condition_part = ""
-  let mut is_count = false
+  let is_count = method_name.has_prefix("count_")
 
   // 识别动作并提取 by 条件片段（与 entity 解耦）
   if method_name == "find_all" || method_name == "all" {
     return Some("@morm.select_from(\{table_expr})")
-  } else if method_name.strip_prefix("find_") is Some(rest) {
-    let parts = rest.split("_by_").collect()
-    if parts.length() >= 2 {
-      condition_part = parts[1].to_string()
-    } else if rest.strip_prefix("by_") is Some(by_rest) {
-      condition_part = by_rest.to_string()
-    }
-  } else if method_name.strip_prefix("count_") is Some(rest) {
-    is_count = true
-    let parts = rest.split("_by_").collect()
-    if parts.length() >= 2 {
-      condition_part = parts[1].to_string()
-    } else if rest.strip_prefix("by_") is Some(by_rest) {
-      condition_part = by_rest.to_string()
-    }
   }
 
-  if condition_part == "" {
-    return None
-  }
-
-  // 解析条件字段
-  let fields = condition_part.split("_and_").collect()
+  let fields = derive_method_condition_fields(method_name)
   if fields.length() == 0 {
     return None
   }
@@ -467,6 +520,12 @@ fn parse_mappers_from_ast(
 
               // 提取参数（基于 Parameter 变体，读取 binder.name 与显式类型）
               let plist : Array[(String, String)] = []
+              let mut total_params = 0
+              params.each(_ => total_params = total_params + 1)
+              let inferred_param_names = infer_mapper_param_names(
+                mname, total_params,
+              )
+              let mut param_index = 0
               params.each(p => {
                 match p {
                   Positional(binder={ name: pname, .. }, ty=Some(pty)) => {
@@ -477,7 +536,11 @@ fn parse_mappers_from_ast(
                       ) => t
                       _ => "String"
                     }
-                    plist.push((pname, tname))
+                    let resolved_name = resolve_mapper_param_name(
+                      pname, inferred_param_names, param_index,
+                    )
+                    plist.push((resolved_name, tname))
+                    param_index = param_index + 1
                   }
                   Labelled(binder={ name: pname, .. }, ty=Some(pty)) => {
                     let tname = match pty {
@@ -487,7 +550,11 @@ fn parse_mappers_from_ast(
                       ) => t
                       _ => "String"
                     }
-                    plist.push((pname, tname))
+                    let resolved_name = resolve_mapper_param_name(
+                      pname, inferred_param_names, param_index,
+                    )
+                    plist.push((resolved_name, tname))
+                    param_index = param_index + 1
                   }
                   _ => ()
                 }
