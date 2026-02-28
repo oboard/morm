@@ -171,6 +171,26 @@ pub impl ToParam for Float with to_param(self) -> Param {
 }
 
 ///|
+pub impl ToParam for @time.PlainDate with to_param(self) -> Param {
+  Date(self)
+}
+
+///|
+pub impl ToParam for @time.PlainTime with to_param(self) -> Param {
+  Time(self)
+}
+
+///|
+pub impl ToParam for @time.PlainDateTime with to_param(self) -> Param {
+  DateTime(self)
+}
+
+///|
+pub impl ToParam for @time.ZonedDateTime with to_param(self) -> Param {
+  Timestamp(self)
+}
+
+///|
 pub impl ToParam for String with to_param(self) -> Param {
   String(self)
 }

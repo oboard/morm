@@ -123,12 +123,10 @@ async test "mapper relation annotations" {
 
 ///|
 test "generated entity" {
-  let student = Student::{
-    id: 1,
-    name: "Alice",
-    age: 20,
-    birth_date: "2003-01-01",
+  let birth_date = @time.ZonedDateTime::from_string("2003-01-01T00:00:00Z") catch {
+    _ => panic()
   }
+  let student = Student::{ id: 1, name: "Alice", age: 20, birth_date }
   let q1 = @morm.insert_into("students").from(student)
   let (sql1, params1) = @engine.render_default_sql(q1.to_statement())
   inspect(
@@ -139,7 +137,7 @@ test "generated entity" {
   )
   inspect(
     params1.to_json().stringify(),
-    content="[\"1\",\"Alice\",20,\"2003-01-01\"]",
+    content="[\"1\",\"Alice\",20,\"2003-01-01T00:00:00Z\"]",
   )
   let table = Student::table()
 
@@ -225,19 +223,22 @@ test {
     "major": "English",
     "age": 12,
   })
+  let teacher_birth = @time.ZonedDateTime::from_string("2022-03-04T00:00:00Z") catch {
+    _ => panic()
+  }
   let teacher = Teacher::{
     id: 1,
     name: "666",
     age: 12,
     major: "English",
-    birth_date: Some("2022-03-04"),
+    birth_date: Some(teacher_birth),
   }
   json_inspect(teacher, content={
     "id": "1",
     "name": "666",
     "major": "English",
     "age": 12,
-    "birth_date": "2022-03-04",
+    "birth_date": "2022-03-04T00:00:00Z",
   })
 }
 

@@ -60,23 +60,26 @@ test "query where ne like" {
 
 ///|
 test "param extended types to_json" {
-  let date = @engine.DateValue::from_string("2026-01-02") catch { _ => panic() }
-  let time = @engine.TimeValue::from_string("12:34:56") catch { _ => panic() }
-  let date_time = @engine.DateTimeValue::from_string("2026-01-02T12:34:56") catch {
+  let date = @time.PlainDate::from_string("2026-01-02") catch { _ => panic() }
+  let time = @time.PlainTime::from_string("12:34:56") catch { _ => panic() }
+  let date_time = @time.PlainDateTime::from_string("2026-01-02T12:34:56") catch {
     _ => panic()
   }
-  let timestamp = @engine.TimestampValue::from_string("2026-01-02T12:34:56Z") catch {
+  let timestamp = @time.ZonedDateTime::from_string("2026-01-02T12:34:56Z") catch {
     _ => panic()
   }
   inspect(@engine.Decimal("12.34").to_json().stringify(), content="\"12.34\"")
-  inspect(date.to_param().to_json().stringify(), content="\"2026-01-02\"")
-  inspect(time.to_param().to_json().stringify(), content="\"12:34:56\"")
   inspect(
-    date_time.to_param().to_json().stringify(),
+    @engine.to_param(date).to_json().stringify(),
+    content="\"2026-01-02\"",
+  )
+  inspect(@engine.to_param(time).to_json().stringify(), content="\"12:34:56\"")
+  inspect(
+    @engine.to_param(date_time).to_json().stringify(),
     content="\"2026-01-02T12:34:56\"",
   )
   inspect(
-    timestamp.to_param().to_json().stringify(),
+    @engine.to_param(timestamp).to_json().stringify(),
     content="\"2026-01-02T12:34:56Z\"",
   )
   inspect(
@@ -91,18 +94,18 @@ test "param extended types to_json" {
 
 ///|
 test "time types json roundtrip" {
-  let date : @engine.DateValue = @json.from_json("2026-01-02".to_json()) catch {
+  let date : @time.PlainDate = @json.from_json("2026-01-02".to_json()) catch {
     _ => panic()
   }
-  let time : @engine.TimeValue = @json.from_json("12:34:56".to_json()) catch {
+  let time : @time.PlainTime = @json.from_json("12:34:56".to_json()) catch {
     _ => panic()
   }
-  let date_time : @engine.DateTimeValue = @json.from_json(
+  let date_time : @time.PlainDateTime = @json.from_json(
     "2026-01-02T12:34:56".to_json(),
   ) catch {
     _ => panic()
   }
-  let timestamp : @engine.TimestampValue = @json.from_json(
+  let timestamp : @time.ZonedDateTime = @json.from_json(
     "2026-01-02T12:34:56Z".to_json(),
   ) catch {
     _ => panic()

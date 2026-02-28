@@ -1,4 +1,7 @@
 ///|
+using @time {type ZonedDateTime}
+
+///|
 #morm.entity
 pub(all) struct Class {
   #morm.primary_key
@@ -22,7 +25,7 @@ pub(all) struct Student {
   name : String
   age : Int
   #morm.datetime
-  birth_date : String
+  birth_date : ZonedDateTime
 } derive(ToJson, FromJson)
 
 ///|
@@ -30,15 +33,13 @@ pub(all) struct Student {
 pub(all) struct Teacher {
   #morm.primary_key
   #morm.auto_increment
-  #morm.bigint
   id : Int64
   #morm.varchar(length="255")
   name : String
   #morm.varchar(length="255")
   major : String
   age : Int
-  #morm.datetime
-  birth_date : String?
+  birth_date : ZonedDateTime?
 } derive(ToJson, FromJson)
 
 ///|

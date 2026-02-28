@@ -4,7 +4,7 @@ package "oboard/morm/engine"
 import {
   "moonbitlang/core/bigint",
   "moonbitlang/core/json",
-  "moonbitlang/x/time",
+  "oboard/morm/time",
 }
 
 // Values
@@ -35,33 +35,6 @@ pub async fn[E : Engine] tx_savepoint(E, String) -> QueryResult
 // Errors
 
 // Types and methods
-pub struct DateTimeValue {
-  value : @time.PlainDateTime
-}
-pub fn DateTimeValue::from_plain_date_time(@time.PlainDateTime) -> Self
-pub fn DateTimeValue::from_string(String) -> Self raise
-pub fn DateTimeValue::to_plain_date_time(Self) -> @time.PlainDateTime
-pub fn DateTimeValue::to_string(Self) -> String
-pub impl Compare for DateTimeValue
-pub impl Eq for DateTimeValue
-pub impl Show for DateTimeValue
-pub impl ToJson for DateTimeValue
-pub impl @json.FromJson for DateTimeValue
-pub impl ToParam for DateTimeValue
-
-pub struct DateValue {
-  value : @time.PlainDate
-}
-pub fn DateValue::from_plain_date(@time.PlainDate) -> Self
-pub fn DateValue::from_string(String) -> Self raise
-pub fn DateValue::to_plain_date(Self) -> @time.PlainDate
-pub fn DateValue::to_string(Self) -> String
-pub impl Eq for DateValue
-pub impl Show for DateValue
-pub impl ToJson for DateValue
-pub impl @json.FromJson for DateValue
-pub impl ToParam for DateValue
-
 pub(all) struct DeleteStatement {
   from : String
   where_ : FixedArray[Where]
@@ -164,33 +137,6 @@ pub impl Eq for Statement
 pub impl Show for Statement
 pub impl ToJson for Statement
 pub impl @json.FromJson for Statement
-
-pub struct TimeValue {
-  value : @time.PlainTime
-}
-pub fn TimeValue::from_plain_time(@time.PlainTime) -> Self
-pub fn TimeValue::from_string(String) -> Self raise
-pub fn TimeValue::to_plain_time(Self) -> @time.PlainTime
-pub fn TimeValue::to_string(Self) -> String
-pub impl Compare for TimeValue
-pub impl Eq for TimeValue
-pub impl Show for TimeValue
-pub impl ToJson for TimeValue
-pub impl @json.FromJson for TimeValue
-pub impl ToParam for TimeValue
-
-pub struct TimestampValue {
-  value : @time.ZonedDateTime
-}
-pub fn TimestampValue::from_string(String) -> Self raise
-pub fn TimestampValue::from_zoned_date_time(@time.ZonedDateTime) -> Self
-pub fn TimestampValue::to_string(Self) -> String
-pub fn TimestampValue::to_zoned_date_time(Self) -> @time.ZonedDateTime
-pub impl Eq for TimestampValue
-pub impl Show for TimestampValue
-pub impl ToJson for TimestampValue
-pub impl @json.FromJson for TimestampValue
-pub impl ToParam for TimestampValue
 
 pub(all) struct UpdateStatement {
   table : String

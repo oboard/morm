@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/json",
   "oboard/morm",
   "oboard/morm/engine",
+  "oboard/morm/time",
 }
 
 // Values
@@ -43,7 +44,7 @@ pub(all) struct Student {
   id : Int64
   name : String
   age : Int
-  birth_date : String
+  birth_date : @time.ZonedDateTime
 }
 pub fn Student::table() -> @morm.Table
 pub impl ToJson for Student
@@ -70,7 +71,7 @@ pub(all) struct Teacher {
   name : String
   major : String
   age : Int
-  birth_date : String?
+  birth_date : @time.ZonedDateTime?
 }
 pub fn Teacher::table() -> @morm.Table
 pub impl ToJson for Teacher
