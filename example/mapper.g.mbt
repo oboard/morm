@@ -1,4 +1,29 @@
 ///|
+pub struct ClassMapperImpl {
+  engine : &@engine.Engine
+}
+
+///|
+pub fn ClassMapperImpl::new(engine : &@engine.Engine) -> ClassMapperImpl {
+  ClassMapperImpl::{ engine, }
+}
+
+///|
+pub impl ClassMapper for ClassMapperImpl with save(self, entity : Class) -> Class {
+  let entity = {
+    ..entity,
+    created_at: @morm.current_plain_date_time_utc(),
+    updated_at: @morm.current_plain_date_time_utc(),
+  }
+  let q = @morm.upsert_into("class").from(entity)
+  let res = @engine.exec_query(self.engine, q)
+  if res.rows is [result, ..] {
+    return (try! @json.from_json(result) : Class)
+  }
+  panic()
+}
+
+///|
 pub struct StudentMapperImpl {
   engine : &@engine.Engine
 }

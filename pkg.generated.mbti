@@ -4,6 +4,7 @@ package "oboard/morm"
 import {
   "moonbitlang/core/json",
   "oboard/morm/engine",
+  "oboard/morm/time",
 }
 
 // Values
@@ -30,6 +31,10 @@ pub fn[T] before_delete(T, (T) -> T) -> T
 pub fn[T] before_update(T, (T) -> T) -> T
 
 pub fn belongs_to(String, String, String, String) -> Association
+
+pub fn current_plain_date_time_utc() -> @time.PlainDateTime
+
+pub fn current_timestamp_utc() -> @time.ZonedDateTime
 
 pub fn delete_from(String) -> DeleteQuery
 

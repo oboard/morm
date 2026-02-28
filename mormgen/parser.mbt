@@ -393,6 +393,15 @@ fn parse_mappers_from_ast(
               }
             }
           }
+          if entity_name_opt is None {
+            if table_name_opt is Some(table_name) {
+              entities.each(e => {
+                if e.table_name == table_name {
+                  entity_name_opt = Some(e.name)
+                }
+              })
+            }
+          }
           // 收集方法
           let mmethods : Array[MapperMethodSpec] = []
           methods.each(m => {
@@ -448,7 +457,10 @@ fn parse_mappers_from_ast(
                 )
               }
 
-              if sql_opt is None && builder_code_opt is None {
+              if sql_opt is None &&
+                builder_code_opt is None &&
+                mname != "save" &&
+                mname != "delete" {
                 return
               }
 
@@ -864,8 +876,10 @@ fn map_type_to_db_by_name(
     // 复杂类型
     "Date" => @morm.ColumnType::Date
     "DateTime" => @morm.ColumnType::DateTime
+    "PlainDateTime" => @morm.ColumnType::DateTime
     "Time" => @morm.ColumnType::Time
     "Timestamp" => @morm.ColumnType::Timestamp
+    "ZonedDateTime" => @morm.ColumnType::Timestamp
     "Json" => @morm.ColumnType::Json
     "Bytes" => @morm.ColumnType::Blob
     "UUID" => @morm.ColumnType::VarChar(36)

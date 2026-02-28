@@ -17,11 +17,19 @@ pub(all) struct Class {
   id : Int64
   name : String
   teacher_id : Int
+  created_at : @time.PlainDateTime
+  updated_at : @time.PlainDateTime
 }
 pub fn Class::table() -> @morm.Table
 pub impl ToJson for Class
 pub impl @json.FromJson for Class
 pub impl @morm.Entity for Class
+
+pub struct ClassMapperImpl {
+  engine : &@engine.Engine
+}
+pub fn ClassMapperImpl::new(&@engine.Engine) -> Self
+pub impl ClassMapper for ClassMapperImpl
 
 pub(all) struct Enrollment {
   id : Int64
@@ -81,6 +89,10 @@ pub impl @morm.Entity for Teacher
 // Type aliases
 
 // Traits
+pub trait ClassMapper {
+  async save(Self, Class) -> Class
+}
+
 pub trait EnrollmentMapper {
   async find_enrollments_by_student_id(Self, Int) -> FixedArray[Enrollment]
   async find_by_class_raw(Self, Int) -> FixedArray[Enrollment]

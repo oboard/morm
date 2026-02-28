@@ -169,34 +169,57 @@ test "generated entity" {
   // 验证 birth_date 列
   let birth_date_col = table.columns[3]
   assert_eq(birth_date_col.name, "birth_date")
-  assert_eq(birth_date_col.column_type, DateTime)
+  assert_eq(birth_date_col.column_type, Timestamp)
 }
 
 ///|
 test "generated class with foreign key" {
-  let class_obj = Class::{ id: 10, name: "Math 101", teacher_id: 1 }
+  let created_at = @time.PlainDateTime::from_string("2026-01-02T03:04:05") catch {
+    _ => panic()
+  }
+  let updated_at = @time.PlainDateTime::from_string("2026-01-02T03:04:06") catch {
+    _ => panic()
+  }
+  let class_obj = Class::{
+    id: 10,
+    name: "Math 101",
+    teacher_id: 1,
+    created_at,
+    updated_at,
+  }
   let q2 = @morm.insert_into("classes").from(class_obj)
   let (sql2, params2) = @engine.render_default_sql(q2.to_statement())
   inspect(
     sql2,
     content=(
-      #|INSERT INTO classes (id, name, teacher_id) VALUES (?, ?, ?)
+      #|INSERT INTO classes (id, name, teacher_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
     ),
   )
-  inspect(params2.to_json().stringify(), content="[\"10\",\"Math 101\",1]")
+  inspect(
+    params2.to_json().stringify(),
+    content="[\"10\",\"Math 101\",1,\"2026-01-02T03:04:05\",\"2026-01-02T03:04:06\"]",
+  )
   let table = Class::table()
 
   // 表名
   assert_eq(table.name, "class")
 
-  // 列数量（id, name, teacher_id）
-  assert_eq(table.columns.length(), 3)
+  // 列数量（id, name, teacher_id, created_at, updated_at）
+  assert_eq(table.columns.length(), 5)
 
   // teacher_id 列存在
   let teacher_id_col = table.columns[2]
   assert_eq(teacher_id_col.name, "teacher_id")
   assert_eq(teacher_id_col.column_type, Int)
   assert_eq(teacher_id_col.nullable, false)
+
+  let created_at_col = table.columns[3]
+  assert_eq(created_at_col.name, "created_at")
+  assert_eq(created_at_col.column_type, DateTime)
+
+  let updated_at_col = table.columns[4]
+  assert_eq(updated_at_col.name, "updated_at")
+  assert_eq(updated_at_col.column_type, DateTime)
 
   // 外键约束存在
   assert_eq(table.foreign_keys.length(), 1)

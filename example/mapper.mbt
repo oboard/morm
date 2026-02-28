@@ -1,4 +1,10 @@
 ///|
+#morm.mapper(table="class")
+pub trait ClassMapper {
+  async save(Self, entity : Class) -> Class
+}
+
+///|
 #morm.mapper(table="student")
 pub trait StudentMapper {
   async find_student_by_id(Self, id : Int) -> Student?

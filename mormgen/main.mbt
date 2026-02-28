@@ -204,11 +204,138 @@ fn generate_entity_impl(name : String, table : @morm.Table) -> String {
 }
 
 ///|
+fn find_entity_spec(specs : Array[EntitySpec], name : String) -> EntitySpec? {
+  for spec in specs {
+    if spec.name == name {
+      return Some(spec)
+    }
+  }
+  None
+}
+
+///|
+fn find_entity_spec_by_table(
+  specs : Array[EntitySpec],
+  table_name : String,
+) -> EntitySpec? {
+  for spec in specs {
+    if spec.table_name == table_name {
+      return Some(spec)
+    }
+  }
+  None
+}
+
+///|
+fn field_has_attr(field : FieldSpec, attr_name : String) -> Bool {
+  let orm_attrs = collect_orm_attributes(field.attrs)
+  let mut hit = false
+  orm_attrs.each(a => if a.name == attr_name { hit = true })
+  hit
+}
+
+///|
+fn field_auto_create_time(field : FieldSpec) -> Bool {
+  field_has_attr(field, "#morm.auto_create_time") || field.label == "created_at"
+}
+
+///|
+fn field_auto_update_time(field : FieldSpec) -> Bool {
+  field_has_attr(field, "#morm.auto_update_time") || field.label == "updated_at"
+}
+
+///|
+fn auto_time_value_expr(field : FieldSpec) -> String? {
+  let base = match field.field_type {
+    "PlainDateTime" | "DateTime" => Some("@morm.current_plain_date_time_utc()")
+    "ZonedDateTime" | "Timestamp" => Some("@morm.current_timestamp_utc()")
+    _ => None
+  }
+  match base {
+    Some(expr) =>
+      if field.nullable {
+        Some("Some(" + expr + ")")
+      } else {
+        Some(expr)
+      }
+    None => None
+  }
+}
+
+///|
+fn path_dirname(path : String) -> String {
+  let slash = path.rev_find("/")
+  let backslash = path.rev_find("\\")
+  let cut = match (slash, backslash) {
+    (Some(a), Some(b)) => Some(if a > b { a } else { b })
+    (Some(a), None) => Some(a)
+    (None, Some(b)) => Some(b)
+    (None, None) => None
+  }
+  match cut {
+    Some(0) => "/"
+    Some(idx) => path[0:idx].to_string() catch { _ => "." }
+    None => "."
+  }
+}
+
+///|
+fn path_join(dir : String, name : String) -> String {
+  if dir == "." || dir == "" {
+    name
+  } else if dir == "/" {
+    "/" + name
+  } else {
+    dir + "/" + name
+  }
+}
+
+///|
+fn is_source_mbt_file(name : String) -> Bool {
+  name.has_suffix(".mbt") &&
+  !name.has_suffix(".g.mbt") &&
+  !name.has_suffix("_test.mbt") &&
+  !name.has_suffix("_wbtest.mbt")
+}
+
+///|
+fn collect_package_entity_specs(
+  input_file : String,
+) -> Array[EntitySpec] raise @fs.IOError {
+  let dir = path_dirname(input_file)
+  let merged : Array[EntitySpec] = []
+  let seen : Map[String, Bool] = Map::new()
+  for entry in @fs.read_dir(dir) {
+    if !is_source_mbt_file(entry) {
+      continue
+    }
+    let path = path_join(dir, entry)
+    guard @fs.is_file(path) else { continue }
+    let (file_ast, _) = @parser.parse_file(path)
+    for spec in parse_entities_from_ast(file_ast) {
+      if seen.contains(spec.name) {
+        continue
+      }
+      seen.set(spec.name, true)
+      merged.push(spec)
+    }
+  }
+  merged
+}
+
+///|
 /// 代码生成阶段：根据 MapperSpec 生成 struct、mapper 函数与方法实现
-fn generate_mapper_code(spec : MapperSpec) -> String {
+fn generate_mapper_code(
+  spec : MapperSpec,
+  entity_specs : Array[EntitySpec],
+) -> String {
   let trait_name = spec.trait_name
   let impl_name = trait_name + "Impl"
   let entity_name = spec.entity_name
+  let entity_spec = match entity_name {
+    Some(name) => find_entity_spec(entity_specs, name)
+    None => None
+  }
   let table_expr = match spec.table_name {
     Some(t) => "\"\{t}\""
     None =>
@@ -294,8 +421,46 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
       $|   \{param_sig}
       $| ) -> \{ret_type} {
     let body = if m.name == "save" && m.params.length() == 1 {
+      let save_entity_spec = match entity_spec {
+        Some(spec) => Some(spec)
+        None =>
+          match find_entity_spec(entity_specs, m.params[0].1) {
+            Some(spec) => Some(spec)
+            None =>
+              match spec.table_name {
+                Some(table_name) =>
+                  find_entity_spec_by_table(entity_specs, table_name)
+                None => None
+              }
+          }
+      }
+      let auto_assigns : Array[String] = []
+      match save_entity_spec {
+        Some(save_spec) =>
+          for field in save_spec.fields {
+            if field_auto_create_time(field) || field_auto_update_time(field) {
+              match auto_time_value_expr(field) {
+                Some(expr) => auto_assigns.push(field.label + ": " + expr)
+                None => ()
+              }
+            }
+          }
+        None => ()
+      }
+      let auto_stamp_code = if auto_assigns.length() > 0 {
+        let assigns = auto_assigns.join(", ")
+        (
+          $|   let entity = {
+          $|     ..entity,
+          $|     \{assigns},
+          $|   }
+        )
+      } else {
+        ""
+      }
       if m.returns_option {
         (
+          $|\{auto_stamp_code}
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
           $|   let res = @engine.exec_query(self.engine, q)
           $|   if res.rows is [result, ..] {
@@ -308,6 +473,7 @@ fn generate_mapper_code(spec : MapperSpec) -> String {
       } else {
         let entity_ty = m.params[0].1
         (
+          $|\{auto_stamp_code}
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
           $|   let res = @engine.exec_query(self.engine, q)
           $|   if res.rows is [result, ..] {
@@ -451,7 +617,10 @@ fn main {
     let (ast, _) = @parser.parse_file(input_file.val)
     let source_content = @fs.read_file_to_string(input_file.val)
     let specs = parse_entities_from_ast(ast)
-    let mapper_specs = parse_mappers_from_ast(ast, source_content, specs)
+    let all_entity_specs = collect_package_entity_specs(input_file.val)
+    let mapper_specs = parse_mappers_from_ast(
+      ast, source_content, all_entity_specs,
+    )
     //
     let codes : Array[String] = []
     specs.each(spec => {
@@ -460,7 +629,7 @@ fn main {
       codes.push(code)
     })
     mapper_specs.each(ms => {
-      let mcode = generate_mapper_code(ms)
+      let mcode = generate_mapper_code(ms, all_entity_specs)
       codes.push(mcode)
     })
     let code = codes.join("\n\n")

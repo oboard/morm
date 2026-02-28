@@ -4,6 +4,21 @@ pub(open) trait Entity: ToJson + @json.FromJson {
 }
 
 ///|
+pub fn current_timestamp_utc() -> @time.ZonedDateTime {
+  let ms = @env.now()
+  let seconds = (ms / 1000UL).reinterpret_as_int64()
+  let nanosecond = (ms % 1000UL).to_int() * 1_000_000
+  @time.unix(seconds, nanosecond~) catch {
+    _ => panic()
+  }
+}
+
+///|
+pub fn current_plain_date_time_utc() -> @time.PlainDateTime {
+  current_timestamp_utc().to_plain_date_time()
+}
+
+///|
 // 外键约束
 pub(all) struct ForeignKey {
   name : String

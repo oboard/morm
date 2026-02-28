@@ -1,5 +1,5 @@
 ///|
-using @time {type ZonedDateTime}
+using @time {type ZonedDateTime, type PlainDateTime}
 
 ///|
 #morm.entity
@@ -13,6 +13,8 @@ pub(all) struct Class {
   // 外键：引用 Teacher(id)
   #morm.foreign_key(references="teacher.id", on_delete="CASCADE")
   teacher_id : Int
+  created_at : PlainDateTime
+  updated_at : PlainDateTime
 } derive(ToJson, FromJson)
 
 ///|
@@ -24,7 +26,6 @@ pub(all) struct Student {
   #morm.varchar(length="255")
   name : String
   age : Int
-  #morm.datetime
   birth_date : ZonedDateTime
 } derive(ToJson, FromJson)
 
