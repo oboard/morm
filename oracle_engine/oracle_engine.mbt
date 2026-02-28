@@ -363,11 +363,36 @@ fn oracle_create_table_sql(table_schema : Json) -> String {
     if tablespace != "" {
       sql = sql + " TABLESPACE " + tablespace
     }
+    let organization = schema_get_engine_option(obj, "oracle.organization", "")
+    if organization != "" {
+      sql = sql + " ORGANIZATION " + organization
+    }
+    let on_commit = schema_get_engine_option(obj, "oracle.on_commit", "")
+    if temporary && on_commit != "" {
+      sql = sql + " ON COMMIT " + on_commit
+    }
     let create_suffix = schema_get_engine_option(obj, "create_suffix", "")
     if create_suffix != "" {
       sql = sql + " " + create_suffix
     }
     sql
+  } else {
+    ""
+  }
+}
+
+///|
+fn oracle_comment_sql(table_schema : Json) -> String {
+  if table_schema is Object(obj) {
+    let comment = schema_get_string(obj, "comment", "")
+    let base_name = schema_get_string(obj, "name", "")
+    if comment == "" || base_name == "" {
+      return ""
+    }
+    let table_name = oracle_table_name(obj, base_name)
+    "COMMENT ON TABLE \{table_name} IS '" +
+    comment.replace(old="'", new="''") +
+    "'"
   } else {
     ""
   }
@@ -467,6 +492,13 @@ pub impl @engine.Engine for OracleEngine with migrate_table(
   let create_res = self.exec_raw(create_sql, [])
   if !create_res.ok {
     return create_res
+  }
+  let comment_sql = oracle_comment_sql(table_schema)
+  if comment_sql != "" {
+    let comment_res = self.exec_raw(comment_sql, [])
+    if !comment_res.ok {
+      return comment_res
+    }
   }
   for sql in oracle_index_sqls(table_schema) {
     let res = self.exec_raw(sql, [])

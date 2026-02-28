@@ -109,6 +109,85 @@ pub fn add_table_engine_option(
 }
 
 ///|
+pub fn table_create_suffix(table : Table, suffix : String) -> Table {
+  add_table_engine_option(table, "create_suffix", suffix)
+}
+
+///|
+pub fn mysql_table_row_format(table : Table, row_format : String) -> Table {
+  add_table_engine_option(table, "mysql.row_format", row_format)
+}
+
+///|
+pub fn mysql_table_key_block_size(table : Table, key_block_size : Int) -> Table {
+  add_table_engine_option(
+    table,
+    "mysql.key_block_size",
+    key_block_size.to_string(),
+  )
+}
+
+///|
+pub fn mysql_table_compression(table : Table, compression : String) -> Table {
+  add_table_engine_option(table, "mysql.compression", compression)
+}
+
+///|
+pub fn pg_table_unlogged(table : Table) -> Table {
+  add_table_engine_option(table, "pgsql.unlogged", "true")
+}
+
+///|
+pub fn pg_table_with(table : Table, with_clause : String) -> Table {
+  add_table_engine_option(table, "pgsql.with", with_clause)
+}
+
+///|
+pub fn pg_table_on_commit(table : Table, on_commit : String) -> Table {
+  add_table_engine_option(table, "pgsql.on_commit", on_commit)
+}
+
+///|
+pub fn oracle_table_organization(table : Table, organization : String) -> Table {
+  add_table_engine_option(table, "oracle.organization", organization)
+}
+
+///|
+pub fn oracle_table_on_commit(table : Table, on_commit : String) -> Table {
+  add_table_engine_option(table, "oracle.on_commit", on_commit)
+}
+
+///|
+pub fn sqlserver_table_memory_optimized(table : Table) -> Table {
+  add_table_engine_option(table, "sqlserver.memory_optimized", "true")
+}
+
+///|
+pub fn sqlserver_table_durability(table : Table, durability : String) -> Table {
+  add_table_engine_option(table, "sqlserver.durability", durability)
+}
+
+///|
+pub fn sqlserver_table_filegroup(table : Table, filegroup : String) -> Table {
+  add_table_engine_option(table, "sqlserver.filegroup", filegroup)
+}
+
+///|
+pub fn sqlserver_table_textimage_on(table : Table, filegroup : String) -> Table {
+  add_table_engine_option(table, "sqlserver.textimage_on", filegroup)
+}
+
+///|
+pub fn sqlite_table_without_rowid(table : Table) -> Table {
+  add_table_engine_option(table, "sqlite.without_rowid", "true")
+}
+
+///|
+pub fn sqlite_table_strict(table : Table) -> Table {
+  add_table_engine_option(table, "sqlite.strict", "true")
+}
+
+///|
 // ---- 索引构建器函数 ----
 pub fn Index::new(name : String, columns : FixedArray[String]) -> Index {
   { name, index_type: Index, columns, comment: "" }

@@ -728,6 +728,11 @@ fn schema_get_engine_option(
 }
 
 ///|
+fn schema_has_engine_option_true(obj : Map[String, Json], key : String) -> Bool {
+  schema_get_engine_option(obj, key, "") == "true"
+}
+
+///|
 fn sqlserver_table_name(obj : Map[String, Json], name : String) -> String {
   if schema_get_bool(obj, "temporary", false) {
     if name.strip_prefix("#") is Some(_) {
@@ -885,11 +890,70 @@ fn sqlserver_create_table_sql(table_schema : Json) -> String {
     } else {
       "CREATE TABLE \{table_name} (\{defs_sql})"
     }
+    let with_options : Array[String] = []
+    if schema_has_engine_option_true(obj, "sqlserver.memory_optimized") {
+      with_options.push("MEMORY_OPTIMIZED = ON")
+    }
+    let durability = schema_get_engine_option(obj, "sqlserver.durability", "")
+    if durability != "" {
+      with_options.push("DURABILITY = " + durability)
+    }
+    if with_options.length() > 0 {
+      sql = sql + " WITH (" + with_options.join(", ") + ")"
+    }
+    let filegroup = schema_get_engine_option(obj, "sqlserver.filegroup", "")
+    if filegroup != "" {
+      sql = sql + " ON " + filegroup
+    }
+    let textimage_on = schema_get_engine_option(
+      obj, "sqlserver.textimage_on", "",
+    )
+    if textimage_on != "" {
+      sql = sql + " TEXTIMAGE_ON " + textimage_on
+    }
     let create_suffix = schema_get_engine_option(obj, "create_suffix", "")
     if create_suffix != "" {
       sql = sql + " " + create_suffix
     }
     sql
+  } else {
+    ""
+  }
+}
+
+///|
+fn sqlserver_comment_sql(table_schema : Json) -> String {
+  if table_schema is Object(obj) {
+    let comment = schema_get_string(obj, "comment", "")
+    let table_name = schema_get_string(obj, "name", "")
+    if comment == "" ||
+      table_name == "" ||
+      schema_get_bool(obj, "temporary", false) {
+      return ""
+    }
+    let schema_name = schema_get_string(obj, "schema", "dbo")
+    let escaped_comment = comment.replace(old="'", new="''")
+    let escaped_schema = schema_name.replace(old="'", new="''")
+    let escaped_table = table_name.replace(old="'", new="''")
+    "IF EXISTS (SELECT 1 FROM fn_listextendedproperty (" +
+    "N'MS_Description', N'SCHEMA', N'" +
+    escaped_schema +
+    "', N'TABLE', N'" +
+    escaped_table +
+    "', NULL, NULL)) " +
+    "EXEC sys.sp_updateextendedproperty @name=N'MS_Description', @value=N'" +
+    escaped_comment +
+    "', @level0type=N'SCHEMA', @level0name=N'" +
+    escaped_schema +
+    "', @level1type=N'TABLE', @level1name=N'" +
+    escaped_table +
+    "' ELSE EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'" +
+    escaped_comment +
+    "', @level0type=N'SCHEMA', @level0name=N'" +
+    escaped_schema +
+    "', @level1type=N'TABLE', @level1name=N'" +
+    escaped_table +
+    "'"
   } else {
     ""
   }
@@ -988,6 +1052,13 @@ pub impl @engine.Engine for SQLServerEngine with migrate_table(
   let create_res = self.exec_raw(create_sql, [])
   if !create_res.ok {
     return create_res
+  }
+  let comment_sql = sqlserver_comment_sql(table_schema)
+  if comment_sql != "" {
+    let comment_res = self.exec_raw(comment_sql, [])
+    if !comment_res.ok {
+      return comment_res
+    }
   }
   for sql in sqlserver_index_sqls(table_schema) {
     let res = self.exec_raw(sql, [])

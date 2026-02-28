@@ -960,6 +960,23 @@ fn mysql_create_table_sql(table_schema : Json) -> String {
     if auto_increment > 1 {
       sql = sql + " AUTO_INCREMENT=" + auto_increment.to_string()
     }
+    let row_format = schema_get_engine_option(obj, "mysql.row_format", "")
+    if row_format != "" {
+      sql = sql + " ROW_FORMAT=" + row_format
+    }
+    let key_block_size = schema_get_engine_option(
+      obj, "mysql.key_block_size", "",
+    )
+    if key_block_size != "" {
+      sql = sql + " KEY_BLOCK_SIZE=" + key_block_size
+    }
+    let compression = schema_get_engine_option(obj, "mysql.compression", "")
+    if compression != "" {
+      sql = sql +
+        " COMPRESSION='" +
+        compression.replace(old="'", new="''") +
+        "'"
+    }
     let tablespace = schema_get_string(obj, "tablespace", "")
     if tablespace != "" {
       sql = sql + " TABLESPACE=" + tablespace
@@ -973,6 +990,25 @@ fn mysql_create_table_sql(table_schema : Json) -> String {
       sql = sql + " " + create_suffix
     }
     sql
+  } else {
+    ""
+  }
+}
+
+///|
+fn mysql_comment_sql(table_schema : Json) -> String {
+  if table_schema is Object(obj) {
+    let comment = schema_get_string(obj, "comment", "")
+    let base_name = schema_get_string(obj, "name", "")
+    if comment == "" || base_name == "" {
+      return ""
+    }
+    let table_name = mysql_table_name(obj, base_name)
+    "ALTER TABLE " +
+    table_name +
+    " COMMENT = '" +
+    comment.replace(old="'", new="''") +
+    "'"
   } else {
     ""
   }
@@ -1085,6 +1121,13 @@ pub impl @engine.Engine for MySQLEngine with migrate_table(
   let create_res = self.exec_raw(create_sql, [])
   if !create_res.ok {
     return create_res
+  }
+  let comment_sql = mysql_comment_sql(table_schema)
+  if comment_sql != "" {
+    let comment_res = self.exec_raw(comment_sql, [])
+    if !comment_res.ok {
+      return comment_res
+    }
   }
   for sql in mysql_index_sqls(table_schema) {
     let res = self.exec_raw(sql, [])

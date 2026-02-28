@@ -52,9 +52,25 @@ pub fn insert_into(String) -> InsertQuery
 
 pub fn many_to_many(String, String, String, String, String, String, String) -> Association
 
+pub fn mysql_table_compression(Table, String) -> Table
+
+pub fn mysql_table_key_block_size(Table, Int) -> Table
+
+pub fn mysql_table_row_format(Table, String) -> Table
+
 pub fn on_delete_cascade(ForeignKey) -> ForeignKey
 
 pub fn on_update_cascade(ForeignKey) -> ForeignKey
+
+pub fn oracle_table_on_commit(Table, String) -> Table
+
+pub fn oracle_table_organization(Table, String) -> Table
+
+pub fn pg_table_on_commit(Table, String) -> Table
+
+pub fn pg_table_unlogged(Table) -> Table
+
+pub fn pg_table_with(Table, String) -> Table
 
 pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(E, FixedArray[O], Association) -> PreloadResult[T]
 
@@ -80,9 +96,23 @@ pub fn select_raw(String, String) -> Query
 
 pub fn[V : @engine.ToParam] soft_delete_by_id(String, String, V, deleted_col? : String) -> UpdateQuery
 
+pub fn sqlite_table_strict(Table) -> Table
+
+pub fn sqlite_table_without_rowid(Table) -> Table
+
+pub fn sqlserver_table_durability(Table, String) -> Table
+
+pub fn sqlserver_table_filegroup(Table, String) -> Table
+
+pub fn sqlserver_table_memory_optimized(Table) -> Table
+
+pub fn sqlserver_table_textimage_on(Table, String) -> Table
+
 pub fn table_catalog(Table, String) -> Table
 
 pub fn table_comment(Table, String) -> Table
+
+pub fn table_create_suffix(Table, String) -> Table
 
 pub fn table_engine(Table, String) -> Table
 

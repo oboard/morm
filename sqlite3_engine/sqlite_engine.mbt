@@ -84,6 +84,11 @@ fn get_engine_option(
 }
 
 ///|
+fn has_engine_option_true(obj : Map[String, Json], key : String) -> Bool {
+  get_engine_option(obj, key, "") == "true"
+}
+
+///|
 fn sqlite_table_name(obj : Map[String, Json], name : String) -> String {
   let schema = get_string(obj, "schema", "")
   let catalog = get_string(obj, "catalog", "")
@@ -230,6 +235,12 @@ fn render_create_table_sql(table_schema : Json) -> String {
       "\{create_prefix} IF NOT EXISTS \{table_name} (\{defs})"
     } else {
       "\{create_prefix} \{table_name} (\{defs})"
+    }
+    if has_engine_option_true(obj, "sqlite.without_rowid") {
+      sql = sql + " WITHOUT ROWID"
+    }
+    if has_engine_option_true(obj, "sqlite.strict") {
+      sql = sql + " STRICT"
     }
     let create_suffix = get_engine_option(obj, "create_suffix", "")
     if create_suffix != "" {

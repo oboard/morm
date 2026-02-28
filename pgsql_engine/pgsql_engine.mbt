@@ -519,6 +519,11 @@ fn schema_get_engine_option(
 }
 
 ///|
+fn schema_has_engine_option_true(obj : Map[String, Json], key : String) -> Bool {
+  schema_get_engine_option(obj, key, "") == "true"
+}
+
+///|
 fn pg_table_name(obj : Map[String, Json], name : String) -> String {
   let schema = schema_get_string(obj, "schema", "")
   if schema != "" {
@@ -661,9 +666,12 @@ fn pg_create_table_sql(table_schema : Json) -> String {
     }
     let defs_sql = defs.join(", ")
     let temporary = schema_get_bool(obj, "temporary", false)
+    let unlogged = schema_has_engine_option_true(obj, "pgsql.unlogged")
     let if_not_exists = schema_get_bool(obj, "if_not_exists", true)
     let create_prefix = if temporary {
       "CREATE TEMPORARY TABLE"
+    } else if unlogged {
+      "CREATE UNLOGGED TABLE"
     } else {
       "CREATE TABLE"
     }
@@ -676,11 +684,36 @@ fn pg_create_table_sql(table_schema : Json) -> String {
     if tablespace != "" {
       sql = sql + " TABLESPACE " + tablespace
     }
+    let with_clause = schema_get_engine_option(obj, "pgsql.with", "")
+    if with_clause != "" {
+      sql = sql + " WITH (" + with_clause + ")"
+    }
+    let on_commit = schema_get_engine_option(obj, "pgsql.on_commit", "")
+    if temporary && on_commit != "" {
+      sql = sql + " ON COMMIT " + on_commit
+    }
     let create_suffix = schema_get_engine_option(obj, "create_suffix", "")
     if create_suffix != "" {
       sql = sql + " " + create_suffix
     }
     sql
+  } else {
+    ""
+  }
+}
+
+///|
+fn pg_comment_sql(table_schema : Json) -> String {
+  if table_schema is Object(obj) {
+    let comment = schema_get_string(obj, "comment", "")
+    let base_name = schema_get_string(obj, "name", "")
+    if comment == "" || base_name == "" {
+      return ""
+    }
+    let table_name = pg_table_name(obj, base_name)
+    "COMMENT ON TABLE \{table_name} IS '" +
+    comment.replace(old="'", new="''") +
+    "'"
   } else {
     ""
   }
@@ -793,6 +826,13 @@ pub impl @engine.Engine for PgSQLEngine with migrate_table(
   let create_res = self.exec_raw(create_sql, [])
   if !create_res.ok {
     return create_res
+  }
+  let comment_sql = pg_comment_sql(table_schema)
+  if comment_sql != "" {
+    let comment_res = self.exec_raw(comment_sql, [])
+    if !comment_res.ok {
+      return comment_res
+    }
   }
   for sql in pg_index_sqls(table_schema) {
     let res = self.exec_raw(sql, [])
