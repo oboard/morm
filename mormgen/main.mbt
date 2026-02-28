@@ -50,6 +50,131 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
   for fk in foreign_keys {
     table = @morm.add_foreign_key(table, fk)
   }
+  apply_entity_table_attributes(spec, table)
+}
+
+///|
+fn entity_table_attr_value(spec : EntitySpec, key : String) -> String? {
+  let mut result : String? = None
+  for attr in spec.attrs {
+    if (attr.name == "#morm.entity" || attr.name == "#morm.table") &&
+      attr.value.get(key) is Some(value) {
+      result = Some(value)
+    }
+  }
+  result
+}
+
+///|
+fn attr_bool(value : String) -> Bool {
+  let text = value.to_lower()
+  text == "true" || text == "1" || text == "yes" || text == "on"
+}
+
+///|
+fn attr_int(value : String) -> Int? {
+  Some(@strconv.parse_int(value)) catch {
+    _ => None
+  }
+}
+
+///|
+fn apply_entity_table_attributes(
+  spec : EntitySpec,
+  table : @morm.Table,
+) -> @morm.Table {
+  let mut table = table
+  if entity_table_attr_value(spec, "name") is Some(name) {
+    table = { ..table, name, }
+  }
+  if entity_table_attr_value(spec, "schema") is Some(schema) {
+    table = @morm.table_schema(table, schema)
+  }
+  if entity_table_attr_value(spec, "catalog") is Some(catalog) {
+    table = @morm.table_catalog(table, catalog)
+  }
+  if entity_table_attr_value(spec, "temporary") is Some(temporary) {
+    table = @morm.table_temporary(table, attr_bool(temporary))
+  }
+  if entity_table_attr_value(spec, "if_not_exists") is Some(if_not_exists) {
+    table = @morm.table_if_not_exists(table, attr_bool(if_not_exists))
+  }
+  if entity_table_attr_value(spec, "engine") is Some(engine) {
+    table = @morm.table_engine(table, engine)
+  }
+  if entity_table_attr_value(spec, "charset") is Some(charset) {
+    table = { ..table, charset: Some(charset) }
+  }
+  if entity_table_attr_value(spec, "collation") is Some(collation) {
+    table = { ..table, collation: Some(collation) }
+  }
+  if entity_table_attr_value(spec, "tablespace") is Some(tablespace) {
+    table = @morm.table_tablespace(table, tablespace)
+  }
+  if entity_table_attr_value(spec, "comment") is Some(comment) {
+    table = @morm.table_comment(table, comment)
+  }
+  if entity_table_attr_value(spec, "auto_increment") is Some(auto_increment) {
+    if attr_int(auto_increment) is Some(value) {
+      table = { ..table, auto_increment: Some(value) }
+    }
+  }
+  if entity_table_attr_value(spec, "create_suffix") is Some(create_suffix) {
+    table = @morm.table_create_suffix(table, create_suffix)
+  }
+  if entity_table_attr_value(spec, "mysql_row_format") is Some(row_format) {
+    table = @morm.mysql_table_row_format(table, row_format)
+  }
+  if entity_table_attr_value(spec, "mysql_key_block_size") is Some(size) {
+    if attr_int(size) is Some(value) {
+      table = @morm.mysql_table_key_block_size(table, value)
+    }
+  }
+  if entity_table_attr_value(spec, "mysql_compression") is Some(compression) {
+    table = @morm.mysql_table_compression(table, compression)
+  }
+  if entity_table_attr_value(spec, "pg_unlogged") is Some(enabled) {
+    if attr_bool(enabled) {
+      table = @morm.pg_table_unlogged(table)
+    }
+  }
+  if entity_table_attr_value(spec, "pg_with") is Some(with_clause) {
+    table = @morm.pg_table_with(table, with_clause)
+  }
+  if entity_table_attr_value(spec, "pg_on_commit") is Some(on_commit) {
+    table = @morm.pg_table_on_commit(table, on_commit)
+  }
+  if entity_table_attr_value(spec, "oracle_organization") is Some(organization) {
+    table = @morm.oracle_table_organization(table, organization)
+  }
+  if entity_table_attr_value(spec, "oracle_on_commit") is Some(on_commit) {
+    table = @morm.oracle_table_on_commit(table, on_commit)
+  }
+  if entity_table_attr_value(spec, "sqlserver_memory_optimized")
+    is Some(enabled) {
+    if attr_bool(enabled) {
+      table = @morm.sqlserver_table_memory_optimized(table)
+    }
+  }
+  if entity_table_attr_value(spec, "sqlserver_durability") is Some(durability) {
+    table = @morm.sqlserver_table_durability(table, durability)
+  }
+  if entity_table_attr_value(spec, "sqlserver_filegroup") is Some(filegroup) {
+    table = @morm.sqlserver_table_filegroup(table, filegroup)
+  }
+  if entity_table_attr_value(spec, "sqlserver_textimage_on") is Some(filegroup) {
+    table = @morm.sqlserver_table_textimage_on(table, filegroup)
+  }
+  if entity_table_attr_value(spec, "sqlite_without_rowid") is Some(enabled) {
+    if attr_bool(enabled) {
+      table = @morm.sqlite_table_without_rowid(table)
+    }
+  }
+  if entity_table_attr_value(spec, "sqlite_strict") is Some(enabled) {
+    if attr_bool(enabled) {
+      table = @morm.sqlite_table_strict(table)
+    }
+  }
   table
 }
 

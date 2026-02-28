@@ -12,6 +12,7 @@ struct EntitySpec {
   name : String
   table_name : String
   fields : Array[FieldSpec]
+  attrs : Array[ORMAttribute]
 }
 
 ///|
@@ -824,8 +825,16 @@ fn parse_entities_from_ast(
       if type_decl is { tycon: name, components: Record(params), attrs, .. } {
         let orm_attrs = collect_orm_attributes(attrs)
         let mut has_entity = false
-        let table_name = name.to_lower()
-        orm_attrs.each(a => if a.name == "#morm.entity" { has_entity = true })
+        let mut table_name = name.to_lower()
+        orm_attrs.each(a => {
+          if a.name == "#morm.entity" {
+            has_entity = true
+          }
+          if (a.name == "#morm.entity" || a.name == "#morm.table") &&
+            a.value.get("name") is Some(custom_name) {
+            table_name = custom_name
+          }
+        })
         if !has_entity {
           return
         }
@@ -836,7 +845,7 @@ fn parse_entities_from_ast(
             fields.push({ label, field_type, nullable: is_nullable, attrs })
           }
         })
-        specs.push({ name, table_name, fields })
+        specs.push({ name, table_name, fields, attrs: orm_attrs })
       }
     }
   })
