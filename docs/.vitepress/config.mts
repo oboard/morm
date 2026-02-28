@@ -9,7 +9,7 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/get-started' },
-      { text: 'API', link: '/api-examples' }
+      { text: 'Reference', link: '/api-examples' }
     ],
 
     sidebar: [
@@ -17,6 +17,12 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Get Started', link: '/get-started' },
+          { text: 'Entities', link: '/entities' },
+          { text: 'Mappers', link: '/mappers' },
+          { text: 'Query Builders', link: '/query-builders' },
+          { text: 'Time Types', link: '/time' },
+          { text: 'Engines', link: '/engines' },
+          { text: 'Migrations', link: '/migrations' },
           { text: 'Architecture', link: '/architecture' }
         ]
       },

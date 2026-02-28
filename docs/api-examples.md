@@ -151,10 +151,10 @@ The conflict target is inferred from:
 
 ```moonbit
 let q = @morm.upsert_into("student")
-  .set("id", @engine.to_param(1))
-  .set("name", @engine.to_param("Alice"))
+  .set("id", 1)
+  .set("name", "Alice")
   .on_conflict(["id"])
-  .do_update_set("name", @engine.to_param("Alice"))
+  .do_update_set("name", "Alice")
 ```
 
 Exact emitted SQL is engine-specific.
@@ -163,8 +163,8 @@ Exact emitted SQL is engine-specific.
 
 ```moonbit
 let q = @morm.update("student")
-  .set("name", @engine.to_param("Alice Updated"))
-  .set("age", @engine.to_param(19))
+  .set("name", "Alice Updated")
+  .set("age", 19)
   .where_eq("id", 1)
 ```
 
