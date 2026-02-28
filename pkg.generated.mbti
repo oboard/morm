@@ -13,17 +13,37 @@ pub fn add_foreign_key(Table, ForeignKey) -> Table
 
 pub fn add_index(Table, Index) -> Table
 
+pub fn[T] after_create(T, (T) -> T) -> T
+
+pub fn[T] after_delete(T, (T) -> T) -> T
+
+pub fn[T] after_find(T, (T) -> T) -> T
+
+pub fn[T] after_update(T, (T) -> T) -> T
+
 pub async fn[E : @engine.Engine] auto_migrate(E, Array[Table]) -> Unit
+
+pub fn[T] before_create(T, (T) -> T) -> T
+
+pub fn[T] before_delete(T, (T) -> T) -> T
+
+pub fn[T] before_update(T, (T) -> T) -> T
 
 pub fn belongs_to(String, String, String, String) -> Association
 
 pub fn delete_from(String) -> DeleteQuery
 
+pub fn diff_table(Table, Table) -> TableDiff
+
 pub fn has_many(String, String, String, String) -> Association
+
+pub fn has_one(String, String, String, String) -> Association
 
 pub fn infer_column_type(Json) -> ColumnType
 
 pub fn insert_into(String) -> InsertQuery
+
+pub fn many_to_many(String, String, String, String, String, String, String) -> Association
 
 pub fn on_delete_cascade(ForeignKey) -> ForeignKey
 
@@ -35,13 +55,29 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs
 
 pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_many(E, FixedArray[O], String, String, String) -> Map[String, Array[T]]
 
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_one(E, FixedArray[O], String, String, String) -> Map[String, T]
+
+pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to_many(E, FixedArray[O], String, String, String, String, String, String) -> Map[String, Array[T]]
+
+pub fn register_driver_scheme(String, String) -> Unit
+
+pub fn resolve_driver_name(String) -> String?
+
+pub fn[V : @engine.ToParam] restore_by_id(String, String, V, deleted_col? : String) -> UpdateQuery
+
 pub fn select_from(String) -> Query
 
+pub fn select_from_scoped(String, deleted_col? : String) -> Query
+
 pub fn select_raw(String, String) -> Query
+
+pub fn[V : @engine.ToParam] soft_delete_by_id(String, String, V, deleted_col? : String) -> UpdateQuery
 
 pub fn table_comment(Table, String) -> Table
 
 pub fn table_engine(Table, String) -> Table
+
+pub fn unregister_driver_scheme(String) -> Unit
 
 pub fn update(String) -> UpdateQuery
 
@@ -56,6 +92,9 @@ pub(all) struct Association {
   owner_key : String
   target_table : String
   target_key : String
+  join_table : String?
+  join_owner_key : String?
+  join_target_key : String?
 }
 pub impl Eq for Association
 pub impl Show for Association
@@ -64,7 +103,9 @@ pub impl @json.FromJson for Association
 
 pub(all) enum AssociationKind {
   BelongsTo
+  HasOne
   HasMany
+  ManyToMany
 }
 pub impl Eq for AssociationKind
 pub impl Show for AssociationKind
@@ -91,6 +132,16 @@ pub impl Hash for Column
 pub impl Show for Column
 pub impl ToJson for Column
 pub impl @json.FromJson for Column
+
+pub(all) struct ColumnDiff {
+  added : FixedArray[Column]
+  removed : FixedArray[Column]
+  changed : FixedArray[(String, Column, Column)]
+}
+pub impl Eq for ColumnDiff
+pub impl Show for ColumnDiff
+pub impl ToJson for ColumnDiff
+pub impl @json.FromJson for ColumnDiff
 
 pub(all) enum ColumnType {
   TinyInt
@@ -167,6 +218,16 @@ pub impl Show for ForeignKey
 pub impl ToJson for ForeignKey
 pub impl @json.FromJson for ForeignKey
 
+pub(all) struct ForeignKeyDiff {
+  added : FixedArray[ForeignKey]
+  removed : FixedArray[ForeignKey]
+  changed : FixedArray[(String, ForeignKey, ForeignKey)]
+}
+pub impl Eq for ForeignKeyDiff
+pub impl Show for ForeignKeyDiff
+pub impl ToJson for ForeignKeyDiff
+pub impl @json.FromJson for ForeignKeyDiff
+
 pub(all) struct Index {
   name : String
   index_type : IndexType
@@ -182,6 +243,16 @@ pub impl Hash for Index
 pub impl Show for Index
 pub impl ToJson for Index
 pub impl @json.FromJson for Index
+
+pub(all) struct IndexDiff {
+  added : FixedArray[Index]
+  removed : FixedArray[Index]
+  changed : FixedArray[(String, Index, Index)]
+}
+pub impl Eq for IndexDiff
+pub impl Show for IndexDiff
+pub impl ToJson for IndexDiff
+pub impl @json.FromJson for IndexDiff
 
 pub(all) enum IndexType {
   Primary
@@ -281,6 +352,16 @@ pub impl Hash for Table
 pub impl Show for Table
 pub impl ToJson for Table
 pub impl @json.FromJson for Table
+
+pub(all) struct TableDiff {
+  columns : ColumnDiff
+  indexes : IndexDiff
+  foreign_keys : ForeignKeyDiff
+}
+pub impl Eq for TableDiff
+pub impl Show for TableDiff
+pub impl ToJson for TableDiff
+pub impl @json.FromJson for TableDiff
 
 pub struct UpdateQuery {
   table : String

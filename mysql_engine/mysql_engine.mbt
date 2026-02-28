@@ -92,6 +92,10 @@ pub fn MySQLEngine::open(dsn : String) -> Result[MySQLEngine, String] {
 
 ///|
 fn param_sql(p : @engine.Param) -> String {
+  let quote = fn(s : String) -> String {
+    let esc = s.replace(old="'", new="''")
+    "'\{esc}'"
+  }
   match p {
     @engine.Null => "NULL"
     @engine.Bool(v) => if v { "TRUE" } else { "FALSE" }
@@ -105,7 +109,14 @@ fn param_sql(p : @engine.Param) -> String {
     @engine.BigInt(v) => v.to_string()
     @engine.Float(v) => v.to_string()
     @engine.Double(v) => v.to_string()
-    @engine.String(v) => "'" + v.replace(old="'", new="''") + "'"
+    @engine.Decimal(v) => v
+    @engine.Date(v) => quote(v.to_string())
+    @engine.Time(v) => quote(v.to_string())
+    @engine.DateTime(v) => quote(v.to_string())
+    @engine.Timestamp(v) => quote(v.to_string())
+    @engine.Uuid(v) => quote(v)
+    @engine.Json(v) => quote(v.stringify())
+    @engine.String(v) => quote(v)
     @engine.Bytes(_) => "NULL"
   }
 }
@@ -1035,6 +1046,31 @@ pub impl @engine.Engine for MySQLEngine with exec_raw(
 ) -> @engine.QueryResult {
   let query = inline_sql(sql, params)
   mysql_query_async(self, query)
+}
+
+///|
+pub impl @engine.Engine for MySQLEngine with preload_in_sql(
+  _self,
+  table : String,
+  key_col : String,
+  count : Int,
+) -> String {
+  @engine.preload_in_sql_qmark(table, key_col, count)
+}
+
+///|
+pub impl @engine.Engine for MySQLEngine with preload_many_to_many_sql(
+  _self,
+  target_table : String,
+  target_key : String,
+  join_table : String,
+  join_owner_key : String,
+  join_target_key : String,
+  count : Int,
+) -> String {
+  @engine.preload_many_to_many_sql_qmark(
+    target_table, target_key, join_table, join_owner_key, join_target_key, count,
+  )
 }
 
 ///|

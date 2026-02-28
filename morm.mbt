@@ -187,25 +187,8 @@ fn json_to_param(value : Json) -> @engine.Param {
     False => @engine.Bool(false)
     Number(n, ..) => @engine.Double(n)
     String(s) => @engine.String(s)
-    _ => @engine.String(value.stringify())
+    _ => @engine.Json(value)
   }
-}
-
-///|
-fn build_in_sql(table : String, key_col : String, count : Int) -> String {
-  let marks : Array[String] = []
-  let mut i = 0
-  while i < count {
-    marks.push("?")
-    i = i + 1
-  }
-  "SELECT * FROM " +
-  table +
-  " WHERE " +
-  key_col +
-  " IN (" +
-  marks.join(", ") +
-  ")"
 }
 
 ///|
@@ -344,7 +327,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs
   if key_params.is_empty() {
     return out
   }
-  let sql = build_in_sql(target_table, target_key, key_params.length())
+  let sql = engine.preload_in_sql(target_table, target_key, key_params.length())
   let res = engine.exec_raw(sql, key_params)
   if !res.ok {
     return out
@@ -385,7 +368,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_man
   if key_params.is_empty() {
     return out
   }
-  let sql = build_in_sql(target_table, target_key, key_params.length())
+  let sql = engine.preload_in_sql(target_table, target_key, key_params.length())
   let res = engine.exec_raw(sql, key_params)
   if !res.ok {
     return out
@@ -408,38 +391,6 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_man
 }
 
 ///|
-fn build_many_to_many_sql(
-  target_table : String,
-  target_key : String,
-  join_table : String,
-  join_owner_key : String,
-  join_target_key : String,
-  count : Int,
-) -> String {
-  let marks : Array[String] = []
-  let mut i = 0
-  while i < count {
-    marks.push("?")
-    i = i + 1
-  }
-  "SELECT t.*, j." +
-  join_owner_key +
-  " AS __morm_owner_key FROM " +
-  target_table +
-  " t INNER JOIN " +
-  join_table +
-  " j ON j." +
-  join_target_key +
-  " = t." +
-  target_key +
-  " WHERE j." +
-  join_owner_key +
-  " IN (" +
-  marks.join(", ") +
-  ")"
-}
-
-///|
 pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to_many(
   engine : E,
   owners : FixedArray[O],
@@ -455,7 +406,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to
   if key_params.is_empty() {
     return out
   }
-  let sql = build_many_to_many_sql(
+  let sql = engine.preload_many_to_many_sql(
     target_table,
     target_key,
     join_table,
@@ -764,12 +715,12 @@ pub fn[E : Entity] UpsertQuery::from(
   entity : E,
 ) -> UpsertQuery {
   let json = entity.to_json()
+  let table = entity.table()
   let sets = if json is Object(obj) {
     obj.map((col, value) => { col, value: json_to_param(value) })
   } else {
     {}
   }
-  let table = entity.table()
   let mut conflict_cols : FixedArray[String] = []
   match table.primary_key() {
     Some(pk) => conflict_cols = [pk]

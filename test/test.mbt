@@ -57,3 +57,58 @@ test "query where ne like" {
   )
   inspect(params.to_json().stringify(), content="[\"deleted\",\"%Ali%\"]")
 }
+
+///|
+test "param extended types to_json" {
+  let date = @engine.DateValue::from_string("2026-01-02") catch { _ => panic() }
+  let time = @engine.TimeValue::from_string("12:34:56") catch { _ => panic() }
+  let date_time = @engine.DateTimeValue::from_string("2026-01-02T12:34:56") catch {
+    _ => panic()
+  }
+  let timestamp = @engine.TimestampValue::from_string("2026-01-02T12:34:56Z") catch {
+    _ => panic()
+  }
+  inspect(@engine.Decimal("12.34").to_json().stringify(), content="\"12.34\"")
+  inspect(date.to_param().to_json().stringify(), content="\"2026-01-02\"")
+  inspect(time.to_param().to_json().stringify(), content="\"12:34:56\"")
+  inspect(
+    date_time.to_param().to_json().stringify(),
+    content="\"2026-01-02T12:34:56\"",
+  )
+  inspect(
+    timestamp.to_param().to_json().stringify(),
+    content="\"2026-01-02T12:34:56Z\"",
+  )
+  inspect(
+    @engine.Uuid("550e8400-e29b-41d4-a716-446655440000").to_json().stringify(),
+    content="\"550e8400-e29b-41d4-a716-446655440000\"",
+  )
+  inspect(
+    @engine.Json({ "a": 1, "b": true }).to_json().stringify(),
+    content="{\"a\":1,\"b\":true}",
+  )
+}
+
+///|
+test "time types json roundtrip" {
+  let date : @engine.DateValue = @json.from_json("2026-01-02".to_json()) catch {
+    _ => panic()
+  }
+  let time : @engine.TimeValue = @json.from_json("12:34:56".to_json()) catch {
+    _ => panic()
+  }
+  let date_time : @engine.DateTimeValue = @json.from_json(
+    "2026-01-02T12:34:56".to_json(),
+  ) catch {
+    _ => panic()
+  }
+  let timestamp : @engine.TimestampValue = @json.from_json(
+    "2026-01-02T12:34:56Z".to_json(),
+  ) catch {
+    _ => panic()
+  }
+  inspect(date.to_string(), content="2026-01-02")
+  inspect(time.to_string(), content="12:34:56")
+  inspect(date_time.to_string(), content="2026-01-02T12:34:56")
+  inspect(timestamp.to_string(), content="2026-01-02T12:34:56Z")
+}

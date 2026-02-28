@@ -447,6 +447,13 @@ impl @engine.Engine for SQLiteEngine with exec_raw(
         @engine.UInt64(v) => stmt.bind(index~, val=v.to_string())
         @engine.Int64(v) => stmt.bind(index~, val=v)
         @engine.BigInt(v) => stmt.bind(index~, val=v.to_string())
+        @engine.Decimal(v) => stmt.bind(index~, val=v)
+        @engine.Date(v) => stmt.bind(index~, val=v.to_string())
+        @engine.Time(v) => stmt.bind(index~, val=v.to_string())
+        @engine.DateTime(v) => stmt.bind(index~, val=v.to_string())
+        @engine.Timestamp(v) => stmt.bind(index~, val=v.to_string())
+        @engine.Uuid(v) => stmt.bind(index~, val=v)
+        @engine.Json(v) => stmt.bind(index~, val=v.stringify())
         @engine.String(v) => stmt.bind(index~, val=v)
         @engine.Bytes(v) => stmt.bind(index~, val=v)
         @engine.Bool(v) => stmt.bind(index~, val=if v { 1 } else { 0 })
@@ -501,4 +508,29 @@ impl @engine.Engine for SQLiteEngine with exec_raw(
     rows: FixedArray::from_array(rows),
     error,
   }
+}
+
+///|
+impl @engine.Engine for SQLiteEngine with preload_in_sql(
+  _self,
+  table : String,
+  key_col : String,
+  count : Int,
+) -> String {
+  @engine.preload_in_sql_qmark(table, key_col, count)
+}
+
+///|
+impl @engine.Engine for SQLiteEngine with preload_many_to_many_sql(
+  _self,
+  target_table : String,
+  target_key : String,
+  join_table : String,
+  join_owner_key : String,
+  join_target_key : String,
+  count : Int,
+) -> String {
+  @engine.preload_many_to_many_sql_qmark(
+    target_table, target_key, join_table, join_owner_key, join_target_key, count,
+  )
 }

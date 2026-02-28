@@ -12,9 +12,44 @@ pub(all) enum Param {
   BigInt(BigInt)
   Float(Float)
   Double(Double)
+  Decimal(String)
+  Date(@time.PlainDate)
+  Time(@time.PlainTime)
+  DateTime(@time.PlainDateTime)
+  Timestamp(@time.ZonedDateTime)
+  Uuid(String)
+  Json(Json)
   String(String)
   Bytes(Bytes)
-} derive(Eq, Show)
+} derive(Show)
+
+///|
+pub impl Eq for Param with equal(self, other) {
+  match (self, other) {
+    (Null, Null) => true
+    (Bool(a), Bool(b)) => a == b
+    (Byte(a), Byte(b)) => a == b
+    (Int(a), Int(b)) => a == b
+    (Int16(a), Int16(b)) => a == b
+    (UInt16(a), UInt16(b)) => a == b
+    (UInt(a), UInt(b)) => a == b
+    (UInt64(a), UInt64(b)) => a == b
+    (Int64(a), Int64(b)) => a == b
+    (BigInt(a), BigInt(b)) => a == b
+    (Float(a), Float(b)) => a == b
+    (Double(a), Double(b)) => a == b
+    (Decimal(a), Decimal(b)) => a == b
+    (Date(a), Date(b)) => a == b
+    (Time(a), Time(b)) => a == b
+    (DateTime(a), DateTime(b)) => a == b
+    (Timestamp(a), Timestamp(b)) => a.to_string() == b.to_string()
+    (Uuid(a), Uuid(b)) => a == b
+    (Json(a), Json(b)) => a == b
+    (String(a), String(b)) => a == b
+    (Bytes(a), Bytes(b)) => a == b
+    _ => false
+  }
+}
 
 ///|
 pub impl ToJson for Param with to_json(self) -> Json {
@@ -31,13 +66,20 @@ pub impl ToJson for Param with to_json(self) -> Json {
     BigInt(v) => v.to_json()
     Float(v) => v.to_json()
     Double(v) => v.to_json()
+    Decimal(v) => Json::string(v)
+    Date(v) => Json::string(v.to_string())
+    Time(v) => Json::string(v.to_string())
+    DateTime(v) => Json::string(v.to_string())
+    Timestamp(v) => Json::string(v.to_string())
+    Uuid(v) => Json::string(v)
+    Json(v) => v
     String(v) => v.to_json()
     Bytes(v) => v.to_json()
   }
 }
 
 ///|
-pub impl @json.FromJson for Param with from_json(json, path) {
+pub impl @json.FromJson for Param with from_json(json, _path) {
   match json {
     Null => Null
     True => Bool(true)
@@ -49,10 +91,7 @@ pub impl @json.FromJson for Param with from_json(json, path) {
         Double(n)
       }
     String(s) => String(s)
-    _ =>
-      raise @json.JsonDecodeError(
-        (path, "Param::from_json: expected null/bool/number/string"),
-      )
+    Array(_) | Object(_) => Json(json)
   }
 }
 
@@ -143,14 +182,7 @@ pub impl ToParam for Bytes with to_param(self) -> Param {
 
 ///|
 pub impl ToParam for Json with to_param(self) -> Param {
-  match self {
-    Null => Null
-    True => Bool(true)
-    False => Bool(false)
-    Number(n, ..) => Double(n)
-    String(s) => String(s)
-    _ => String(self.stringify())
-  }
+  Json(self)
 }
 
 ///|
@@ -262,6 +294,20 @@ pub(open) trait Engine {
   /// Execute raw SQL statement directly. Keep this for custom SQL in mapper.
   async exec_raw(Self, sql : String, params : FixedArray[Param]) -> QueryResult
   ///|
+  /// Build preload SQL with IN placeholders for current engine style.
+  preload_in_sql(Self, table : String, key_col : String, count : Int) -> String
+  ///|
+  /// Build many-to-many preload SQL for current engine style.
+  preload_many_to_many_sql(
+    Self,
+    target_table : String,
+    target_key : String,
+    join_table : String,
+    join_owner_key : String,
+    join_target_key : String,
+    count : Int,
+  ) -> String
+  ///|
   /// Close the database connection.
   close(Self) -> Unit
 }
@@ -342,6 +388,67 @@ fn placeholders(count : Int) -> String {
     i = i + 1
   }
   parts.join(", ")
+}
+
+///|
+fn placeholders_with(prefix : String, count : Int) -> String {
+  let parts : Array[String] = []
+  let mut i = 1
+  while i <= count {
+    if prefix == "?" {
+      parts.push("?")
+    } else {
+      parts.push(prefix + i.to_string())
+    }
+    i = i + 1
+  }
+  parts.join(", ")
+}
+
+///|
+pub fn preload_in_sql_qmark(
+  table : String,
+  key_col : String,
+  count : Int,
+) -> String {
+  let marks = placeholders_with("?", count)
+  "SELECT * FROM \{table} WHERE \{key_col} IN (\{marks})"
+}
+
+///|
+pub fn preload_in_sql_dollar(
+  table : String,
+  key_col : String,
+  count : Int,
+) -> String {
+  let marks = placeholders_with("$", count)
+  "SELECT * FROM \{table} WHERE \{key_col} IN (\{marks})"
+}
+
+///|
+pub fn preload_many_to_many_sql_qmark(
+  target_table : String,
+  target_key : String,
+  join_table : String,
+  join_owner_key : String,
+  join_target_key : String,
+  count : Int,
+) -> String {
+  let marks = placeholders_with("?", count)
+  "SELECT t.*, j.\{join_owner_key} AS __morm_owner_key FROM \{target_table} t INNER JOIN \{join_table} j ON j.\{join_target_key} = t.\{target_key} WHERE j.\{join_owner_key} IN (\{marks})"
+}
+
+///|
+pub fn preload_many_to_many_sql_dollar(
+  target_table : String,
+  target_key : String,
+  join_table : String,
+  join_owner_key : String,
+  join_target_key : String,
+  count : Int,
+) -> String {
+  let marks = placeholders_with("$", count)
+  "SELECT t.*, j.\{join_owner_key} AS __morm_owner_key FROM \{target_table} t INNER JOIN \{join_table} j ON j.\{join_target_key} = t.\{target_key} WHERE j.\{join_owner_key} IN (\{marks})"
 }
 
 ///|
