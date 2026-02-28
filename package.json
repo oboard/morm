@@ -1,0 +1,13 @@
+{
+  "name": "morm-docs",
+  "private": true,
+  "description": "VitePress documentation site for morm, a MoonBit ORM toolkit",
+  "devDependencies": {
+    "vitepress": "2.0.0-alpha.15"
+  },
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  }
+}
