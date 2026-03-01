@@ -574,6 +574,20 @@ fn pg_type_from_json(v : Json) -> String {
 }
 
 ///|
+fn pg_json_storage_type(
+  obj : Map[String, Json],
+  default_jsonb : Bool,
+) -> String {
+  match schema_get_engine_option(obj, "json.storage", "") {
+    "blob" | "bson" => "BYTEA"
+    "text" | "string" => "TEXT"
+    "json" => "JSON"
+    "jsonb" => "JSONB"
+    _ => if default_jsonb { "JSONB" } else { "JSON" }
+  }
+}
+
+///|
 fn pg_column_def(col_json : Json) -> String {
   if col_json is Object(obj) {
     let name = schema_get_string(obj, "name", "")
@@ -581,6 +595,8 @@ fn pg_column_def(col_json : Json) -> String {
       return ""
     }
     let mut col_type = match obj.get("column_type") {
+      Some(String("Json")) => pg_json_storage_type(obj, false)
+      Some(String("JsonB")) => pg_json_storage_type(obj, true)
       Some(v) => pg_type_from_json(v)
       None => "TEXT"
     }

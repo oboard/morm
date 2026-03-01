@@ -22,6 +22,7 @@ pub fn Class::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "name",
@@ -35,6 +36,7 @@ pub fn Class::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "teacher_id",
@@ -48,6 +50,7 @@ pub fn Class::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "created_at",
@@ -61,6 +64,7 @@ pub fn Class::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "updated_at",
@@ -74,6 +78,7 @@ pub fn Class::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
     ],
     indexes: [],
@@ -89,14 +94,55 @@ pub fn Class::table() -> @morm.Table {
     ],
     temporary: false,
     if_not_exists: true,
-    engine: Some("InnoDB"),
-    charset: Some("utf8mb4"),
-    collation: Some("utf8mb4_unicode_ci"),
+    engine: None,
+    charset: None,
+    collation: None,
     tablespace: None,
     comment: "",
-    auto_increment: Some(1),
+    auto_increment: None,
     engine_options: [],
   }
+}
+
+///|
+pub fn Class::from_row(row : Json) -> Class {
+  if row is Object(obj) {
+    let id_json = match obj.get("id") {
+      Some(value) => value
+      None => panic()
+    }
+    let id : Int64 = (
+      try! @engine.from_param(@engine.param_from_json_value(id_json)) : Int64)
+    let name_json = match obj.get("name") {
+      Some(value) => value
+      None => panic()
+    }
+    let name : String = (
+      try! @engine.from_param(@engine.param_from_json_value(name_json)) : String)
+    let teacher_id_json = match obj.get("teacher_id") {
+      Some(value) => value
+      None => panic()
+    }
+    let teacher_id : Int = (
+      try! @engine.from_param(@engine.param_from_json_value(teacher_id_json)) :
+      Int)
+    let created_at_json = match obj.get("created_at") {
+      Some(value) => value
+      None => panic()
+    }
+    let created_at : PlainDateTime = (
+      try! @engine.from_param(@engine.param_from_json_value(created_at_json)) :
+      PlainDateTime)
+    let updated_at_json = match obj.get("updated_at") {
+      Some(value) => value
+      None => panic()
+    }
+    let updated_at : PlainDateTime = (
+      try! @engine.from_param(@engine.param_from_json_value(updated_at_json)) :
+      PlainDateTime)
+    return Class::{ id, name, teacher_id, created_at, updated_at }
+  }
+  panic()
 }
 
 ///|
@@ -123,6 +169,7 @@ pub fn Student::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "name",
@@ -136,6 +183,7 @@ pub fn Student::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "age",
@@ -149,6 +197,7 @@ pub fn Student::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "birth_date",
@@ -162,20 +211,54 @@ pub fn Student::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
     ],
     indexes: [],
     foreign_keys: [],
     temporary: false,
     if_not_exists: true,
-    engine: Some("InnoDB"),
-    charset: Some("utf8mb4"),
-    collation: Some("utf8mb4_unicode_ci"),
+    engine: None,
+    charset: None,
+    collation: None,
     tablespace: None,
     comment: "",
-    auto_increment: Some(1),
+    auto_increment: None,
     engine_options: [],
   }
+}
+
+///|
+pub fn Student::from_row(row : Json) -> Student {
+  if row is Object(obj) {
+    let id_json = match obj.get("id") {
+      Some(value) => value
+      None => panic()
+    }
+    let id : Int64 = (
+      try! @engine.from_param(@engine.param_from_json_value(id_json)) : Int64)
+    let name_json = match obj.get("name") {
+      Some(value) => value
+      None => panic()
+    }
+    let name : String = (
+      try! @engine.from_param(@engine.param_from_json_value(name_json)) : String)
+    let age_json = match obj.get("age") {
+      Some(value) => value
+      None => panic()
+    }
+    let age : Int = (
+      try! @engine.from_param(@engine.param_from_json_value(age_json)) : Int)
+    let birth_date_json = match obj.get("birth_date") {
+      Some(value) => value
+      None => panic()
+    }
+    let birth_date : ZonedDateTime = (
+      try! @engine.from_param(@engine.param_from_json_value(birth_date_json)) :
+      ZonedDateTime)
+    return Student::{ id, name, age, birth_date }
+  }
+  panic()
 }
 
 ///|
@@ -202,6 +285,7 @@ pub fn Teacher::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "name",
@@ -215,6 +299,7 @@ pub fn Teacher::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "major",
@@ -228,6 +313,7 @@ pub fn Teacher::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "age",
@@ -241,6 +327,7 @@ pub fn Teacher::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "birth_date",
@@ -254,20 +341,68 @@ pub fn Teacher::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
     ],
     indexes: [],
     foreign_keys: [],
     temporary: false,
     if_not_exists: true,
-    engine: Some("InnoDB"),
-    charset: Some("utf8mb4"),
-    collation: Some("utf8mb4_unicode_ci"),
+    engine: None,
+    charset: None,
+    collation: None,
     tablespace: None,
     comment: "",
-    auto_increment: Some(1),
+    auto_increment: None,
     engine_options: [],
   }
+}
+
+///|
+pub fn Teacher::from_row(row : Json) -> Teacher {
+  if row is Object(obj) {
+    let id_json = match obj.get("id") {
+      Some(value) => value
+      None => panic()
+    }
+    let id : Int64 = (
+      try! @engine.from_param(@engine.param_from_json_value(id_json)) : Int64)
+    let name_json = match obj.get("name") {
+      Some(value) => value
+      None => panic()
+    }
+    let name : String = (
+      try! @engine.from_param(@engine.param_from_json_value(name_json)) : String)
+    let major_json = match obj.get("major") {
+      Some(value) => value
+      None => panic()
+    }
+    let major : String = (
+      try! @engine.from_param(@engine.param_from_json_value(major_json)) :
+      String)
+    let age_json = match obj.get("age") {
+      Some(value) => value
+      None => panic()
+    }
+    let age : Int = (
+      try! @engine.from_param(@engine.param_from_json_value(age_json)) : Int)
+    let birth_date_json = match obj.get("birth_date") {
+      Some(value) => value
+      None => panic()
+    }
+    let birth_date : ZonedDateTime? = match birth_date_json {
+      Null => None
+      _ =>
+        Some(
+          (
+            try! @engine.from_param(
+              @engine.param_from_json_value(birth_date_json),
+            ) : ZonedDateTime),
+        )
+    }
+    return Teacher::{ id, name, major, age, birth_date }
+  }
+  panic()
 }
 
 ///|
@@ -294,6 +429,7 @@ pub fn Enrollment::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "student_id",
@@ -307,6 +443,7 @@ pub fn Enrollment::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "class_id",
@@ -320,6 +457,7 @@ pub fn Enrollment::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
       {
         name: "note",
@@ -333,6 +471,7 @@ pub fn Enrollment::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
     ],
     indexes: [],
@@ -356,12 +495,12 @@ pub fn Enrollment::table() -> @morm.Table {
     ],
     temporary: false,
     if_not_exists: true,
-    engine: Some("InnoDB"),
-    charset: Some("utf8mb4"),
-    collation: Some("utf8mb4_unicode_ci"),
+    engine: None,
+    charset: None,
+    collation: None,
     tablespace: None,
     comment: "",
-    auto_increment: Some(1),
+    auto_increment: None,
     engine_options: [],
   }
 }
@@ -390,18 +529,95 @@ pub fn StudentAggregate::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
+        engine_options: [],
       },
     ],
     indexes: [],
     foreign_keys: [],
     temporary: false,
     if_not_exists: true,
-    engine: Some("InnoDB"),
-    charset: Some("utf8mb4"),
-    collation: Some("utf8mb4_unicode_ci"),
+    engine: None,
+    charset: None,
+    collation: None,
     tablespace: None,
     comment: "",
-    auto_increment: Some(1),
+    auto_increment: None,
     engine_options: [],
   }
+}
+
+///|
+pub impl @oboard/morm.Entity for JsonDocument with table(_self) -> @oboard/morm.Table {
+  JsonDocument::table()
+}
+
+///|
+pub fn JsonDocument::table() -> @morm.Table {
+  @morm.Table::{
+    name: "jsondocument",
+    schema: None,
+    catalog: None,
+    columns: [
+      {
+        name: "id",
+        column_type: @morm.ColumnType::BigInt,
+        size: 0,
+        nullable: false,
+        auto_increment: false,
+        primary_key: true,
+        unique: false,
+        comment: "",
+        charset: None,
+        collation: None,
+        default_value: None,
+        engine_options: [],
+      },
+      {
+        name: "payload",
+        column_type: @morm.ColumnType::Json,
+        size: 0,
+        nullable: false,
+        auto_increment: false,
+        primary_key: false,
+        unique: false,
+        comment: "",
+        charset: None,
+        collation: None,
+        default_value: None,
+        engine_options: [{ key: "json.storage", value: "blob" }],
+      },
+    ],
+    indexes: [],
+    foreign_keys: [],
+    temporary: false,
+    if_not_exists: true,
+    engine: None,
+    charset: None,
+    collation: None,
+    tablespace: None,
+    comment: "",
+    auto_increment: None,
+    engine_options: [],
+  }
+}
+
+///|
+pub fn JsonDocument::from_row(row : Json) -> JsonDocument {
+  if row is Object(obj) {
+    let id_json = match obj.get("id") {
+      Some(value) => value
+      None => panic()
+    }
+    let id : Int64 = (
+      try! @engine.from_param(@engine.param_from_json_value(id_json)) : Int64)
+    let payload_json = match obj.get("payload") {
+      Some(value) => value
+      None => panic()
+    }
+    let payload : Json = (
+      try! @engine.from_param(@engine.param_from_json_value(payload_json)) :
+      Json)
+    return JsonDocument::{ id, payload }
+  }
+  panic()
 }

@@ -851,6 +851,20 @@ fn mysql_type_from_json(v : Json) -> String {
 }
 
 ///|
+fn mysql_json_storage_type(
+  obj : Map[String, Json],
+  default_jsonb : Bool,
+) -> String {
+  match schema_get_engine_option(obj, "json.storage", "") {
+    "blob" | "bson" => "LONGBLOB"
+    "text" | "string" => "LONGTEXT"
+    "jsonb" => "JSON"
+    "json" => "JSON"
+    _ => if default_jsonb { "JSON" } else { "JSON" }
+  }
+}
+
+///|
 fn mysql_column_def(col_json : Json) -> String {
   if col_json is Object(obj) {
     let name = schema_get_string(obj, "name", "")
@@ -858,6 +872,8 @@ fn mysql_column_def(col_json : Json) -> String {
       return ""
     }
     let col_type = match obj.get("column_type") {
+      Some(String("Json")) => mysql_json_storage_type(obj, false)
+      Some(String("JsonB")) => mysql_json_storage_type(obj, true)
       Some(v) => mysql_type_from_json(v)
       None => "TEXT"
     }

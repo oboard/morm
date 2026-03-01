@@ -18,7 +18,7 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
       Some(n) => n
       None => f.label
     }
-    let col : @morm.Column = {
+    let mut col : @morm.Column = {
       name: col_name,
       column_type: db_type,
       size: 0,
@@ -30,6 +30,14 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
       comment: "",
       charset: None,
       collation: None,
+      engine_options: [],
+    }
+    let parsed_attrs = collect_orm_attributes_from_source(f.attrs, source)
+    for attr in parsed_attrs {
+      if (attr.name == "#morm.json" || attr.name == "#morm.jsonb") &&
+        attr.value.get("storage") is Some(storage) {
+        col = @morm.add_column_engine_option(col, "json.storage", storage)
+      }
     }
     columns.push(col)
     if parse_foreign_key_for_field(
@@ -254,6 +262,16 @@ fn render_index_type(ty : @morm.IndexType) -> String {
 
 ///|
 fn render_column(col : @morm.Column) -> String {
+  let engine_options = col.engine_options
+    .map(option => {
+      (
+        $|          {
+        $|            key: \{mbt_string(option.key)},
+        $|            value: \{mbt_string(option.value)},
+        $|          }
+      )
+    })
+    .join(",\n")
   (
     $|      {
     $|        name: \{mbt_string(col.name)},
@@ -267,6 +285,9 @@ fn render_column(col : @morm.Column) -> String {
     $|        charset: \{mbt_opt_string(col.charset)},
     $|        collation: \{mbt_opt_string(col.collation)},
     $|        default_value: \{mbt_opt_string(col.default_value)},
+    $|        engine_options: [
+    $|\{engine_options}
+    $|        ],
     $|      }
   )
 }
@@ -397,7 +418,7 @@ fn render_from_param_expr(
   if nullable {
     return "match " +
       value_expr +
-      " { Null => None _ => Some((try! @engine.from_param(@engine.param_from_json_value(" +
+      " { Null => None; _ => Some((try! @engine.from_param(@engine.param_from_json_value(" +
       value_expr +
       ")) : " +
       type_name +
@@ -417,7 +438,7 @@ fn render_entity_from_row(spec : EntitySpec) -> String {
       json_name +
       " = match obj.get(\"" +
       field.label +
-      "\") { Some(value) => value None => panic() }",
+      "\") { Some(value) => value; None => panic() }",
     )
     let field_ty = if field.nullable {
       field.field_type + "?"

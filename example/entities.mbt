@@ -65,3 +65,12 @@ pub(all) struct StudentAggregate {
   #morm.one_to_many(mapped_by="student")
   enrollments : FixedArray[Int]
 } derive(ToJson, FromJson)
+
+///|
+#morm.entity
+pub(all) struct JsonDocument {
+  #morm.primary_key
+  id : Int64
+  #morm.json(storage="blob")
+  payload : Json
+} derive(ToJson, FromJson)

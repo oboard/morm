@@ -37,6 +37,12 @@ pub(all) enum ColumnType {
 } derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
+pub(all) struct ColumnEngineOption {
+  key : String
+  value : String
+} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+
+///|
 // 数据库列定义
 pub(all) struct Column {
   name : String
@@ -50,6 +56,7 @@ pub(all) struct Column {
   comment : String
   charset : String?
   collation : String?
+  engine_options : FixedArray[ColumnEngineOption]
 } derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 
 ///|
@@ -73,5 +80,6 @@ pub fn Column::new(name : String, column_type : ColumnType) -> Column {
     comment: "",
     charset: None,
     collation: None,
+    engine_options: [],
   }
 }

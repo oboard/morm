@@ -265,6 +265,15 @@ fn oracle_type_from_json(v : Json) -> String {
 }
 
 ///|
+fn oracle_json_storage_type(obj : Map[String, Json]) -> String {
+  match schema_get_engine_option(obj, "json.storage", "") {
+    "blob" | "bson" | "jsonb" => "BLOB"
+    "text" | "string" | "json" => "CLOB"
+    _ => "CLOB"
+  }
+}
+
+///|
 fn oracle_column_def(col_json : Json) -> String {
   if col_json is Object(obj) {
     let name = schema_get_string(obj, "name", "")
@@ -272,6 +281,8 @@ fn oracle_column_def(col_json : Json) -> String {
       return ""
     }
     let col_type = match obj.get("column_type") {
+      Some(String("Json")) | Some(String("JsonB")) =>
+        oracle_json_storage_type(obj)
       Some(v) => oracle_type_from_json(v)
       None => "VARCHAR2(255)"
     }

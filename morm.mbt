@@ -40,6 +40,20 @@ pub fn add_column(table : Table, col : Column) -> Table {
 }
 
 ///|
+pub fn add_column_engine_option(
+  col : Column,
+  key : String,
+  value : String,
+) -> Column {
+  let options = Array::new()
+  for option in col.engine_options {
+    options.push(option)
+  }
+  options.push({ key, value })
+  { ..col, engine_options: FixedArray::from_array(options) }
+}
+
+///|
 pub fn add_index(table : Table, idx : Index) -> Table {
   let new_indexes = Array::new()
   for index in table.indexes {

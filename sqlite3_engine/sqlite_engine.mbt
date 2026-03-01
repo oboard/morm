@@ -136,6 +136,15 @@ fn sqlite_col_type(v : Json) -> String {
 }
 
 ///|
+fn sqlite_json_storage_type(obj : Map[String, Json]) -> String {
+  match get_engine_option(obj, "json.storage", "") {
+    "blob" | "bson" => "BLOB"
+    "text" | "string" | "json" | "jsonb" => "TEXT"
+    _ => "TEXT"
+  }
+}
+
+///|
 fn render_column_def(col_json : Json) -> String {
   if col_json is Object(obj) {
     let name = get_string(obj, "name", "")
@@ -144,6 +153,8 @@ fn render_column_def(col_json : Json) -> String {
     let nullable = get_bool(obj, "nullable", true)
     let unique = get_bool(obj, "unique", false)
     let col_type = match obj.get("column_type") {
+      Some(String("Json")) | Some(String("JsonB")) =>
+        sqlite_json_storage_type(obj)
       Some(v) => sqlite_col_type(v)
       None => "TEXT"
     }

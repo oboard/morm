@@ -290,3 +290,15 @@ test "generated one_to_many is skipped from columns" {
   assert_eq(table.columns.length(), 1)
   assert_eq(table.columns[0].name, "id")
 }
+
+///|
+test "generated json storage option" {
+  let table = JsonDocument::table()
+  assert_eq(table.columns.length(), 2)
+  let payload = table.columns[1]
+  assert_eq(payload.name, "payload")
+  assert_eq(payload.column_type, Json)
+  assert_eq(payload.engine_options.length(), 1)
+  assert_eq(payload.engine_options[0].key, "json.storage")
+  assert_eq(payload.engine_options[0].value, "blob")
+}
