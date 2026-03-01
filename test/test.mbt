@@ -115,3 +115,19 @@ test "time types json roundtrip" {
   inspect(date_time.to_string(), content="2026-01-02T12:34:56")
   inspect(timestamp.to_string(), content="2026-01-02T12:34:56Z")
 }
+
+///|
+test "from_param decodes scalar values" {
+  let id : Int64 = try! @engine.from_param(
+    @engine.param_from_json_value("42".to_json()),
+  )
+  let name : String = try! @engine.from_param(
+    @engine.param_from_json_value("alice".to_json()),
+  )
+  let created_at : @time.PlainDateTime = try! @engine.from_param(
+    @engine.param_from_json_value("2026-01-02T12:34:56".to_json()),
+  )
+  inspect(id.to_string(), content="42")
+  inspect(name, content="alice")
+  inspect(created_at.to_string(), content="2026-01-02T12:34:56")
+}

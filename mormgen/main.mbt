@@ -347,13 +347,123 @@ fn render_table_literal(table : @morm.Table) -> String {
 
 ///|
 /// 代码生成阶段：从表结构生成实现代码
-fn generate_entity_impl(name : String, table : @morm.Table) -> String {
+fn is_param_decodable_type(type_name : String) -> Bool {
+  match type_name {
+    "Unit"
+    | "Bool"
+    | "Byte"
+    | "Int"
+    | "Int16"
+    | "UInt16"
+    | "UInt"
+    | "UInt64"
+    | "Int64"
+    | "BigInt"
+    | "Float"
+    | "Double"
+    | "String"
+    | "Bytes"
+    | "Json"
+    | "PlainDate"
+    | "PlainTime"
+    | "PlainDateTime"
+    | "ZonedDateTime" => true
+    _ => false
+  }
+}
+
+///|
+fn entity_supports_row_decoder(spec : EntitySpec) -> Bool {
+  for field in spec.fields {
+    let attrs = collect_orm_attributes(field.attrs)
+    for attr in attrs {
+      if attr.name == "#morm.one_to_many" || attr.name == "#morm.many_to_one" {
+        return false
+      }
+    }
+    if !is_param_decodable_type(field.field_type) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn render_from_param_expr(
+  type_name : String,
+  value_expr : String,
+  nullable : Bool,
+) -> String {
+  if nullable {
+    return "match " +
+      value_expr +
+      " { Null => None _ => Some((try! @engine.from_param(@engine.param_from_json_value(" +
+      value_expr +
+      ")) : " +
+      type_name +
+      ")) }"
+  }
+  "(try! @engine.from_param(@engine.param_from_json_value(\{value_expr})) : \{type_name})"
+}
+
+///|
+fn render_entity_from_row(spec : EntitySpec) -> String {
+  let field_lines : Array[String] = []
+  let ctor_lines : Array[String] = []
+  for field in spec.fields {
+    let json_name = field.label + "_json"
+    field_lines.push(
+      "    let " +
+      json_name +
+      " = match obj.get(\"" +
+      field.label +
+      "\") { Some(value) => value None => panic() }",
+    )
+    let field_ty = if field.nullable {
+      field.field_type + "?"
+    } else {
+      field.field_type
+    }
+    field_lines.push(
+      "    let " +
+      field.label +
+      " : " +
+      field_ty +
+      " = " +
+      render_from_param_expr(field.field_type, json_name, field.nullable),
+    )
+    ctor_lines.push("      " + field.label + ",")
+  }
+  let fields_code = field_lines.join("\n")
+  let ctor_code = ctor_lines.join("\n")
+  (
+    $| pub fn \{spec.name}::from_row(row : Json) -> \{spec.name} {
+    $|   if row is Object(obj) {
+    $|\{fields_code}
+    $|     return \{spec.name}::{
+    $|\{ctor_code}
+    $|     }
+    $|   }
+    $|   panic()
+    $| }
+  )
+}
+
+///|
+fn generate_entity_impl(spec : EntitySpec, table : @morm.Table) -> String {
+  let name = spec.name
   let table_literal = render_table_literal(table)
+  let row_decoder = if entity_supports_row_decoder(spec) {
+    "\n" + render_entity_from_row(spec)
+  } else {
+    ""
+  }
   (
     $| pub impl @oboard/morm.Entity for \{name} with table(_self) -> @oboard/morm.Table { \{name}::table() }
     $| pub fn \{name}::table() -> @morm.Table {
     $|\{table_literal}
     $| }
+    $|\{row_decoder}
   )
 }
 
@@ -378,6 +488,46 @@ fn find_entity_spec_by_table(
     }
   }
   None
+}
+
+///|
+fn fixed_array_inner_type(type_name : String) -> String? {
+  if type_name.strip_prefix("FixedArray[") is Some(rest) && rest.has_suffix("]") {
+    let n = rest.length()
+    return Some(rest[0:n - 1].to_string() catch { _ => "" })
+  }
+  None
+}
+
+///|
+fn option_inner_type(type_name : String) -> String? {
+  if type_name.has_suffix("?") {
+    let n = type_name.length()
+    return Some(type_name[0:n - 1].to_string() catch { _ => "" })
+  }
+  None
+}
+
+///|
+fn render_value_decode_expr(
+  type_name : String,
+  value_expr : String,
+  entity_specs : Array[EntitySpec],
+) -> String {
+  match find_entity_spec(entity_specs, type_name) {
+    Some(spec) =>
+      if entity_supports_row_decoder(spec) {
+        "\{type_name}::from_row(\{value_expr})"
+      } else {
+        "(try! @json.from_json(\{value_expr}) : \{type_name})"
+      }
+    None =>
+      if is_param_decodable_type(type_name) {
+        "(try! @engine.from_param(@engine.param_from_json_value(\{value_expr})) : \{type_name})"
+      } else {
+        "(try! @json.from_json(\{value_expr}) : \{type_name})"
+      }
+  }
 }
 
 ///|
@@ -570,6 +720,23 @@ fn generate_mapper_code(
     let query_args = "[" + query_args_parts.join(", ") + "]"
     // 返回类型字符串
     let ret_type = m.return_type
+    let array_item_type = match fixed_array_inner_type(ret_type) {
+      Some(inner) => inner
+      None => "Json"
+    }
+    let option_value_type = match option_inner_type(ret_type) {
+      Some(inner) => inner
+      None => ret_type
+    }
+    let array_decode_expr = render_value_decode_expr(
+      array_item_type, "row", entity_specs,
+    )
+    let option_decode_expr = render_value_decode_expr(
+      option_value_type, "result", entity_specs,
+    )
+    let value_decode_expr = render_value_decode_expr(
+      ret_type, "result", entity_specs,
+    )
     let method_header =
       $| pub impl \{trait_name} for \{impl_name} with \{m.name}(
       $|   \{param_sig}
@@ -618,7 +785,7 @@ fn generate_mapper_code(
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
           $|   let res = @engine.exec_query(self.engine, q)
           $|   if res.rows is [result, ..] {
-          $|     return Some(try! @json.from_json(result))
+          $|     return Some(\{option_decode_expr})
           $|   }
           $|   None
           $| }
@@ -631,7 +798,7 @@ fn generate_mapper_code(
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
           $|   let res = @engine.exec_query(self.engine, q)
           $|   if res.rows is [result, ..] {
-          $|     return (try! @json.from_json(result) : \{entity_ty})
+          $|     return \{render_value_decode_expr(entity_ty, "result", entity_specs)}
           $|   }
           $|   panic()
           $| }
@@ -663,12 +830,7 @@ fn generate_mapper_code(
               if m.returns_array {
                 (
                   $|   let q = \{code}
-                  $|   @engine.exec_query(self.engine, q).rows.map(row => @json.from_json(
-                  $|       row,
-                  $|     ) catch {
-                  $|       _ => panic()
-                  $|     },
-                  $|   )
+                  $|   @engine.exec_query(self.engine, q).rows.map(row => \{array_decode_expr})
                   $| }
                   $|
                 )
@@ -677,7 +839,7 @@ fn generate_mapper_code(
                   $|   let q = \{code}
                   $|   if @engine.exec_query(self.engine, q).rows
                   $|     is [result, ..] {
-                  $|     return Some(try! @json.from_json(result))
+                  $|     return Some(\{option_decode_expr})
                   $|   }
                   $|   None
                   $| }
@@ -688,7 +850,7 @@ fn generate_mapper_code(
                   $|   let q = \{code}
                   $|   if @engine.exec_query(self.engine, q).rows
                   $|     is [result, ..] {
-                  $|     return (try! @json.from_json(result) : \{ret_type})
+                  $|     return \{value_decode_expr}
                   $|   }
                   $|   panic()
                   $| }
@@ -701,12 +863,7 @@ fn generate_mapper_code(
           let sql = m.sql.unwrap()
           if m.returns_array {
             (
-              $|   self.engine.exec_raw("\{sql}", \{query_args}).rows.map(row => @json.from_json(
-              $|       row,
-              $|     ) catch {
-              $|       _ => panic()
-              $|     },
-              $|   )
+              $|   self.engine.exec_raw("\{sql}", \{query_args}).rows.map(row => \{array_decode_expr})
               $| }
               $|
             )
@@ -714,7 +871,7 @@ fn generate_mapper_code(
             (
               $|   if self.engine.exec_raw("\{sql}", \{query_args}).rows
               $|     is [result, ..] {
-              $|     return Some(try! @json.from_json(result))
+              $|     return Some(\{option_decode_expr})
               $|   }
               $|   None
               $| }
@@ -724,7 +881,7 @@ fn generate_mapper_code(
             (
               $|   if self.engine.exec_raw("\{sql}", \{query_args}).rows
               $|     is [result, ..] {
-              $|     return (try! @json.from_json(result) : \{ret_type})
+              $|     return \{value_decode_expr}
               $|   }
               $|   panic()
               $| }
@@ -779,7 +936,7 @@ fn main {
     let codes : Array[String] = []
     specs.each(spec => {
       let table = transform_entity_to_table(spec, source_content)
-      let code = generate_entity_impl(spec.name, table)
+      let code = generate_entity_impl(spec, table)
       codes.push(code)
     })
     mapper_specs.each(ms => {
