@@ -131,3 +131,58 @@ test "from_param decodes scalar values" {
   inspect(name, content="alice")
   inspect(created_at.to_string(), content="2026-01-02T12:34:56")
 }
+
+///|
+pub(all) struct BsonDoc {
+  id : Int64
+  payload : Json
+} derive(ToJson, FromJson)
+
+///|
+pub impl @morm.Entity for BsonDoc with table(_self) -> @morm.Table {
+  @morm.Table::new("bson_doc", columns=[
+    @morm.Column::new("id", @morm.BigInt),
+    {
+      ..@morm.Column::new("payload", @morm.Json),
+      engine_options: [{ key: "json.storage", value: "bson" }],
+    },
+  ])
+}
+
+///|
+test "bson roundtrip" {
+  let value : Json = {
+    "name": "alice",
+    "active": true,
+    "ids": [1, 2, 3],
+    "meta": { "score": 7, "ok": false, "note": Json::null() },
+  }
+  let bytes = @engine.json_to_bson(value)
+  let decoded = try! @engine.bson_to_json(bytes)
+  if decoded
+    is {
+      "name": "alice",
+      "active": True,
+      "ids": [1, 2, 3],
+      "meta": { "score": 7, "ok": False, "note": Null, .. },
+      ..
+    } {
+    inspect(true, content="true")
+  } else {
+    fail("unexpected bson decode result")
+  }
+}
+
+///|
+test "insert from entity encodes bson column as bytes" {
+  let value : Json = { "kind": "doc", "n": 3 }
+  let q = @morm.insert_into("bson_doc").from(BsonDoc::{ id: 1, payload: value })
+  let (_, params) = @engine.render_default_sql(q.to_statement())
+  match params[1] {
+    @engine.Bytes(bytes) => {
+      let decoded = try! @engine.bson_to_json(bytes)
+      inspect(decoded.stringify(), content="{\"kind\":\"doc\",\"n\":3}")
+    }
+    _ => fail("expected BSON bytes")
+  }
+}

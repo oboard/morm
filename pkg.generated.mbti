@@ -10,6 +10,8 @@ import {
 // Values
 pub fn add_column(Table, Column) -> Table
 
+pub fn add_column_engine_option(Column, String, String) -> Column
+
 pub fn add_foreign_key(Table, ForeignKey) -> Table
 
 pub fn add_index(Table, Index) -> Table
@@ -171,6 +173,7 @@ pub(all) struct Column {
   comment : String
   charset : String?
   collation : String?
+  engine_options : FixedArray[ColumnEngineOption]
 }
 pub fn Column::new(String, ColumnType) -> Self
 pub impl Compare for Column
@@ -189,6 +192,17 @@ pub impl Eq for ColumnDiff
 pub impl Show for ColumnDiff
 pub impl ToJson for ColumnDiff
 pub impl @json.FromJson for ColumnDiff
+
+pub(all) struct ColumnEngineOption {
+  key : String
+  value : String
+}
+pub impl Compare for ColumnEngineOption
+pub impl Eq for ColumnEngineOption
+pub impl Hash for ColumnEngineOption
+pub impl Show for ColumnEngineOption
+pub impl ToJson for ColumnEngineOption
+pub impl @json.FromJson for ColumnEngineOption
 
 pub(all) enum ColumnType {
   TinyInt

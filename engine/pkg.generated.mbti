@@ -8,7 +8,21 @@ import {
 }
 
 // Values
+pub fn bson_to_json(Bytes) -> Json raise ParamDecodeError
+
+pub fn bytes_to_hex(Bytes) -> String
+
+pub fn decode_json_column(Json, String) -> Json raise ParamDecodeError
+
 pub async fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
+
+pub fn[T : FromParam] from_param(Param) -> T raise ParamDecodeError
+
+pub fn json_bytes_to_bytes(Json) -> Bytes?
+
+pub fn json_to_bson(Json) -> Bytes
+
+pub fn param_from_json_value(Json) -> Param
 
 pub fn preload_in_sql_dollar(String, String, Int) -> String
 
@@ -33,6 +47,12 @@ pub async fn[E : Engine] tx_rollback_to_savepoint(E, String) -> QueryResult
 pub async fn[E : Engine] tx_savepoint(E, String) -> QueryResult
 
 // Errors
+pub(all) suberror ParamDecodeError {
+  ParamDecodeError(String)
+}
+pub impl Eq for ParamDecodeError
+pub impl Show for ParamDecodeError
+pub impl ToJson for ParamDecodeError
 
 // Types and methods
 pub(all) struct DeleteStatement {
@@ -90,6 +110,7 @@ pub impl Eq for Param
 pub impl Show for Param
 pub impl ToJson for Param
 pub impl @json.FromJson for Param
+pub impl FromParam for Param
 pub impl ToParam for Param
 
 pub(all) struct QueryResult {
@@ -199,6 +220,30 @@ pub(open) trait Engine {
   preload_many_to_many_sql(Self, String, String, String, String, String, Int) -> String
   close(Self) -> Unit
 }
+
+pub(open) trait FromParam {
+  from_param(Param) -> Self raise ParamDecodeError
+}
+pub impl FromParam for Unit
+pub impl FromParam for Bool
+pub impl FromParam for Byte
+pub impl FromParam for Int
+pub impl FromParam for Int16
+pub impl FromParam for Int64
+pub impl FromParam for UInt
+pub impl FromParam for UInt16
+pub impl FromParam for UInt64
+pub impl FromParam for Float
+pub impl FromParam for Double
+pub impl FromParam for String
+pub impl[T : FromParam] FromParam for T?
+pub impl FromParam for Bytes
+pub impl FromParam for @bigint.BigInt
+pub impl FromParam for Json
+pub impl FromParam for @time.PlainDate
+pub impl FromParam for @time.PlainDateTime
+pub impl FromParam for @time.PlainTime
+pub impl FromParam for @time.ZonedDateTime
 
 pub(open) trait QueryBuilder {
   to_statement(Self) -> Statement

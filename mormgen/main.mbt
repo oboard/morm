@@ -428,6 +428,30 @@ fn render_from_param_expr(
 }
 
 ///|
+fn field_json_storage(field : FieldSpec) -> String? {
+  for attr in collect_orm_attributes(field.attrs) {
+    if (attr.name == "#morm.json" || attr.name == "#morm.jsonb") &&
+      attr.value.get("storage") is Some(storage) {
+      return Some(storage)
+    }
+  }
+  None
+}
+
+///|
+fn render_field_from_row_expr(field : FieldSpec, value_expr : String) -> String {
+  if field.field_type == "Json" {
+    if field_json_storage(field) is Some(storage) {
+      if field.nullable {
+        return "match \{value_expr} { Null => None; _ => Some(try! @engine.decode_json_column(\{value_expr}, \{mbt_string(storage)})) }"
+      }
+      return "(try! @engine.decode_json_column(\{value_expr}, \{mbt_string(storage)}))"
+    }
+  }
+  render_from_param_expr(field.field_type, value_expr, field.nullable)
+}
+
+///|
 fn render_entity_from_row(spec : EntitySpec) -> String {
   let field_lines : Array[String] = []
   let ctor_lines : Array[String] = []
@@ -451,7 +475,7 @@ fn render_entity_from_row(spec : EntitySpec) -> String {
       " : " +
       field_ty +
       " = " +
-      render_from_param_expr(field.field_type, json_name, field.nullable),
+      render_field_from_row_expr(field, json_name),
     )
     ctor_lines.push("      " + field.label + ",")
   }

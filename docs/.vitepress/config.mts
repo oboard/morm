@@ -20,6 +20,7 @@ export default defineConfig({
           { text: 'Entities', link: '/entities' },
           { text: 'Mappers', link: '/mappers' },
           { text: 'Query Builders', link: '/query-builders' },
+          { text: 'JSON Columns', link: '/json' },
           { text: 'Time Types', link: '/time' },
           { text: 'Engines', link: '/engines' },
           { text: 'Migrations', link: '/migrations' },

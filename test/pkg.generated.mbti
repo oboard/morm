@@ -1,11 +1,23 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "oboard/morm/test"
 
+import {
+  "moonbitlang/core/json",
+  "oboard/morm",
+}
+
 // Values
 
 // Errors
 
 // Types and methods
+pub(all) struct BsonDoc {
+  id : Int64
+  payload : Json
+}
+pub impl ToJson for BsonDoc
+pub impl @json.FromJson for BsonDoc
+pub impl @morm.Entity for BsonDoc
 
 // Type aliases
 

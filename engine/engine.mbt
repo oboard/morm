@@ -24,6 +24,304 @@ pub(all) enum Param {
 } derive(Show)
 
 ///|
+fn[T] bson_error(msg : String) -> T raise ParamDecodeError {
+  raise ParamDecodeError("BSON decode error: \{msg}")
+}
+
+///|
+fn bson_write_cstring(buf : @buffer.Buffer, text : String) -> Unit {
+  buf.write_string_utf8(text)
+  buf.write_byte(0)
+}
+
+///|
+fn bson_write_string(buf : @buffer.Buffer, text : String) -> Unit {
+  let bytes = @utf8.encode(text)
+  buf.write_int_le(bytes.length() + 1)
+  buf.write_bytes(bytes)
+  buf.write_byte(0)
+}
+
+///|
+fn bson_write_value(buf : @buffer.Buffer, key : String, value : Json) -> Unit {
+  match value {
+    Null => {
+      buf.write_byte(0x0A)
+      bson_write_cstring(buf, key)
+    }
+    True => {
+      buf.write_byte(0x08)
+      bson_write_cstring(buf, key)
+      buf.write_byte(1)
+    }
+    False => {
+      buf.write_byte(0x08)
+      bson_write_cstring(buf, key)
+      buf.write_byte(0)
+    }
+    String(text) => {
+      buf.write_byte(0x02)
+      bson_write_cstring(buf, key)
+      bson_write_string(buf, text)
+    }
+    Number(n, ..) =>
+      if n.to_int().to_double() == n {
+        buf.write_byte(0x10)
+        bson_write_cstring(buf, key)
+        buf.write_int_le(n.to_int())
+      } else {
+        buf.write_byte(0x01)
+        bson_write_cstring(buf, key)
+        buf.write_double_le(n)
+      }
+    Array(items) => {
+      buf.write_byte(0x04)
+      bson_write_cstring(buf, key)
+      buf.write_bytes(bson_encode_array(items))
+    }
+    Object(obj) => {
+      buf.write_byte(0x03)
+      bson_write_cstring(buf, key)
+      buf.write_bytes(bson_encode_object(obj))
+    }
+  }
+}
+
+///|
+fn bson_encode_entries(entries : Iter[(String, Json)]) -> Bytes {
+  let body = @buffer.new()
+  for entry in entries {
+    let (key, value) = entry
+    bson_write_value(body, key, value)
+  }
+  body.write_byte(0)
+  let out = @buffer.new()
+  out.write_int_le(body.length() + 4)
+  out.write_bytes(body.to_bytes())
+  out.to_bytes()
+}
+
+///|
+fn bson_encode_object(obj : Map[String, Json]) -> Bytes {
+  bson_encode_entries(obj.map((k, v) => (k, v)).values())
+}
+
+///|
+fn bson_encode_array(items : Array[Json]) -> Bytes {
+  let entries : Array[(String, Json)] = []
+  let mut i = 0
+  for item in items {
+    entries.push(("\{i}", item))
+    i = i + 1
+  }
+  bson_encode_entries(entries.iter())
+}
+
+///|
+pub fn json_to_bson(value : Json) -> Bytes {
+  bson_encode_entries([("__morm_root", value)].iter())
+}
+
+///|
+pub fn bytes_to_hex(data : Bytes) -> String {
+  let out = @buffer.new(size_hint=data.length() * 2)
+  for b in data {
+    let v = b.to_int()
+    let hi = (v >> 4) & 0x0f
+    let lo = v & 0x0f
+    out.write_string(
+      if hi < 10 {
+        "\{hi}"
+      } else {
+        "\{('a'.to_int() + hi - 10).to_char()}"
+      },
+    )
+    out.write_string(
+      if lo < 10 {
+        "\{lo}"
+      } else {
+        "\{('a'.to_int() + lo - 10).to_char()}"
+      },
+    )
+  }
+  out.to_string()
+}
+
+///|
+pub fn json_bytes_to_bytes(value : Json) -> Bytes? {
+  match value {
+    Array(items) => {
+      let out = @buffer.new(size_hint=items.length())
+      for item in items {
+        match item {
+          Number(n, ..) if n.to_int().to_double() == n => {
+            let byte = n.to_int()
+            guard byte >= 0 && byte <= 255 else { return None }
+            out.write_byte(byte.to_byte())
+          }
+          _ => return None
+        }
+      }
+      Some(out.to_bytes())
+    }
+    _ => None
+  }
+}
+
+///|
+fn bson_read_cstring(
+  data : Bytes,
+  offset : Int,
+) -> (String, Int) raise ParamDecodeError {
+  let mut i = offset
+  while i < data.length() && data[i] != 0 {
+    i = i + 1
+  }
+  guard i < data.length() else { return bson_error("unterminated cstring") }
+  (@utf8.decode_lossy(data[offset:i].to_bytes()), i + 1)
+}
+
+///|
+fn bson_read_i32(data : Bytes, offset : Int) -> Int raise ParamDecodeError {
+  guard offset >= 0 && offset + 4 <= data.length() else {
+    return bson_error("short i32")
+  }
+  match data[offset:offset + 4] {
+    [i32le(v)] => v
+    _ => bson_error("bad i32")
+  }
+}
+
+///|
+fn bson_read_i64(data : Bytes, offset : Int) -> Int64 raise ParamDecodeError {
+  guard offset >= 0 && offset + 8 <= data.length() else {
+    return bson_error("short i64")
+  }
+  match data[offset:offset + 8] {
+    [i64le(v)] => v
+    _ => bson_error("bad i64")
+  }
+}
+
+///|
+fn bson_decode_value(
+  data : Bytes,
+  tag : Int,
+  offset : Int,
+) -> (Json, Int) raise ParamDecodeError {
+  match tag {
+    0x01 => bson_error("double values are not supported yet")
+    0x02 => {
+      let len = bson_read_i32(data, offset)
+      guard len > 0 && offset + 4 + len <= data.length() else {
+        return bson_error("bad string length")
+      }
+      let start = offset + 4
+      let end = start + len - 1
+      guard data[end] == 0 else {
+        return bson_error("string is not null-terminated")
+      }
+      (
+        Json::string(@utf8.decode_lossy(data[start:end].to_bytes())),
+        start + len,
+      )
+    }
+    0x03 => bson_decode_document(data, offset, false)
+    0x04 => bson_decode_document(data, offset, true)
+    0x08 => {
+      guard offset < data.length() else { return bson_error("short bool") }
+      (Json::boolean(data[offset] != 0), offset + 1)
+    }
+    0x0A => (Json::null(), offset)
+    0x10 => {
+      let v = bson_read_i32(data, offset)
+      (Json::number(v.to_double()), offset + 4)
+    }
+    0x12 => {
+      let v = bson_read_i64(data, offset)
+      (v.to_json(), offset + 8)
+    }
+    _ => bson_error("unsupported tag \{tag}")
+  }
+}
+
+///|
+fn bson_decode_document(
+  data : Bytes,
+  offset : Int,
+  as_array : Bool,
+) -> (Json, Int) raise ParamDecodeError {
+  let len = bson_read_i32(data, offset)
+  guard len >= 5 && offset + len <= data.length() else {
+    return bson_error("bad document length")
+  }
+  let end = offset + len
+  let mut pos = offset + 4
+  let obj : Map[String, Json] = {}
+  let arr : Array[Json] = []
+  while pos < end - 1 {
+    let tag = data[pos].to_int()
+    pos = pos + 1
+    let (key, next_pos) = bson_read_cstring(data, pos)
+    let (value, after_value) = bson_decode_value(data, tag, next_pos)
+    pos = after_value
+    if as_array {
+      ignore(key)
+      arr.push(value)
+    } else {
+      obj[key] = value
+    }
+  }
+  guard data[end - 1] == 0 else {
+    return bson_error("document is not null-terminated")
+  }
+  if as_array {
+    (arr.to_json(), end)
+  } else {
+    (obj.to_json(), end)
+  }
+}
+
+///|
+pub fn bson_to_json(data : Bytes) -> Json raise ParamDecodeError {
+  let (root, next_pos) = bson_decode_document(data, 0, false)
+  guard next_pos == data.length() else { return bson_error("trailing bytes") }
+  match root {
+    Object(obj) =>
+      match obj.get("__morm_root") {
+        Some(value) => {
+          let mut count = 0
+          for _ in obj.values() {
+            count = count + 1
+          }
+          if count == 1 {
+            value
+          } else {
+            bson_error("missing root wrapper")
+          }
+        }
+        None => bson_error("missing root wrapper")
+      }
+    _ => bson_error("root is not an object")
+  }
+}
+
+///|
+pub fn decode_json_column(
+  value : Json,
+  storage : String,
+) -> Json raise ParamDecodeError {
+  match storage {
+    "bson" =>
+      match json_bytes_to_bytes(value) {
+        Some(data) => bson_to_json(data)
+        None => value
+      }
+    _ => value
+  }
+}
+
+///|
 pub impl Eq for Param with equal(self, other) {
   match (self, other) {
     (Null, Null) => true

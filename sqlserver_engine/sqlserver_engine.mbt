@@ -112,7 +112,7 @@ fn param_sql(p : @engine.Param) -> String {
     @engine.Uuid(v) => quote(v)
     @engine.Json(v) => quote(v.stringify())
     @engine.String(v) => quote(v)
-    @engine.Bytes(_) => "NULL"
+    @engine.Bytes(v) => "0x\{@engine.bytes_to_hex(v)}"
   }
 }
 

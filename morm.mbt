@@ -339,6 +339,29 @@ fn json_to_param(value : Json) -> @engine.Param {
 }
 
 ///|
+fn json_storage_for_column(col : Column) -> String {
+  for option in col.engine_options {
+    if option.key == "json.storage" {
+      return option.value
+    }
+  }
+  ""
+}
+
+///|
+fn json_to_param_for_column(value : Json, col : Column) -> @engine.Param {
+  match col.column_type {
+    Json | JsonB =>
+      match json_storage_for_column(col) {
+        "bson" => @engine.Bytes(@engine.json_to_bson(value))
+        "blob" => @engine.Bytes(@utf8.encode(value.stringify()))
+        _ => @engine.Json(value)
+      }
+    _ => json_to_param(value)
+  }
+}
+
+///|
 fn[O : ToJson] collect_owner_key_params(
   owners : FixedArray[O],
   owner_key : String,
@@ -812,9 +835,17 @@ pub fn[E : Entity] InsertQuery::from(
   entity : E,
 ) -> InsertQuery {
   let json = entity.to_json()
-  let columns = entity.table().columns.map(c => c.name)
+  let table = entity.table()
+  let columns = table.columns.map(c => c.name)
   let values = if json is Object(obj) {
-    FixedArray::from_iter(obj.values().map(v => json_to_param(v)))
+    let encoded : Array[@engine.Param] = []
+    for col in table.columns {
+      match obj.get(col.name) {
+        Some(v) => encoded.push(json_to_param_for_column(v, col))
+        None => encoded.push(@engine.Null)
+      }
+    }
+    FixedArray::from_array(encoded)
   } else {
     []
   }
@@ -864,9 +895,15 @@ pub fn[E : Entity] UpsertQuery::from(
   let json = entity.to_json()
   let table = entity.table()
   let sets = if json is Object(obj) {
-    obj.map((col, value) => { col, value: json_to_param(value) })
+    let out : Array[Set] = []
+    for col in table.columns {
+      if obj.get(col.name) is Some(value) {
+        out.push({ col: col.name, value: json_to_param_for_column(value, col) })
+      }
+    }
+    FixedArray::from_array(out)
   } else {
-    {}
+    []
   }
   let mut conflict_cols : FixedArray[String] = []
   match table.primary_key() {
@@ -882,11 +919,7 @@ pub fn[E : Entity] UpsertQuery::from(
         }
       }
   }
-  {
-    ..self,
-    sets: FixedArray::from_iter(sets.values()),
-    conflict_target: conflict_cols,
-  }
+  { ..self, sets, conflict_target: conflict_cols }
 }
 
 ///|
