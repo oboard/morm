@@ -157,8 +157,8 @@ test "bson roundtrip" {
     "ids": [1, 2, 3],
     "meta": { "score": 7, "ok": false, "note": Json::null() },
   }
-  let bytes = @engine.json_to_bson(value)
-  let decoded = try! @engine.bson_to_json(bytes)
+  let bytes = @bson.to_bytes(value)
+  let decoded = try! @bson.from_bytes(bytes)
   if decoded
     is {
       "name": "alice",
@@ -180,7 +180,7 @@ test "insert from entity encodes bson column as bytes" {
   let (_, params) = @engine.render_default_sql(q.to_statement())
   match params[1] {
     @engine.Bytes(bytes) => {
-      let decoded = try! @engine.bson_to_json(bytes)
+      let decoded = try! @bson.from_bytes(bytes)
       inspect(decoded.stringify(), content="{\"kind\":\"doc\",\"n\":3}")
     }
     _ => fail("expected BSON bytes")

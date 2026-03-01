@@ -1,4 +1,5 @@
 import {
+  "oboard/morm/bson",
   "oboard/morm",
   "oboard/morm/engine",
   "oboard/morm/time",

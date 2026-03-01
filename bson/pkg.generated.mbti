@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/bson"
+
+// Values
+pub fn from_bytes(Bytes) -> Json raise BsonError
+
+pub fn json_bytes_to_bytes(Json) -> Bytes?
+
+pub fn to_bytes(Json) -> Bytes
+
+// Errors
+pub(all) suberror BsonError {
+  BsonError(String)
+}
+pub impl Eq for BsonError
+pub impl Show for BsonError
+pub impl ToJson for BsonError
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

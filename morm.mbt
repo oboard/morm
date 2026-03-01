@@ -353,7 +353,7 @@ fn json_to_param_for_column(value : Json, col : Column) -> @engine.Param {
   match col.column_type {
     Json | JsonB =>
       match json_storage_for_column(col) {
-        "bson" => @engine.Bytes(@engine.json_to_bson(value))
+        "bson" => @engine.Bytes(@bson.to_bytes(value))
         "blob" => @engine.Bytes(@utf8.encode(value.stringify()))
         _ => @engine.Json(value)
       }

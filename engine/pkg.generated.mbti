@@ -8,8 +8,6 @@ import {
 }
 
 // Values
-pub fn bson_to_json(Bytes) -> Json raise ParamDecodeError
-
 pub fn bytes_to_hex(Bytes) -> String
 
 pub fn decode_json_column(Json, String) -> Json raise ParamDecodeError
@@ -17,10 +15,6 @@ pub fn decode_json_column(Json, String) -> Json raise ParamDecodeError
 pub async fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
 
 pub fn[T : FromParam] from_param(Param) -> T raise ParamDecodeError
-
-pub fn json_bytes_to_bytes(Json) -> Bytes?
-
-pub fn json_to_bson(Json) -> Bytes
 
 pub fn param_from_json_value(Json) -> Param
 
