@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/morm/sqlite3_engine"
+package "oboard/morm/engine/sqlite3"
 
 import {
   "moonbitlang/core/json",

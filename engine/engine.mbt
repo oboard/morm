@@ -1,4 +1,3 @@
-
 ///|
 pub fn bytes_to_hex(data : Bytes) -> String {
   let out = @buffer.new(size_hint=data.length() * 2)

@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/morm/pgsql_engine"
+package "oboard/morm/engine/postgres"
 
 import {
   "oboard/morm/engine",

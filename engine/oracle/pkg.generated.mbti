@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/morm/oracle_engine"
+package "oboard/morm/engine/oracle"
 
 import {
   "oboard/morm/engine",

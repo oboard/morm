@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/morm/mysql_engine"
+package "oboard/morm/engine/mysql"
 
 import {
   "oboard/morm/engine",

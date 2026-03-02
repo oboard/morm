@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "oboard/morm/mongodb_engine"
+package "oboard/morm/engine/mongodb"
 
 // Values
 pub fn parse_mongodb_dsn(String) -> (String, Int, String)?
