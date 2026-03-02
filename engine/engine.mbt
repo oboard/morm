@@ -652,19 +652,40 @@ pub(open) trait Engine {
   /// Execute raw SQL statement directly. Keep this for custom SQL in mapper.
   async exec_raw(Self, sql : String, params : FixedArray[Param]) -> QueryResult
   ///|
-  /// Build preload SQL with IN placeholders for current engine style.
-  preload_in_sql(Self, table : String, key_col : String, count : Int) -> String
+  /// Execute belongs-to preload and return rows keyed by target key.
+  async preload_belongs_to_json(
+    Self,
+    target_table : String,
+    target_key : String,
+    key_params : FixedArray[Param],
+  ) -> Map[String, Json]
   ///|
-  /// Build many-to-many preload SQL for current engine style.
-  preload_many_to_many_sql(
+  /// Execute has-one preload and return rows keyed by target key.
+  async preload_has_one_json(
+    Self,
+    target_table : String,
+    target_key : String,
+    key_params : FixedArray[Param],
+  ) -> Map[String, Json]
+  ///|
+  /// Execute has-many preload and return grouped rows keyed by target key.
+  async preload_has_many_json(
+    Self,
+    target_table : String,
+    target_key : String,
+    key_params : FixedArray[Param],
+  ) -> Map[String, Array[Json]]
+  ///|
+  /// Execute many-to-many preload and return grouped rows keyed by owner key.
+  async preload_many_to_many_json(
     Self,
     target_table : String,
     target_key : String,
     join_table : String,
     join_owner_key : String,
     join_target_key : String,
-    count : Int,
-  ) -> String
+    key_params : FixedArray[Param],
+  ) -> Map[String, Array[Json]]
   ///|
   /// Close the database connection.
   close(Self) -> Unit
@@ -807,6 +828,92 @@ pub fn preload_many_to_many_sql_dollar(
 ) -> String {
   let marks = placeholders_with("$", count)
   "SELECT t.*, j.\{join_owner_key} AS __morm_owner_key FROM \{target_table} t INNER JOIN \{join_table} j ON j.\{join_target_key} = t.\{target_key} WHERE j.\{join_owner_key} IN (\{marks})"
+}
+
+///|
+pub async fn[E : Engine] preload_belongs_to_default(
+  engine : E,
+  sql : String,
+  target_key : String,
+  key_params : FixedArray[Param],
+) -> Map[String, Json] {
+  let out : Map[String, Json] = Map::new()
+  if key_params.is_empty() {
+    return out
+  }
+  let res = engine.exec_raw(sql, key_params)
+  if !res.ok {
+    return out
+  }
+  for row in res.rows {
+    if row is Object(obj) {
+      if obj.get(target_key) is Some(v) {
+        out.set(v.stringify(), row)
+      }
+    }
+  }
+  out
+}
+
+///|
+pub async fn[E : Engine] preload_has_many_default(
+  engine : E,
+  sql : String,
+  target_key : String,
+  key_params : FixedArray[Param],
+) -> Map[String, Array[Json]] {
+  let out : Map[String, Array[Json]] = Map::new()
+  if key_params.is_empty() {
+    return out
+  }
+  let res = engine.exec_raw(sql, key_params)
+  if !res.ok {
+    return out
+  }
+  for row in res.rows {
+    if row is Object(obj) {
+      if obj.get(target_key) is Some(v) {
+        let key = v.stringify()
+        if out.get(key) is Some(items) {
+          items.push(row)
+          out.set(key, items)
+        } else {
+          out.set(key, [row])
+        }
+      }
+    }
+  }
+  out
+}
+
+///|
+pub async fn[E : Engine] preload_many_to_many_default(
+  engine : E,
+  sql : String,
+  key_params : FixedArray[Param],
+) -> Map[String, Array[Json]] {
+  let out : Map[String, Array[Json]] = Map::new()
+  if key_params.is_empty() {
+    return out
+  }
+  let res = engine.exec_raw(sql, key_params)
+  if !res.ok {
+    return out
+  }
+  for row in res.rows {
+    if row is Object(obj) {
+      if obj.get("__morm_owner_key") is Some(owner_key_value) {
+        let owner_key = owner_key_value.stringify()
+        if out.get(owner_key) is Some(items) {
+          items.push(row)
+          out.set(owner_key, items)
+        } else {
+          out.set(owner_key, [row])
+        }
+      }
+    }
+  }
+  out
 }
 
 ///|

@@ -494,21 +494,13 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs
 ) -> Map[String, T] {
   let key_params = collect_owner_key_params(owners, owner_key)
   let out : Map[String, T] = Map::new()
-  if key_params.is_empty() {
-    return out
-  }
-  let sql = engine.preload_in_sql(target_table, target_key, key_params.length())
-  let res = engine.exec_raw(sql, key_params)
-  if !res.ok {
-    return out
-  }
-  for row in res.rows {
-    if row is Object(obj) {
-      if obj.get(target_key) is Some(v) {
-        let key = v.stringify()
-        let entity : T = @json.from_json(row) catch { _ => continue }
-        out.set(key, entity)
-      }
+  for
+    entry in engine.preload_belongs_to_json(
+      target_table, target_key, key_params,
+    ) {
+    let (key, row) = entry
+    if (try? (@json.from_json(row) : T)) is Ok(entity) {
+      out.set(key, entity)
     }
   }
   out
@@ -522,7 +514,15 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_one
   target_table : String,
   target_key : String,
 ) -> Map[String, T] {
-  preload_belongs_to(engine, owners, owner_key, target_table, target_key)
+  let key_params = collect_owner_key_params(owners, owner_key)
+  let out : Map[String, T] = Map::new()
+  for entry in engine.preload_has_one_json(target_table, target_key, key_params) {
+    let (key, row) = entry
+    if (try? (@json.from_json(row) : T)) is Ok(entity) {
+      out.set(key, entity)
+    }
+  }
+  out
 }
 
 ///|
@@ -535,27 +535,16 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_man
 ) -> Map[String, Array[T]] {
   let key_params = collect_owner_key_params(owners, owner_key)
   let out : Map[String, Array[T]] = Map::new()
-  if key_params.is_empty() {
-    return out
-  }
-  let sql = engine.preload_in_sql(target_table, target_key, key_params.length())
-  let res = engine.exec_raw(sql, key_params)
-  if !res.ok {
-    return out
-  }
-  for row in res.rows {
-    if row is Object(obj) {
-      if obj.get(target_key) is Some(v) {
-        let key = v.stringify()
-        let entity : T = @json.from_json(row) catch { _ => continue }
-        if out.get(key) is Some(items) {
-          items.push(entity)
-          out.set(key, items)
-        } else {
-          out.set(key, [entity])
-        }
+  for
+    entry in engine.preload_has_many_json(target_table, target_key, key_params) {
+    let (key, rows) = entry
+    let items : Array[T] = []
+    for row in rows {
+      if (try? (@json.from_json(row) : T)) is Ok(entity) {
+        items.push(entity)
       }
     }
+    out.set(key, items)
   }
   out
 }
@@ -573,34 +562,18 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to
 ) -> Map[String, Array[T]] {
   let key_params = collect_owner_key_params(owners, owner_key)
   let out : Map[String, Array[T]] = Map::new()
-  if key_params.is_empty() {
-    return out
-  }
-  let sql = engine.preload_many_to_many_sql(
-    target_table,
-    target_key,
-    join_table,
-    join_owner_key,
-    join_target_key,
-    key_params.length(),
-  )
-  let res = engine.exec_raw(sql, key_params)
-  if !res.ok {
-    return out
-  }
-  for row in res.rows {
-    if row is Object(obj) {
-      if obj.get("__morm_owner_key") is Some(owner_key_value) {
-        let owner_key = owner_key_value.stringify()
-        let entity : T = @json.from_json(row) catch { _ => continue }
-        if out.get(owner_key) is Some(items) {
-          items.push(entity)
-          out.set(owner_key, items)
-        } else {
-          out.set(owner_key, [entity])
-        }
+  for
+    entry in engine.preload_many_to_many_json(
+      target_table, target_key, join_table, join_owner_key, join_target_key, key_params,
+    ) {
+    let (key, rows) = entry
+    let items : Array[T] = []
+    for row in rows {
+      if (try? (@json.from_json(row) : T)) is Ok(entity) {
+        items.push(entity)
       }
     }
+    out.set(key, items)
   }
   out
 }

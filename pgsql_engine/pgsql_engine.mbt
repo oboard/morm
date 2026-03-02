@@ -880,28 +880,69 @@ pub impl @engine.Engine for PgSQLEngine with exec_raw(
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with preload_in_sql(
-  _self,
-  table : String,
-  key_col : String,
-  count : Int,
-) -> String {
-  @engine.preload_in_sql_dollar(table, key_col, count)
+pub impl @engine.Engine for PgSQLEngine with preload_belongs_to_json(
+  self,
+  target_table : String,
+  target_key : String,
+  key_params : FixedArray[@engine.Param],
+) -> Map[String, Json] {
+  let sql = @engine.preload_in_sql_dollar(
+    target_table,
+    target_key,
+    key_params.length(),
+  )
+  @engine.preload_belongs_to_default(self, sql, target_key, key_params)
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with preload_many_to_many_sql(
-  _self,
+pub impl @engine.Engine for PgSQLEngine with preload_has_one_json(
+  self,
+  target_table : String,
+  target_key : String,
+  key_params : FixedArray[@engine.Param],
+) -> Map[String, Json] {
+  let sql = @engine.preload_in_sql_dollar(
+    target_table,
+    target_key,
+    key_params.length(),
+  )
+  @engine.preload_belongs_to_default(self, sql, target_key, key_params)
+}
+
+///|
+pub impl @engine.Engine for PgSQLEngine with preload_has_many_json(
+  self,
+  target_table : String,
+  target_key : String,
+  key_params : FixedArray[@engine.Param],
+) -> Map[String, Array[Json]] {
+  let sql = @engine.preload_in_sql_dollar(
+    target_table,
+    target_key,
+    key_params.length(),
+  )
+  @engine.preload_has_many_default(self, sql, target_key, key_params)
+}
+
+///|
+pub impl @engine.Engine for PgSQLEngine with preload_many_to_many_json(
+  self,
   target_table : String,
   target_key : String,
   join_table : String,
   join_owner_key : String,
   join_target_key : String,
-  count : Int,
-) -> String {
-  @engine.preload_many_to_many_sql_dollar(
-    target_table, target_key, join_table, join_owner_key, join_target_key, count,
+  key_params : FixedArray[@engine.Param],
+) -> Map[String, Array[Json]] {
+  let sql = @engine.preload_many_to_many_sql_dollar(
+    target_table,
+    target_key,
+    join_table,
+    join_owner_key,
+    join_target_key,
+    key_params.length(),
   )
+  @engine.preload_many_to_many_default(self, sql, key_params)
 }
 
 ///|

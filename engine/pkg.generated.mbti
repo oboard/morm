@@ -18,9 +18,15 @@ pub fn[T : FromParam] from_param(Param) -> T raise ParamDecodeError
 
 pub fn param_from_json_value(Json) -> Param
 
+pub async fn[E : Engine] preload_belongs_to_default(E, String, String, FixedArray[Param]) -> Map[String, Json]
+
+pub async fn[E : Engine] preload_has_many_default(E, String, String, FixedArray[Param]) -> Map[String, Array[Json]]
+
 pub fn preload_in_sql_dollar(String, String, Int) -> String
 
 pub fn preload_in_sql_qmark(String, String, Int) -> String
+
+pub async fn[E : Engine] preload_many_to_many_default(E, String, FixedArray[Param]) -> Map[String, Array[Json]]
 
 pub fn preload_many_to_many_sql_dollar(String, String, String, String, String, Int) -> String
 
@@ -210,8 +216,10 @@ pub(open) trait Engine {
   tx_rollback_to_savepoint_sql(Self, String) -> String
   async migrate_table(Self, Json) -> QueryResult
   async exec_raw(Self, String, FixedArray[Param]) -> QueryResult
-  preload_in_sql(Self, String, String, Int) -> String
-  preload_many_to_many_sql(Self, String, String, String, String, String, Int) -> String
+  async preload_belongs_to_json(Self, String, String, FixedArray[Param]) -> Map[String, Json]
+  async preload_has_one_json(Self, String, String, FixedArray[Param]) -> Map[String, Json]
+  async preload_has_many_json(Self, String, String, FixedArray[Param]) -> Map[String, Array[Json]]
+  async preload_many_to_many_json(Self, String, String, String, String, String, FixedArray[Param]) -> Map[String, Array[Json]]
   close(Self) -> Unit
 }
 

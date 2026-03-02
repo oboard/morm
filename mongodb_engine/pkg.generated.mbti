@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/mongodb_engine"
+
+// Values
+pub fn parse_mongodb_dsn(String) -> (String, Int, String)?
+
+// Errors
+
+// Types and methods
+pub(all) struct MongoDBEngine {
+  host : String
+  port : Int
+  database : String
+  state : Ref[Map[String, Array[Json]]]
+  tx_snapshot : Ref[Map[String, Array[Json]]?]
+}
+pub fn MongoDBEngine::open(String) -> Result[Self, String]
+
+// Type aliases
+
+// Traits
+
