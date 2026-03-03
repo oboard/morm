@@ -108,6 +108,41 @@ async test "mongodb client helpers" {
     content="true",
   )
 
+  let count = match engine.count_documents("client_api_test", filter={}) {
+    Ok(n) => n
+    Err(_) => panic()
+  }
+  inspect(count, content="1")
+
+  let distinct = match engine.distinct("client_api_test", "name", filter={}) {
+    Ok(values) => values
+    Err(_) => panic()
+  }
+  inspect(distinct.length(), content="1")
+  json_inspect(distinct[0], content="renamed")
+
+  let modified = match
+    engine.find_one_and_update("client_api_test", { "id": 1 }, {
+      "$set": { "name": "final" },
+    }) {
+    Ok(Some(doc)) => doc
+    _ => panic()
+  }
+  inspect(
+    modified is { "_id": _, "id": 1, "name": "final", .. },
+    content="true",
+  )
+
+  let grouped = match
+    engine.aggregate("client_api_test", [
+      { "$group": { "_id": "$name", "count": { "$sum": 1 } } },
+    ]) {
+    Ok(rows) => rows
+    Err(_) => panic()
+  }
+  inspect(grouped.length(), content="1")
+  inspect(grouped[0] is { "_id": "final", "count": 1, .. }, content="true")
+
   let del = engine.delete_one("client_api_test", { "id": 1 })
   assert_true(del is Ok(_))
   inspect(

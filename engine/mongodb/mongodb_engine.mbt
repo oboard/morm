@@ -1054,6 +1054,74 @@ async fn find_docs(
 }
 
 ///|
+async fn collect_cursor_rows(
+  engine : MongoDBEngine,
+  collection : String,
+  initial : Json,
+  limit? : Int? = None,
+) -> Result[FixedArray[Json], String] {
+  let batch_size = match limit {
+    Some(n) if n > 0 && n < 100 => n
+    _ => 100
+  }
+  match extract_cursor_info(initial, strip_internal_id=false) {
+    Some((first_batch, cursor_id)) => {
+      let rows : Array[Json] = []
+      for row in first_batch {
+        rows.push(row)
+      }
+      let mut next_cursor = cursor_id
+      while next_cursor != 0L {
+        let next_batch_size = match limit {
+          Some(n) => {
+            let remaining = n - rows.length()
+            if remaining <= 0 {
+              next_cursor = 0L
+              0
+            } else if remaining < batch_size {
+              remaining
+            } else {
+              batch_size
+            }
+          }
+          None => batch_size
+        }
+        if next_cursor == 0L || next_batch_size <= 0 {
+          next_cursor = 0L
+        } else {
+          let next_reply = run_command_bson(
+            engine,
+            encode_getmore_command(
+              engine, next_cursor, collection, next_batch_size,
+            ),
+          )
+          match next_reply {
+            Ok(next_doc) =>
+              match extract_cursor_info(next_doc, strip_internal_id=false) {
+                Some((batch, next_id)) => {
+                  for row in batch {
+                    rows.push(row)
+                  }
+                  next_cursor = next_id
+                }
+                None => return Err("mongodb invalid getMore response")
+              }
+            Err(err) => return Err(err)
+          }
+        }
+      }
+      let final_rows = match limit {
+        Some(n) if n >= 0 && rows.length() > n =>
+          FixedArray::from_iter(rows.iter().take(n))
+        _ => FixedArray::from_array(rows)
+      }
+      Ok(final_rows)
+    }
+    None => Err("mongodb invalid cursor response")
+  }
+}
+
+///|
 async fn find_docs_raw(
   engine : MongoDBEngine,
   collection : String,
@@ -1083,64 +1151,8 @@ async fn find_docs_raw(
   if skip is Some(n) && n > 0 {
     cmd["skip"] = Json::number(n.to_double())
   }
-  let reply = run_command(engine, cmd.to_json())
-  match reply {
-    Ok(doc) =>
-      match extract_cursor_info(doc, strip_internal_id=false) {
-        Some((first_batch, cursor_id)) => {
-          let rows : Array[Json] = []
-          for row in first_batch {
-            rows.push(row)
-          }
-          let mut next_cursor = cursor_id
-          while next_cursor != 0L {
-            let next_batch_size = match limit {
-              Some(n) => {
-                let remaining = n - rows.length()
-                if remaining <= 0 {
-                  next_cursor = 0L
-                  0
-                } else if remaining < batch_size {
-                  remaining
-                } else {
-                  batch_size
-                }
-              }
-              None => batch_size
-            }
-            if next_cursor == 0L || next_batch_size <= 0 {
-              next_cursor = 0L
-            } else {
-              let next_reply = run_command_bson(
-                engine,
-                encode_getmore_command(
-                  engine, next_cursor, collection, next_batch_size,
-                ),
-              )
-              match next_reply {
-                Ok(next_doc) =>
-                  match extract_cursor_info(next_doc, strip_internal_id=false) {
-                    Some((batch, next_id)) => {
-                      for row in batch {
-                        rows.push(row)
-                      }
-                      next_cursor = next_id
-                    }
-                    None => return Err("mongodb invalid getMore response")
-                  }
-                Err(err) => return Err(err)
-              }
-            }
-          }
-          let final_rows = match limit {
-            Some(n) if n >= 0 && rows.length() > n =>
-              FixedArray::from_iter(rows.iter().take(n))
-            _ => FixedArray::from_array(rows)
-          }
-          Ok(final_rows)
-        }
-        None => Err("mongodb invalid find response")
-      }
+  match run_command(engine, cmd.to_json()) {
+    Ok(doc) => collect_cursor_rows(engine, collection, doc, limit~)
     Err(err) => Err(err)
   }
 }
@@ -1217,6 +1229,90 @@ pub async fn MongoDBEngine::delete_one(
     "deletes": [{ "q": filter, "limit": 1 }],
   }
   run_command(self, cmd)
+}
+
+///|
+pub async fn MongoDBEngine::aggregate(
+  self : MongoDBEngine,
+  collection : String,
+  pipeline : FixedArray[Json],
+  allow_disk_use? : Bool = false,
+  limit? : Int? = None,
+) -> Result[FixedArray[Json], String] {
+  let batch_size = match limit {
+    Some(n) if n > 0 && n < 100 => n
+    _ => 100
+  }
+  let cursor = if limit is Some(n) && n > 0 {
+    { "batchSize": batch_size }
+  } else {
+    {}
+  }
+  let cmd : Json = {
+    "aggregate": collection,
+    "pipeline": pipeline,
+    "cursor": cursor,
+    "allowDiskUse": allow_disk_use,
+  }
+  match run_command(self, cmd) {
+    Ok(doc) => collect_cursor_rows(self, collection, doc, limit~)
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::count_documents(
+  self : MongoDBEngine,
+  collection : String,
+  filter? : Json = {},
+) -> Result[Int, String] {
+  match run_command(self, { "count": collection, "query": filter }) {
+    Ok(doc) =>
+      match extract_count(doc) {
+        Some(n) => Ok(n)
+        None => Err("mongodb invalid count response")
+      }
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::distinct(
+  self : MongoDBEngine,
+  collection : String,
+  field : String,
+  filter? : Json = {},
+) -> Result[FixedArray[Json], String] {
+  match
+    run_command(self, { "distinct": collection, "key": field, "query": filter }) {
+    Ok({ "values": Array(values), .. }) => Ok(FixedArray::from_array(values))
+    Ok(_) => Err("mongodb invalid distinct response")
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::find_one_and_update(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+  update : Json,
+  return_new? : Bool = true,
+  upsert? : Bool = false,
+) -> Result[Json?, String] {
+  let cmd : Json = {
+    "findAndModify": collection,
+    "query": filter,
+    "update": update,
+    "new": return_new,
+    "upsert": upsert,
+  }
+  match run_command(self, cmd) {
+    Ok({ "value": Null, .. }) => Ok(None)
+    Ok({ "value": value, .. }) => Ok(Some(value))
+    Ok(_) => Err("mongodb invalid findAndModify response")
+    Err(err) => Err(err)
+  }
 }
 
 ///|

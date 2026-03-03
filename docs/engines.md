@@ -104,35 +104,16 @@ That keeps the rest of the stack stable.
 
 ## MongoDB As A Native Client
 
-`MongoDBEngine` can be used through the ORM layer, but it also exposes Mongo-native helper methods for direct document work:
+`MongoDBEngine` can also be used directly as a MongoDB document client.
 
-- `run_command_json`
-- `find`
-- `find_one`
-- `insert_one`
-- `update_one`
-- `delete_one`
+The native client API is documented separately in [MongoDB Client](./mongodb-client.md).
 
-These methods are useful when:
+That page covers:
 
-- you need raw MongoDB commands
-- you want direct collection access outside generated mappers
-- the operation does not map cleanly onto SQL-like ORM builders
+- raw commands
+- direct collection helpers
+- aggregation
+- count and distinct helpers
+- atomic `find_one_and_update`
 
-Example:
-
-```moonbit
-let engine = match @mongodb.MongoDBEngine::open("mongodb://127.0.0.1:27017/app") {
-  Ok(e) => e
-  Err(_) => panic()
-}
-
-ignore(engine.insert_one("events", { "kind": "signup", "user_id": 7 }))
-
-let docs = match engine.find("events", { "user_id": 7 }, limit=Some(20)) {
-  Ok(rows) => rows
-  Err(_) => panic()
-}
-```
-
-Unlike the ORM row path, these client helpers keep MongoDB-native fields such as `_id` intact.
+The native client path keeps MongoDB-specific fields such as `_id` intact.
