@@ -27,3 +27,37 @@ async test "mongodb render exec_raw roundtrip" {
 
   engine.close()
 }
+
+///|
+async test "mongodb cursor getMore" {
+  let engine = match
+    @mongodb.MongoDBEngine::open("mongodb://127.0.0.1:27017/morm_test") {
+    Ok(e) => e
+    Err(_) => panic()
+  }
+
+  ignore(@engine.exec_query(engine, @morm.delete_from("cursor_test")))
+
+  let mut i = 0
+  while i < 130 {
+    let res = @engine.exec_query(
+      engine,
+      @morm.insert_into("cursor_test")
+      .columns(["id", "name"])
+      .values([@engine.Int(i), @engine.String("u" + i.to_string())]),
+    )
+    assert_true(res.ok)
+    i = i + 1
+  }
+
+  let result = @engine.exec_query(
+    engine,
+    @morm.select_from("cursor_test").order_by(Asc("id")),
+  )
+  inspect(result.ok, content="true")
+  inspect(result.rows.length(), content="130")
+  json_inspect(result.rows[0], content={ "id": 0, "name": "u0" })
+  json_inspect(result.rows[129], content={ "id": 129, "name": "u129" })
+
+  engine.close()
+}

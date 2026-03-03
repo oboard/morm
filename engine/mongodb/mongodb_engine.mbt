@@ -164,10 +164,9 @@ async fn write_all(conn : @socket.Tcp, data : Bytes) -> Bool {
 async fn write_op_msg(
   conn : @socket.Tcp,
   request_id : Int,
-  command : Json,
+  command_bson : Bytes,
 ) -> Bool {
-  let bson = @bson.to_document_bytes(command) catch { _ => return false }
-  let body = i32le_bytes(0) + b"\x00" + bson
+  let body = i32le_bytes(0) + b"\x00" + command_bson
   let header = i32le_bytes(16 + body.length()) +
     i32le_bytes(request_id) +
     i32le_bytes(0) +
@@ -219,9 +218,9 @@ fn command_failed_message(doc : Json, fallback : String) -> String {
 }
 
 ///|
-async fn run_command(
+async fn run_command_bson(
   engine : MongoDBEngine,
-  command : Json,
+  command_bson : Bytes,
 ) -> Result[Json, String] {
   if engine.user != "" {
     return Err("mongodb auth is not implemented yet")
@@ -234,7 +233,10 @@ async fn run_command(
     "hello": Json::number(1.0),
     "$db": Json::string(engine.database),
   }
-  if !(write_op_msg(conn, 1, hello) catch { _ => false }) {
+  let hello_bson = @bson.to_document_bytes(hello) catch {
+    _ => return Err("mongodb hello encode failed")
+  }
+  if !(write_op_msg(conn, 1, hello_bson) catch { _ => false }) {
     return Err("mongodb hello write failed")
   }
   let hello_res = read_op_msg(conn) catch { _ => None }
@@ -245,15 +247,7 @@ async fn run_command(
     return Err(command_failed_message(hello_doc, "mongodb hello failed"))
   }
 
-  let command = match command {
-    Object(obj) => {
-      let out = obj.copy()
-      out["$db"] = Json::string(engine.database)
-      out.to_json()
-    }
-    _ => return Err("mongodb command must be an object")
-  }
-  if !(write_op_msg(conn, 2, command) catch { _ => false }) {
+  if !(write_op_msg(conn, 2, command_bson) catch { _ => false }) {
     return Err("mongodb command write failed")
   }
   let reply = read_op_msg(conn) catch { _ => None }
@@ -264,6 +258,88 @@ async fn run_command(
     return Err(command_failed_message(reply_doc, "mongodb command failed"))
   }
   Ok(reply_doc)
+}
+
+///|
+async fn run_command(
+  engine : MongoDBEngine,
+  command : Json,
+) -> Result[Json, String] {
+  let command = match command {
+    Object(obj) => {
+      let out = obj.copy()
+      out["$db"] = Json::string(engine.database)
+      out.to_json()
+    }
+    _ => return Err("mongodb command must be an object")
+  }
+  let command_bson = @bson.to_document_bytes(command) catch {
+    _ => return Err("mongodb command encode failed")
+  }
+  run_command_bson(engine, command_bson)
+}
+
+///|
+fn write_cstring(buf : @buffer.Buffer, text : String) -> Unit {
+  buf.write_string_utf8(text)
+  buf.write_byte(0)
+}
+
+///|
+fn write_bson_string_field(
+  buf : @buffer.Buffer,
+  key : String,
+  value : String,
+) -> Unit {
+  buf.write_byte(0x02)
+  write_cstring(buf, key)
+  let tmp = @buffer.new()
+  tmp.write_string_utf8(value)
+  let bytes = tmp.to_bytes()
+  buf.write_int_le(bytes.length() + 1)
+  buf.write_bytes(bytes)
+  buf.write_byte(0)
+}
+
+///|
+fn write_bson_i32_field(
+  buf : @buffer.Buffer,
+  key : String,
+  value : Int,
+) -> Unit {
+  buf.write_byte(0x10)
+  write_cstring(buf, key)
+  buf.write_int_le(value)
+}
+
+///|
+fn write_bson_i64_field(
+  buf : @buffer.Buffer,
+  key : String,
+  value : Int64,
+) -> Unit {
+  buf.write_byte(0x12)
+  write_cstring(buf, key)
+  buf.write_int64_le(value)
+}
+
+///|
+fn encode_getmore_command(
+  engine : MongoDBEngine,
+  cursor_id : Int64,
+  table : String,
+  batch_size : Int,
+) -> Bytes {
+  let body = @buffer.new()
+  write_bson_i64_field(body, "getMore", cursor_id)
+  write_bson_string_field(body, "collection", table)
+  write_bson_i32_field(body, "batchSize", batch_size)
+  write_bson_string_field(body, "$db", engine.database)
+  body.write_byte(0)
+  let out = @buffer.new()
+  out.write_int_le(body.length() + 4)
+  out.write_bytes(body.to_bytes())
+  out.to_bytes()
 }
 
 ///|
@@ -397,22 +473,52 @@ fn document_from_sets(sets : FixedArray[@engine.Set]) -> Json {
 }
 
 ///|
-fn extract_cursor_batch(doc : Json) -> FixedArray[Json]? {
-  match doc {
-    { "cursor": { "firstBatch": Array(rows), .. }, .. } => {
-      let out : Array[Json] = []
-      for row in rows {
-        match row {
-          Object(obj) => {
-            let next = obj.copy()
-            ignore(next.remove("_id"))
-            out.push(next.to_json())
-          }
-          _ => out.push(row)
-        }
+fn sanitize_rows(rows : Array[Json]) -> FixedArray[Json] {
+  let out : Array[Json] = []
+  for row in rows {
+    match row {
+      Object(obj) => {
+        let next = obj.copy()
+        ignore(next.remove("_id"))
+        out.push(next.to_json())
       }
-      Some(FixedArray::from_array(out))
+      _ => out.push(row)
     }
+  }
+  FixedArray::from_array(out)
+}
+
+///|
+fn json_to_int64(value : Json) -> Int64? {
+  match value {
+    String(text) => Some(@strconv.parse_int64(text)) catch { _ => None }
+    Number(n, ..) =>
+      if n.to_int().to_double() == n {
+        Some(@strconv.parse_int64(n.to_int().to_string())) catch {
+          _ => None
+        }
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn extract_cursor_info(doc : Json) -> (FixedArray[Json], Int64)? {
+  match doc {
+    { "cursor": { "firstBatch": Array(rows), "id": id_json, .. }, .. } =>
+      if json_to_int64(id_json) is Some(cursor_id) {
+        Some((sanitize_rows(rows), cursor_id))
+      } else {
+        None
+      }
+    { "cursor": { "nextBatch": Array(rows), "id": id_json, .. }, .. } =>
+      if json_to_int64(id_json) is Some(cursor_id) {
+        Some((sanitize_rows(rows), cursor_id))
+      } else {
+        None
+      }
     _ => None
   }
 }
@@ -440,6 +546,10 @@ async fn find_docs(
   limit? : Int? = None,
   offset? : Int? = None,
 ) -> Result[FixedArray[Json], String] {
+  let batch_size = match limit {
+    Some(n) if n > 0 && n < 100 => n
+    _ => 100
+  }
   let cmd : Map[String, Json] = {}
   cmd["find"] = Json::string(table)
   cmd["filter"] = filter
@@ -449,9 +559,9 @@ async fn find_docs(
   if sort_doc(order_by) is Some(sort) {
     cmd["sort"] = sort
   }
+  cmd["batchSize"] = Json::number(batch_size.to_double())
   if limit is Some(n) {
     cmd["limit"] = Json::number(n.to_double())
-    cmd["batchSize"] = Json::number(n.to_double())
   }
   if offset is Some(n) {
     cmd["skip"] = Json::number(n.to_double())
@@ -459,8 +569,50 @@ async fn find_docs(
   let reply = run_command(engine, cmd.to_json())
   match reply {
     Ok(doc) =>
-      match extract_cursor_batch(doc) {
-        Some(rows) => Ok(rows)
+      match extract_cursor_info(doc) {
+        Some((rows, cursor_id)) => {
+          let all_rows : Array[Json] = []
+          for row in rows {
+            all_rows.push(row)
+          }
+          let mut cursor_id = cursor_id
+          while cursor_id != 0 {
+            let next_batch_size = match limit {
+              Some(n) => {
+                let remaining = n - all_rows.length()
+                if remaining <= 0 {
+                  0
+                } else if remaining < batch_size {
+                  remaining
+                } else {
+                  batch_size
+                }
+              }
+              None => batch_size
+            }
+            if next_batch_size == 0 {
+              break
+            }
+            let next_reply = run_command_bson(
+              engine,
+              encode_getmore_command(engine, cursor_id, table, next_batch_size),
+            )
+            match next_reply {
+              Ok(next_doc) =>
+                match extract_cursor_info(next_doc) {
+                  Some((next_rows, next_cursor_id)) => {
+                    for row in next_rows {
+                      all_rows.push(row)
+                    }
+                    cursor_id = next_cursor_id
+                  }
+                  None => return Err("mongodb cursor nextBatch missing")
+                }
+              Err(err) => return Err(err)
+            }
+          }
+          Ok(FixedArray::from_array(all_rows))
+        }
         None => Err("mongodb cursor batch missing")
       }
     Err(err) => Err(err)
