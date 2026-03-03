@@ -3,6 +3,7 @@ pub(all) struct MongoDBEngine {
   host : String
   port : Int
   database : String
+  auth_database : String
   user : String
   password : String
 }
@@ -31,6 +32,21 @@ fn first_part(input : String, sep : String) -> String {
 }
 
 ///|
+fn find_query_param(raw_query : String, key : String) -> String? {
+  for part in raw_query.split("&") {
+    if part.find("=") is Some(idx) {
+      let name = part[:idx].to_string() catch { _ => "" }
+      if name == key {
+        return Some(part[idx + 1:].to_string() catch { _ => "" })
+      }
+    } else if part == key {
+      return Some("")
+    }
+  }
+  None
+}
+
+///|
 fn parse_host_port(text : String, default_port : Int) -> (String, Int) {
   if text.rev_find(":") is Some(idx) {
     let host = text[:idx].to_string() catch { _ => text }
@@ -50,11 +66,18 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
     return None
   }
   let main = first_part(raw, "?")
+  let raw_query = if raw.find("?") is Some(idx) {
+    raw[idx + 1:].to_string() catch { _ => "" }
+  } else {
+    ""
+  }
   let mut auth_host = main
   let mut database = "test"
+  let mut has_database = false
   if main.find("/") is Some(i) {
     auth_host = main[:i].to_string() catch { _ => main }
     database = main[i + 1:].to_string() catch { _ => "test" }
+    has_database = database != ""
   }
 
   let mut user = ""
@@ -72,6 +95,10 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
   }
 
   let (host, port) = parse_host_port(host_port, 27017)
+  let auth_database = match find_query_param(raw_query, "authSource") {
+    Some(source) if source != "" => source
+    _ => if user != "" && !has_database { "admin" } else { database }
+  }
   Some({
     host,
     port,
@@ -79,6 +106,11 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
       "test"
     } else {
       database
+    },
+    auth_database: if auth_database == "" {
+      "admin"
+    } else {
+      auth_database
     },
     user,
     password,
@@ -218,13 +250,362 @@ fn command_failed_message(doc : Json, fallback : String) -> String {
 }
 
 ///|
+fn json_to_int(value : Json) -> Int? {
+  match value {
+    String(text) => Some(@strconv.parse_int(text)) catch { _ => None }
+    Number(n, ..) =>
+      if n.to_int().to_double() == n {
+        Some(n.to_int())
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn json_to_bool(value : Json) -> Bool? {
+  match value {
+    True => Some(true)
+    False => Some(false)
+    _ => None
+  }
+}
+
+///|
+fn write_bson_bool_field(
+  buf : @buffer.Buffer,
+  key : String,
+  value : Bool,
+) -> Unit {
+  buf.write_byte(0x08)
+  write_cstring(buf, key)
+  buf.write_byte(if value { 1 } else { 0 })
+}
+
+///|
+fn write_bson_binary_field(
+  buf : @buffer.Buffer,
+  key : String,
+  value : Bytes,
+  subtype? : Byte = b'\x00',
+) -> Unit {
+  buf.write_byte(0x05)
+  write_cstring(buf, key)
+  buf.write_int_le(value.length())
+  buf.write_byte(subtype)
+  buf.write_bytes(value)
+}
+
+///|
+fn write_bson_document_field(
+  buf : @buffer.Buffer,
+  key : String,
+  value : Bytes,
+) -> Unit {
+  buf.write_byte(0x03)
+  write_cstring(buf, key)
+  buf.write_bytes(value)
+}
+
+///|
+fn encode_skip_empty_options() -> Bytes {
+  let body = @buffer.new()
+  write_bson_bool_field(body, "skipEmptyExchange", true)
+  body.write_byte(0)
+  let out = @buffer.new()
+  out.write_int_le(body.length() + 4)
+  out.write_bytes(body.to_bytes())
+  out.to_bytes()
+}
+
+///|
+fn encode_sasl_start_command(engine : MongoDBEngine, payload : String) -> Bytes {
+  let body = @buffer.new()
+  write_bson_i32_field(body, "saslStart", 1)
+  write_bson_string_field(body, "mechanism", "SCRAM-SHA-256")
+  write_bson_binary_field(body, "payload", @utf8.encode(payload))
+  write_bson_i32_field(body, "autoAuthorize", 1)
+  write_bson_document_field(body, "options", encode_skip_empty_options())
+  write_bson_string_field(body, "$db", engine.auth_database)
+  body.write_byte(0)
+  let out = @buffer.new()
+  out.write_int_le(body.length() + 4)
+  out.write_bytes(body.to_bytes())
+  out.to_bytes()
+}
+
+///|
+fn encode_sasl_continue_command(
+  engine : MongoDBEngine,
+  conversation_id : Int,
+  payload : String,
+) -> Bytes {
+  let body = @buffer.new()
+  write_bson_i32_field(body, "saslContinue", 1)
+  write_bson_i32_field(body, "conversationId", conversation_id)
+  write_bson_binary_field(body, "payload", @utf8.encode(payload))
+  write_bson_string_field(body, "$db", engine.auth_database)
+  body.write_byte(0)
+  let out = @buffer.new()
+  out.write_int_le(body.length() + 4)
+  out.write_bytes(body.to_bytes())
+  out.to_bytes()
+}
+
+///|
+fn escape_scram_name(text : String) -> String {
+  text.replace(old="=", new="=3D").replace(old=",", new="=2C")
+}
+
+///|
+fn parse_scram_fields(message : String) -> Map[String, String] {
+  let out : Map[String, String] = {}
+  for part in message.split(",") {
+    if part.find("=") is Some(idx) {
+      let key = part[:idx].to_string() catch { _ => "" }
+      let value = part[idx + 1:].to_string() catch { _ => "" }
+      out[key] = value
+    }
+  }
+  out
+}
+
+///|
+fn scram_hmac(key : Bytes, message : Bytes) -> FixedArray[Byte] {
+  @crypto.hmac(@crypto.SHA256::new(), key, message)
+}
+
+///|
+fn i32be_bytes(v : Int) -> Bytes {
+  let out = @buffer.new(size_hint=4)
+  out.write_byte(((v >> 24) & 0xFF).to_byte())
+  out.write_byte(((v >> 16) & 0xFF).to_byte())
+  out.write_byte(((v >> 8) & 0xFF).to_byte())
+  out.write_byte((v & 0xFF).to_byte())
+  out.to_bytes()
+}
+
+///|
+fn xor_bytes(lhs : FixedArray[Byte], rhs : FixedArray[Byte]) -> FixedArray[Byte] {
+  let n = if lhs.length() < rhs.length() {
+    lhs.length()
+  } else {
+    rhs.length()
+  }
+  let out = FixedArray::make(n, b'\x00')
+  for i = 0; i < n; i = i + 1 {
+    out[i] = lhs[i] ^ rhs[i]
+  }
+  out
+}
+
+///|
+fn pbkdf2_sha256(
+  password : Bytes,
+  salt : Bytes,
+  iterations : Int,
+  key_len : Int,
+) -> Bytes {
+  let out = @buffer.new(size_hint=key_len)
+  let block_count = (key_len + 31) / 32
+  for block = 1; block <= block_count; block = block + 1 {
+    let mut u = scram_hmac(password, salt + i32be_bytes(block))
+    let t = u.copy()
+    for iter_idx = 1; iter_idx < iterations; iter_idx = iter_idx + 1 {
+      u = scram_hmac(password, u.unsafe_reinterpret_as_bytes())
+      for i = 0; i < t.length(); i = i + 1 {
+        t[i] = t[i] ^ u[i]
+      }
+    }
+    let remaining = key_len - out.length()
+    let take = if remaining < t.length() { remaining } else { t.length() }
+    for i = 0; i < take; i = i + 1 {
+      out.write_byte(t[i])
+    }
+  }
+  out.to_bytes()
+}
+
+///|
+fn auth_payload_text(doc : Json) -> String? {
+  match doc {
+    { "payload": payload, .. } =>
+      if @bson.json_bytes_to_bytes(payload) is Some(data) {
+        Some(@utf8.decode_lossy(data))
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn auth_conversation_id(doc : Json) -> Int? {
+  match doc {
+    { "conversationId": value, .. } => json_to_int(value)
+    _ => None
+  }
+}
+
+///|
+fn auth_done(doc : Json) -> Bool {
+  match doc {
+    { "done": value, .. } => json_to_bool(value).unwrap_or(false)
+    _ => false
+  }
+}
+
+///|
+async fn write_checked(
+  conn : @socket.Tcp,
+  request_id : Int,
+  command_bson : Bytes,
+  label : String,
+) -> Result[Json, String] {
+  if !(write_op_msg(conn, request_id, command_bson) catch { _ => false }) {
+    return Err("mongodb \{label} write failed")
+  }
+  let reply = read_op_msg(conn) catch { _ => None }
+  guard reply is Some(reply_doc) else {
+    return Err("mongodb \{label} read failed")
+  }
+  if !command_ok(reply_doc) {
+    return Err(command_failed_message(reply_doc, "mongodb \{label} failed"))
+  }
+  Ok(reply_doc)
+}
+
+///|
+async fn authenticate_connection(
+  engine : MongoDBEngine,
+  conn : @socket.Tcp,
+) -> Result[Unit, String] {
+  if engine.user == "" {
+    return Ok(())
+  }
+
+  let nonce_seed = @utf8.encode(
+    "\{engine.user}:\{engine.password}@\{engine.host}:\{engine.port}/\{engine.auth_database}",
+  )
+  let client_nonce = @base64.encode(
+    @crypto.sha256(nonce_seed).unsafe_reinterpret_as_bytes(),
+    padding=false,
+  )
+  let client_first_bare = "n=\{escape_scram_name(engine.user)},r=\{client_nonce}"
+  let client_first = "n,,\{client_first_bare}"
+  let start_reply = write_checked(
+    conn,
+    2,
+    encode_sasl_start_command(engine, client_first),
+    "saslStart",
+  )
+  let start_doc = match start_reply {
+    Ok(doc) => doc
+    Err(err) => return Err(err)
+  }
+  let conversation_id = match auth_conversation_id(start_doc) {
+    Some(id) => id
+    None => return Err("mongodb saslStart conversation id missing")
+  }
+  let mut next_request_id = 3
+  let mut server_first = auth_payload_text(start_doc).unwrap_or("")
+  if server_first == "" {
+    let first_continue = write_checked(
+      conn,
+      next_request_id,
+      encode_sasl_continue_command(engine, conversation_id, client_first),
+      "saslContinue client first",
+    )
+    next_request_id = next_request_id + 1
+    let first_continue_doc = match first_continue {
+      Ok(doc) => doc
+      Err(err) => return Err(err)
+    }
+    server_first = match auth_payload_text(first_continue_doc) {
+      Some(text) if text != "" => text
+      _ => return Err("mongodb saslStart payload missing")
+    }
+  }
+
+  let first_fields = parse_scram_fields(server_first)
+  let server_nonce = first_fields.get("r").unwrap_or("")
+  let salt_text = first_fields.get("s").unwrap_or("")
+  let iter_text = first_fields.get("i").unwrap_or("")
+  guard server_nonce.strip_prefix(client_nonce) is Some(rest) && rest != "" else {
+    return Err("mongodb scram nonce mismatch")
+  }
+  let salt = @base64.decode(salt_text) catch {
+    _ => return Err("mongodb scram salt decode failed")
+  }
+  let iterations = @strconv.parse_int(iter_text) catch {
+    _ => return Err("mongodb scram iteration parse failed")
+  }
+  guard iterations > 0 else { return Err("mongodb scram iteration invalid") }
+
+  let password = @utf8.encode(engine.password)
+  let salted_password = pbkdf2_sha256(password, salt, iterations, 32)
+  let client_final_without_proof = "c=biws,r=\{server_nonce}"
+  let auth_message =
+    client_first_bare + "," + server_first + "," + client_final_without_proof
+  let client_key = scram_hmac(salted_password, @utf8.encode("Client Key"))
+  let stored_key = @crypto.sha256(client_key.unsafe_reinterpret_as_bytes())
+  let client_signature = scram_hmac(
+    stored_key.unsafe_reinterpret_as_bytes(),
+    @utf8.encode(auth_message),
+  )
+  let client_proof = xor_bytes(client_key, client_signature)
+  let server_key = scram_hmac(salted_password, @utf8.encode("Server Key"))
+  let expected_server_sig = @base64.encode(
+    scram_hmac(
+      server_key.unsafe_reinterpret_as_bytes(),
+      @utf8.encode(auth_message),
+    ).unsafe_reinterpret_as_bytes(),
+  )
+  let client_final = client_final_without_proof +
+    ",p=" +
+    @base64.encode(client_proof.unsafe_reinterpret_as_bytes())
+
+  let continue_reply = write_checked(
+    conn,
+    next_request_id,
+    encode_sasl_continue_command(engine, conversation_id, client_final),
+    "saslContinue",
+  )
+  next_request_id = next_request_id + 1
+  let continue_doc = match continue_reply {
+    Ok(doc) => doc
+    Err(err) => return Err(err)
+  }
+  let server_final = auth_payload_text(continue_doc).unwrap_or("")
+  let final_fields = parse_scram_fields(server_final)
+  if final_fields.get("e") is Some(msg) {
+    return Err("mongodb auth failed: \{msg}")
+  }
+  let server_sig = final_fields.get("v").unwrap_or("")
+  guard server_sig == expected_server_sig else {
+    return Err("mongodb scram server signature mismatch")
+  }
+
+  if !auth_done(continue_doc) {
+    match write_checked(
+      conn,
+      next_request_id,
+      encode_sasl_continue_command(engine, conversation_id, ""),
+      "saslContinue finalize",
+    ) {
+      Ok(_) => ()
+      Err(err) => return Err(err)
+    }
+  }
+  Ok(())
+}
+
+///|
 async fn run_command_bson(
   engine : MongoDBEngine,
   command_bson : Bytes,
 ) -> Result[Json, String] {
-  if engine.user != "" {
-    return Err("mongodb auth is not implemented yet")
-  }
   let conn = connect_server(engine)
   guard conn is Some(conn) else { return Err("mongodb connect failed") }
   defer conn.close()
@@ -246,18 +627,12 @@ async fn run_command_bson(
   guard command_ok(hello_doc) else {
     return Err(command_failed_message(hello_doc, "mongodb hello failed"))
   }
+  match authenticate_connection(engine, conn) {
+    Ok(_) => ()
+    Err(err) => return Err(err)
+  }
 
-  if !(write_op_msg(conn, 2, command_bson) catch { _ => false }) {
-    return Err("mongodb command write failed")
-  }
-  let reply = read_op_msg(conn) catch { _ => None }
-  guard reply is Some(reply_doc) else {
-    return Err("mongodb command read failed")
-  }
-  if !command_ok(reply_doc) {
-    return Err(command_failed_message(reply_doc, "mongodb command failed"))
-  }
-  Ok(reply_doc)
+  write_checked(conn, 10, command_bson, "command")
 }
 
 ///|
