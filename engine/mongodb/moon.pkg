@@ -1,6 +1,8 @@
 import {
+  "moonbitlang/async",
+  "moonbitlang/async/socket",
+  "moonbitlang/core/buffer",
   "moonbitlang/core/json",
-  "moonbitlang/core/ref",
   "moonbitlang/core/strconv",
   "moonbitlang/x/json5" @json5,
   "oboard/morm/bson",

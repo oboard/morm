@@ -103,6 +103,14 @@ pub fn to_bytes(value : Json) -> Bytes {
 }
 
 ///|
+pub fn to_document_bytes(value : Json) -> Bytes raise BsonError {
+  match value {
+    Object(obj) => encode_object(obj)
+    _ => error("root value must be an object")
+  }
+}
+
+///|
 pub fn json_bytes_to_bytes(value : Json) -> Bytes? {
   match value {
     Array(items) => {
@@ -156,13 +164,41 @@ fn read_i64(data : Bytes, offset : Int) -> Int64 raise BsonError {
 }
 
 ///|
+fn bytes_hex(data : Bytes) -> String {
+  let out = @buffer.new()
+  for byte in data {
+    let hi = byte.to_int() / 16
+    let lo = byte.to_int() % 16
+    let digit = fn(v : Int) -> Char {
+      if v < 10 {
+        (48 + v).unsafe_to_char()
+      } else {
+        (87 + v).unsafe_to_char()
+      }
+    }
+    out.write_char(digit(hi))
+    out.write_char(digit(lo))
+  }
+  out.to_string()
+}
+
+///|
 fn decode_value(
   data : Bytes,
   tag : Int,
   offset : Int,
 ) -> (Json, Int) raise BsonError {
   match tag {
-    0x01 => error("double values are not supported yet")
+    0x01 => {
+      guard offset >= 0 && offset + 8 <= data.length() else {
+        return error("short double")
+      }
+      match data[offset:offset + 8] {
+        [u64le(bits)] =>
+          (Json::number(bits.reinterpret_as_double()), offset + 8)
+        _ => error("bad double")
+      }
+    }
     0x02 => {
       let len = read_i32(data, offset)
       guard len > 0 && offset + 4 + len <= data.length() else {
@@ -180,19 +216,74 @@ fn decode_value(
     }
     0x03 => decode_document(data, offset, false)
     0x04 => decode_document(data, offset, true)
+    0x05 => {
+      let len = read_i32(data, offset)
+      guard len >= 0 && offset + 5 + len <= data.length() else {
+        return error("bad binary length")
+      }
+      (data[offset + 5:offset + 5 + len].to_bytes().to_json(), offset + 5 + len)
+    }
+    0x07 => {
+      guard offset >= 0 && offset + 12 <= data.length() else {
+        return error("short objectid")
+      }
+      (
+        Json::string(bytes_hex(data[offset:offset + 12].to_bytes())),
+        offset + 12,
+      )
+    }
     0x08 => {
       guard offset < data.length() else { return error("short bool") }
       (Json::boolean(data[offset] != 0), offset + 1)
     }
+    0x09 => {
+      let v = read_i64(data, offset)
+      (v.to_json(), offset + 8)
+    }
     0x0A => (Json::null(), offset)
+    0x0B => {
+      let (pattern, next) = read_cstring(data, offset)
+      let (options, after) = read_cstring(data, next)
+      (Json::string("/" + pattern + "/" + options), after)
+    }
+    0x0D => {
+      let len = read_i32(data, offset)
+      guard len > 0 && offset + 4 + len <= data.length() else {
+        return error("bad js length")
+      }
+      let start = offset + 4
+      let end = start + len - 1
+      guard data[end] == 0 else {
+        return error("javascript is not null-terminated")
+      }
+      (
+        Json::string(@utf8.decode_lossy(data[start:end].to_bytes())),
+        start + len,
+      )
+    }
     0x10 => {
       let v = read_i32(data, offset)
       (Json::number(v.to_double()), offset + 4)
+    }
+    0x11 => {
+      let v = read_i64(data, offset)
+      (v.to_json(), offset + 8)
     }
     0x12 => {
       let v = read_i64(data, offset)
       (v.to_json(), offset + 8)
     }
+    0x13 => {
+      guard offset >= 0 && offset + 16 <= data.length() else {
+        return error("short decimal128")
+      }
+      (
+        Json::string(bytes_hex(data[offset:offset + 16].to_bytes())),
+        offset + 16,
+      )
+    }
+    0x7F => (Json::null(), offset)
+    0xFF => (Json::null(), offset)
     _ => error("unsupported tag \{tag}")
   }
 }
@@ -253,4 +344,11 @@ pub fn from_bytes(data : Bytes) -> Json raise BsonError {
       }
     _ => error("root is not an object")
   }
+}
+
+///|
+pub fn from_document_bytes(data : Bytes) -> Json raise BsonError {
+  let (root, next_pos) = decode_document(data, 0, false)
+  guard next_pos == data.length() else { return error("trailing bytes") }
+  root
 }

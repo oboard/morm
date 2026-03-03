@@ -4,9 +4,13 @@ package "oboard/morm/bson"
 // Values
 pub fn from_bytes(Bytes) -> Json raise BsonError
 
+pub fn from_document_bytes(Bytes) -> Json raise BsonError
+
 pub fn json_bytes_to_bytes(Json) -> Bytes?
 
 pub fn to_bytes(Json) -> Bytes
+
+pub fn to_document_bytes(Json) -> Bytes raise BsonError
 
 // Errors
 pub(all) suberror BsonError {

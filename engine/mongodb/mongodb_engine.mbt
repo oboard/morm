@@ -3,8 +3,8 @@ pub(all) struct MongoDBEngine {
   host : String
   port : Int
   database : String
-  state : Ref[Map[String, Array[Json]]]
-  tx_snapshot : Ref[Map[String, Array[Json]]?]
+  user : String
+  password : String
 }
 
 ///|
@@ -21,6 +21,16 @@ fn fail_result(msg : String) -> @engine.QueryResult {
 }
 
 ///|
+fn first_part(input : String, sep : String) -> String {
+  let parts = input.split(sep).collect()
+  if parts.length() > 0 {
+    parts[0].to_string()
+  } else {
+    input
+  }
+}
+
+///|
 fn parse_host_port(text : String, default_port : Int) -> (String, Int) {
   if text.rev_find(":") is Some(idx) {
     let host = text[:idx].to_string() catch { _ => text }
@@ -33,69 +43,227 @@ fn parse_host_port(text : String, default_port : Int) -> (String, Int) {
 }
 
 ///|
-pub fn parse_mongodb_dsn(dsn : String) -> (String, Int, String)? {
-  guard dsn.strip_prefix("mongodb://") is Some(rest_view) else { return None }
-  let rest = rest_view.to_string()
-  let without_auth = if rest.find("@") is Some(idx) {
-    rest[idx + 1:].to_string() catch {
-      _ => ""
+fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
+  let raw = if dsn.strip_prefix("mongodb://") is Some(rest) {
+    rest.to_string()
+  } else {
+    return None
+  }
+  let main = first_part(raw, "?")
+  let mut auth_host = main
+  let mut database = "test"
+  if main.find("/") is Some(i) {
+    auth_host = main[:i].to_string() catch { _ => main }
+    database = main[i + 1:].to_string() catch { _ => "test" }
+  }
+
+  let mut user = ""
+  let mut password = ""
+  let mut host_port = auth_host
+  if auth_host.find("@") is Some(i) {
+    let auth = auth_host[:i].to_string() catch { _ => "" }
+    host_port = auth_host[i + 1:].to_string() catch { _ => auth_host }
+    if auth.find(":") is Some(ci) {
+      user = auth[:ci].to_string() catch { _ => "" }
+      password = auth[ci + 1:].to_string() catch { _ => "" }
+    } else {
+      user = auth
     }
-  } else {
-    rest
   }
-  let (host_port, database) = if without_auth.find("/") is Some(idx) {
-    (
-      without_auth[:idx].to_string() catch {
-        _ => without_auth
-      },
-      without_auth[idx + 1:].to_string() catch {
-        _ => "test"
-      },
-    )
-  } else {
-    (without_auth, "test")
-  }
+
   let (host, port) = parse_host_port(host_port, 27017)
-  Some((host, port, if database == "" { "test" } else { database }))
+  Some({
+    host,
+    port,
+    database: if database == "" {
+      "test"
+    } else {
+      database
+    },
+    user,
+    password,
+  })
 }
 
 ///|
 pub fn MongoDBEngine::open(dsn : String) -> Result[MongoDBEngine, String] {
   match parse_mongodb_dsn(dsn) {
-    Some((host, port, database)) =>
-      Ok({
-        host,
-        port,
-        database,
-        state: @ref.new(Map::new()),
-        tx_snapshot: @ref.new((None : Map[String, Array[Json]]?)),
-      })
+    Some(cfg) => Ok(cfg)
     None => Err("invalid mongodb dsn: \{dsn}")
   }
 }
 
 ///|
-fn clone_state(state : Map[String, Array[Json]]) -> Map[String, Array[Json]] {
-  let out : Map[String, Array[Json]] = Map::new(capacity=state.length())
-  state.each((name, docs) => out.set(name, docs.copy()))
-  out
-}
-
-///|
-fn collection_docs(engine : MongoDBEngine, name : String) -> Array[Json] {
-  match engine.state.val.get(name) {
-    Some(docs) => docs.copy()
-    None => []
+fn param_to_json(value : @engine.Param) -> Json {
+  match value {
+    @engine.Bytes(data) => @bson.from_bytes(data) catch { _ => data.to_json() }
+    _ => value.to_json()
   }
 }
 
 ///|
-fn set_collection(
+fn json_to_param(value : Json) -> @engine.Param {
+  match value {
+    Null => @engine.Null
+    True => @engine.Bool(true)
+    False => @engine.Bool(false)
+    Number(n, ..) =>
+      if n.to_int().to_double() == n {
+        @engine.Int(n.to_int())
+      } else {
+        @engine.Double(n)
+      }
+    String(s) => @engine.String(s)
+    Array(_) | Object(_) => @engine.Json(value)
+  }
+}
+
+///|
+fn i32le_bytes(v : Int) -> Bytes {
+  let b = @buffer.new()
+  b.write_int_le(v)
+  b.to_bytes()
+}
+
+///|
+fn read_i32(data : Bytes, offset : Int) -> Int? {
+  if offset < 0 || offset + 4 > data.length() {
+    return None
+  }
+  match data[offset:offset + 4] {
+    [i32le(v)] => Some(v)
+    _ => None
+  }
+}
+
+///|
+async fn read_exact_timed(
+  conn : @socket.Tcp,
+  len : Int,
+  timeout_ms : Int,
+) -> Bytes? {
+  @async.with_timeout_opt(timeout_ms, () => conn.read_exactly(len))
+}
+
+///|
+async fn connect_server(engine : MongoDBEngine) -> @socket.Tcp? {
+  @async.with_timeout_opt(2000, () => {
+    @socket.Tcp::connect_to_host(engine.host, port=engine.port)
+  })
+}
+
+///|
+async fn write_all(conn : @socket.Tcp, data : Bytes) -> Bool {
+  conn.write(data) catch {
+    _ => return false
+  }
+  true
+}
+
+///|
+async fn write_op_msg(
+  conn : @socket.Tcp,
+  request_id : Int,
+  command : Json,
+) -> Bool {
+  let bson = @bson.to_document_bytes(command) catch { _ => return false }
+  let body = i32le_bytes(0) + b"\x00" + bson
+  let header = i32le_bytes(16 + body.length()) +
+    i32le_bytes(request_id) +
+    i32le_bytes(0) +
+    i32le_bytes(2013)
+  write_all(conn, header + body)
+}
+
+///|
+async fn read_op_msg(conn : @socket.Tcp) -> Json? {
+  let header = read_exact_timed(conn, 16, 3000)
+  guard header is Some(header) else { return None }
+  let total_len = read_i32(header, 0).unwrap_or(0)
+  let op_code = read_i32(header, 12).unwrap_or(0)
+  guard total_len >= 21 && op_code == 2013 else { return None }
+  let body_len = total_len - 16
+  let body = read_exact_timed(conn, body_len, 3000)
+  guard body is Some(body) else { return None }
+  guard body.length() >= 5 && body[4].to_int() == 0 else { return None }
+  let doc_len = read_i32(body, 5).unwrap_or(0)
+  guard doc_len >= 5 && 5 + doc_len <= body.length() else { return None }
+  Some(@bson.from_document_bytes(body[5:5 + doc_len].to_bytes())) catch {
+    _ => None
+  }
+}
+
+///|
+fn command_err(doc : Json) -> String? {
+  match doc {
+    { "errmsg": String(msg), .. } => Some(msg)
+    _ => None
+  }
+}
+
+///|
+fn command_ok(doc : Json) -> Bool {
+  match doc {
+    { "ok": Number(n, ..), .. } => n != 0.0
+    { "ok": True, .. } => true
+    _ => false
+  }
+}
+
+///|
+fn command_failed_message(doc : Json, fallback : String) -> String {
+  match command_err(doc) {
+    Some(msg) => msg
+    None => fallback
+  }
+}
+
+///|
+async fn run_command(
   engine : MongoDBEngine,
-  name : String,
-  docs : Array[Json],
-) -> Unit {
-  engine.state.val.set(name, docs)
+  command : Json,
+) -> Result[Json, String] {
+  if engine.user != "" {
+    return Err("mongodb auth is not implemented yet")
+  }
+  let conn = connect_server(engine)
+  guard conn is Some(conn) else { return Err("mongodb connect failed") }
+  defer conn.close()
+
+  let hello : Json = {
+    "hello": Json::number(1.0),
+    "$db": Json::string(engine.database),
+  }
+  if !(write_op_msg(conn, 1, hello) catch { _ => false }) {
+    return Err("mongodb hello write failed")
+  }
+  let hello_res = read_op_msg(conn) catch { _ => None }
+  guard hello_res is Some(hello_doc) else {
+    return Err("mongodb hello read failed")
+  }
+  guard command_ok(hello_doc) else {
+    return Err(command_failed_message(hello_doc, "mongodb hello failed"))
+  }
+
+  let command = match command {
+    Object(obj) => {
+      let out = obj.copy()
+      out["$db"] = Json::string(engine.database)
+      out.to_json()
+    }
+    _ => return Err("mongodb command must be an object")
+  }
+  if !(write_op_msg(conn, 2, command) catch { _ => false }) {
+    return Err("mongodb command write failed")
+  }
+  let reply = read_op_msg(conn) catch { _ => None }
+  guard reply is Some(reply_doc) else {
+    return Err("mongodb command read failed")
+  }
+  if !command_ok(reply_doc) {
+    return Err(command_failed_message(reply_doc, "mongodb command failed"))
+  }
+  Ok(reply_doc)
 }
 
 ///|
@@ -116,113 +284,93 @@ fn parse_projection(select : String) -> FixedArray[String]? {
 }
 
 ///|
-fn project_doc(row : Json, fields : FixedArray[String]?) -> Json {
-  match fields {
-    None => row
-    Some(cols) =>
-      match row {
-        Object(obj) => {
-          let out : Map[String, Json] = {}
-          for col in cols {
-            if obj.get(col) is Some(value) {
-              out[col] = value
-            }
-          }
-          out.to_json()
-        }
-        _ => row
+fn projection_doc(select : String) -> Json? {
+  match parse_projection(select) {
+    None => None
+    Some(cols) => {
+      let out : Map[String, Json] = {}
+      for col in cols {
+        out[col] = Json::number(1.0)
       }
-  }
-}
-
-///|
-fn compare_json(a : Json, b : Json) -> Int {
-  match (a, b) {
-    (Null, Null) => 0
-    (True, True) | (False, False) => 0
-    (True, False) => 1
-    (False, True) => -1
-    (Number(x, ..), Number(y, ..)) =>
-      if x < y {
-        -1
-      } else if x > y {
-        1
-      } else {
-        0
-      }
-    (String(x), String(y)) => x.compare(y)
-    _ => a.stringify().compare(b.stringify())
-  }
-}
-
-///|
-fn doc_field(row : Json, col : String) -> Json? {
-  match row {
-    Object(obj) => obj.get(col)
-    _ => None
-  }
-}
-
-///|
-fn param_to_json(value : @engine.Param) -> Json {
-  match value {
-    @engine.Bytes(data) => @bson.from_bytes(data) catch { _ => data.to_json() }
-    _ => value.to_json()
-  }
-}
-
-///|
-fn matches_where(row : Json, where_ : FixedArray[@engine.Where]) -> Bool {
-  for clause in where_ {
-    let actual = doc_field(row, clause.col).unwrap_or(Json::null())
-    let expected = param_to_json(clause.value)
-    let cmp = compare_json(actual, expected)
-    let ok = match clause.ty {
-      Eq => actual == expected
-      Ne => actual != expected
-      Gt => cmp > 0
-      Lt => cmp < 0
-      Gte => cmp >= 0
-      Lte => cmp <= 0
-      Like =>
-        match (actual, expected) {
-          (String(text), String(pattern)) => {
-            let needle = pattern.replace_all(old="%", new="")
-            text.contains(needle)
-          }
-          _ => false
-        }
-    }
-    if !ok {
-      return false
+      Some(out.to_json())
     }
   }
-  true
 }
 
 ///|
-fn sort_rows(
-  rows : Array[Json],
-  order_by : FixedArray[@engine.OrderBy],
+fn append_condition(
+  filter : Map[String, Json],
+  col : String,
+  op : String?,
+  value : Json,
 ) -> Unit {
-  if order_by.is_empty() {
-    return
-  }
-  rows.sort_by((a, b) => {
-    for order in order_by {
-      let (col, desc) = match order {
-        Asc(name) => (name, false)
-        Desc(name) => (name, true)
+  match op {
+    None =>
+      if filter.get(col) is Some(Object(existing)) {
+        let next = existing.copy()
+        next["$eq"] = value
+        filter[col] = next.to_json()
+      } else {
+        filter[col] = value
       }
-      let av = doc_field(a, col).unwrap_or(Json::null())
-      let bv = doc_field(b, col).unwrap_or(Json::null())
-      let cmp = compare_json(av, bv)
-      if cmp != 0 {
-        return if desc { -cmp } else { cmp }
+    Some(name) => {
+      let next : Map[String, Json] = match filter.get(col) {
+        Some(Object(existing)) => existing.copy()
+        Some(existing) => {
+          let tmp : Map[String, Json] = {}
+          tmp["$eq"] = existing
+          tmp
+        }
+        None => Map::new()
+      }
+      next[name] = value
+      filter[col] = next.to_json()
+    }
+  }
+}
+
+///|
+fn where_to_filter(where_ : FixedArray[@engine.Where]) -> Json {
+  let filter : Map[String, Json] = {}
+  for clause in where_ {
+    let value = param_to_json(clause.value)
+    match clause.ty {
+      Eq => append_condition(filter, clause.col, None, value)
+      Ne => append_condition(filter, clause.col, Some("$ne"), value)
+      Gt => append_condition(filter, clause.col, Some("$gt"), value)
+      Lt => append_condition(filter, clause.col, Some("$lt"), value)
+      Gte => append_condition(filter, clause.col, Some("$gte"), value)
+      Lte => append_condition(filter, clause.col, Some("$lte"), value)
+      Like => {
+        let regex = match value {
+          String(pattern) => pattern.replace_all(old="%", new=".*")
+          _ => ""
+        }
+        append_condition(
+          filter,
+          clause.col,
+          Some("$regex"),
+          Json::string(regex),
+        )
       }
     }
-    0
-  })
+  }
+  filter.to_json()
+}
+
+///|
+fn sort_doc(order_by : FixedArray[@engine.OrderBy]) -> Json? {
+  if order_by.is_empty() {
+    return None
+  }
+  let sort : Map[String, Json] = {}
+  for order in order_by {
+    match order {
+      Asc(col) => sort[col] = Json::number(1.0)
+      Desc(col) => sort[col] = Json::number(-1.0)
+    }
+  }
+  Some(sort.to_json())
 }
 
 ///|
@@ -240,144 +388,248 @@ fn document_from_insert(
 }
 
 ///|
-fn apply_sets(row : Json, sets : FixedArray[@engine.Set]) -> Json {
-  match row {
-    Object(obj) => {
-      let out = obj.copy()
-      for set_ in sets {
-        out[set_.col] = param_to_json(set_.value)
+fn document_from_sets(sets : FixedArray[@engine.Set]) -> Json {
+  let obj : Map[String, Json] = {}
+  for set_ in sets {
+    obj[set_.col] = param_to_json(set_.value)
+  }
+  obj.to_json()
+}
+
+///|
+fn extract_cursor_batch(doc : Json) -> FixedArray[Json]? {
+  match doc {
+    { "cursor": { "firstBatch": Array(rows), .. }, .. } => {
+      let out : Array[Json] = []
+      for row in rows {
+        match row {
+          Object(obj) => {
+            let next = obj.copy()
+            ignore(next.remove("_id"))
+            out.push(next.to_json())
+          }
+          _ => out.push(row)
+        }
       }
-      out.to_json()
+      Some(FixedArray::from_array(out))
     }
-    _ => row
+    _ => None
   }
 }
 
 ///|
-fn run_select(
+fn extract_count(doc : Json) -> Int? {
+  match doc {
+    { "n": Number(n, ..), .. } =>
+      if n.to_int().to_double() == n {
+        Some(n.to_int())
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+async fn find_docs(
+  engine : MongoDBEngine,
+  table : String,
+  filter : Json,
+  select? : String = "*",
+  order_by? : FixedArray[@engine.OrderBy] = [],
+  limit? : Int? = None,
+  offset? : Int? = None,
+) -> Result[FixedArray[Json], String] {
+  let cmd : Map[String, Json] = {}
+  cmd["find"] = Json::string(table)
+  cmd["filter"] = filter
+  if projection_doc(select) is Some(projection) {
+    cmd["projection"] = projection
+  }
+  if sort_doc(order_by) is Some(sort) {
+    cmd["sort"] = sort
+  }
+  if limit is Some(n) {
+    cmd["limit"] = Json::number(n.to_double())
+    cmd["batchSize"] = Json::number(n.to_double())
+  }
+  if offset is Some(n) {
+    cmd["skip"] = Json::number(n.to_double())
+  }
+  let reply = run_command(engine, cmd.to_json())
+  match reply {
+    Ok(doc) =>
+      match extract_cursor_batch(doc) {
+        Some(rows) => Ok(rows)
+        None => Err("mongodb cursor batch missing")
+      }
+    Err(err) => Err(err)
+  }
+}
+
+///|
+async fn run_select(
   engine : MongoDBEngine,
   stmt : @engine.SelectStatement,
 ) -> @engine.QueryResult {
-  let { select, from, joins, where_, order_by, limit, offset } = stmt
-  guard joins.is_empty() else {
-    return fail_result("mongodb_engine does not support joins")
+  if !stmt.joins.is_empty() {
+    return fail_result("mongodb join is not supported")
   }
-  let rows = collection_docs(engine, from).filter(row => {
-    matches_where(row, where_)
-  })
-  sort_rows(rows, order_by)
-  let start = offset.unwrap_or(0)
-  let start = if start < 0 { 0 } else { start }
-  let stop = match limit {
-    Some(v) if v >= 0 => start + v
-    _ => rows.length()
+  let filter = where_to_filter(stmt.where_)
+  if stmt.select.trim() == "count(*)" {
+    let reply = run_command(engine, { "count": stmt.from, "query": filter })
+    return match reply {
+      Ok(doc) =>
+        match extract_count(doc) {
+          Some(n) => ok_result(1, [Json::number(n.to_double())])
+          None => fail_result("mongodb count reply missing n")
+        }
+      Err(err) => fail_result(err)
+    }
   }
-  let projection = parse_projection(select)
-  let out : Array[Json] = []
-  let mut i = start
-  while i < rows.length() && i < stop {
-    out.push(project_doc(rows[i], projection))
-    i = i + 1
+  let rows = find_docs(
+    engine,
+    stmt.from,
+    filter,
+    select=stmt.select,
+    order_by=stmt.order_by,
+    limit=stmt.limit,
+    offset=stmt.offset,
+  )
+  match rows {
+    Ok(items) => ok_result(items.length(), items)
+    Err(err) => fail_result(err)
   }
-  ok_result(out.length(), FixedArray::from_array(out))
 }
 
 ///|
-fn run_insert(
+async fn run_insert(
   engine : MongoDBEngine,
   stmt : @engine.InsertStatement,
 ) -> @engine.QueryResult {
   let doc = document_from_insert(stmt.columns, stmt.values)
-  let docs = collection_docs(engine, stmt.into)
-  docs.push(doc)
-  set_collection(engine, stmt.into, docs)
-  ok_result(1, [doc])
+  let reply = run_command(engine, {
+    "insert": stmt.into,
+    "documents": [doc],
+    "ordered": true,
+  })
+  match reply {
+    Ok(doc) =>
+      match extract_count(doc) {
+        Some(n) => ok_result(n, [])
+        None => ok_result(1, [])
+      }
+    Err(err) => fail_result(err)
+  }
 }
 
 ///|
-fn run_upsert(
+fn upsert_filter(stmt : @engine.UpsertStatement, doc : Json) -> Json {
+  let filter : Map[String, Json] = {}
+  match doc {
+    Object(obj) =>
+      if !stmt.conflict_target.is_empty() {
+        for key in stmt.conflict_target {
+          if obj.get(key) is Some(value) {
+            filter[key] = value
+          }
+        }
+      } else if obj.get("id") is Some(id) {
+        filter["id"] = id
+      } else {
+        for key in obj.keys() {
+          if obj.get(key) is Some(value) {
+            filter[key] = value
+          }
+        }
+      }
+    _ => ()
+  }
+  filter.to_json()
+}
+
+///|
+fn in_filter(field_name : String, values : FixedArray[Json]) -> Json {
+  let inner : Map[String, Json] = {}
+  inner["$in"] = values.to_json()
+  let outer : Map[String, Json] = {}
+  outer[field_name] = inner.to_json()
+  outer.to_json()
+}
+
+///|
+async fn run_upsert(
   engine : MongoDBEngine,
   stmt : @engine.UpsertStatement,
 ) -> @engine.QueryResult {
-  let docs = collection_docs(engine, stmt.table)
-  let base = apply_sets({}, stmt.sets)
-  let mut hit = None
-  if !stmt.conflict_target.is_empty() {
-    let mut i = 0
-    while i < docs.length() {
-      let row = docs[i]
-      let mut matched = true
-      for key in stmt.conflict_target {
-        let expected = doc_field(base, key).unwrap_or(Json::null())
-        let actual = doc_field(row, key).unwrap_or(Json::null())
-        if actual != expected {
-          matched = false
-          break
-        }
+  let set_doc = document_from_sets(stmt.sets)
+  let filter = upsert_filter(stmt, set_doc)
+  let reply = run_command(engine, {
+    "update": stmt.table,
+    "updates": [
+      { "q": filter, "u": { "$set": set_doc }, "upsert": true, "multi": false },
+    ],
+    "ordered": true,
+  })
+  match reply {
+    Ok(_) =>
+      match find_docs(engine, stmt.table, filter, limit=Some(1)) {
+        Ok(rows) =>
+          if rows is [row, ..] {
+            ok_result(1, [row])
+          } else {
+            ok_result(0, [])
+          }
+        Err(err) => fail_result(err)
       }
-      if matched {
-        hit = Some(i)
-        break
-      }
-      i = i + 1
-    }
-  }
-  match hit {
-    Some(idx) => {
-      let next = if stmt.update_sets.is_empty() {
-        apply_sets(docs[idx], stmt.sets)
-      } else {
-        apply_sets(docs[idx], stmt.update_sets)
-      }
-      docs[idx] = next
-      set_collection(engine, stmt.table, docs)
-      ok_result(1, [next])
-    }
-    None => {
-      docs.push(base)
-      set_collection(engine, stmt.table, docs)
-      ok_result(1, [base])
-    }
+    Err(err) => fail_result(err)
   }
 }
 
 ///|
-fn run_update(
+async fn run_update(
   engine : MongoDBEngine,
   stmt : @engine.UpdateStatement,
 ) -> @engine.QueryResult {
-  let docs = collection_docs(engine, stmt.table)
-  let changed : Array[Json] = []
-  let mut i = 0
-  while i < docs.length() {
-    if matches_where(docs[i], stmt.where_) {
-      let next = apply_sets(docs[i], stmt.sets)
-      docs[i] = next
-      changed.push(next)
-    }
-    i = i + 1
+  let reply = run_command(engine, {
+    "update": stmt.table,
+    "updates": [
+      {
+        "q": where_to_filter(stmt.where_),
+        "u": { "$set": document_from_sets(stmt.sets) },
+        "multi": true,
+      },
+    ],
+    "ordered": true,
+  })
+  match reply {
+    Ok(doc) =>
+      match extract_count(doc) {
+        Some(n) => ok_result(n, [])
+        None => ok_result(0, [])
+      }
+    Err(err) => fail_result(err)
   }
-  set_collection(engine, stmt.table, docs)
-  ok_result(changed.length(), FixedArray::from_array(changed))
 }
 
 ///|
-fn run_delete(
+async fn run_delete(
   engine : MongoDBEngine,
   stmt : @engine.DeleteStatement,
 ) -> @engine.QueryResult {
-  let docs = collection_docs(engine, stmt.from)
-  let kept : Array[Json] = []
-  let removed : Array[Json] = []
-  for row in docs {
-    if matches_where(row, stmt.where_) {
-      removed.push(row)
-    } else {
-      kept.push(row)
-    }
+  let reply = run_command(engine, {
+    "delete": stmt.from,
+    "deletes": [{ "q": where_to_filter(stmt.where_), "limit": 0 }],
+    "ordered": true,
+  })
+  match reply {
+    Ok(doc) =>
+      match extract_count(doc) {
+        Some(n) => ok_result(n, [])
+        None => ok_result(0, [])
+      }
+    Err(err) => fail_result(err)
   }
-  set_collection(engine, stmt.from, kept)
-  ok_result(removed.length(), FixedArray::from_array(removed))
 }
 
 ///|
@@ -388,201 +640,374 @@ fn parse_command(sql : String) -> Json? {
 }
 
 ///|
-fn run_preload_in(
-  engine : MongoDBEngine,
-  cmd : Map[String, Json],
-  params : FixedArray[@engine.Param],
-) -> @engine.QueryResult {
-  guard cmd.get("table") is Some(String(table)) else {
-    return fail_result("mongodb preload_in missing table")
+fn decode_json_string_array(value : Json) -> FixedArray[String]? {
+  guard value is Array(items) else { return None }
+  let out : Array[String] = []
+  for item in items {
+    guard item is String(text) else { return None }
+    out.push(text)
   }
-  guard cmd.get("key_col") is Some(String(key_col)) else {
-    return fail_result("mongodb preload_in missing key_col")
-  }
-  let keys = params.map(param_to_json)
-  let out : Array[Json] = []
-  for row in collection_docs(engine, table) {
-    let value = doc_field(row, key_col).unwrap_or(Json::null())
-    if keys.contains(value) {
-      out.push(row)
-    }
-  }
-  ok_result(out.length(), FixedArray::from_array(out))
+  Some(FixedArray::from_array(out))
 }
 
 ///|
-fn run_preload_many_to_many(
-  engine : MongoDBEngine,
-  cmd : Map[String, Json],
-  params : FixedArray[@engine.Param],
-) -> @engine.QueryResult {
-  guard cmd
-    is {
-      "target_table": String(target_table),
-      "target_key": String(target_key),
-      "join_table": String(join_table),
-      "join_owner_key": String(join_owner_key),
-      "join_target_key": String(join_target_key),
-      ..
-    } else {
-    return fail_result("mongodb preload_many_to_many command is invalid")
+fn decode_json_param_array(value : Json) -> FixedArray[@engine.Param]? {
+  guard value is Array(items) else { return None }
+  let out : Array[@engine.Param] = []
+  for item in items {
+    out.push(json_to_param(item))
   }
-  let owner_keys = params.map(param_to_json)
-  let target_rows = collection_docs(engine, target_table)
-  let target_index : Map[String, Json] = {}
-  for row in target_rows {
-    let key = doc_field(row, target_key).unwrap_or(Json::null()).stringify()
-    target_index[key] = row
-  }
-  let out : Array[Json] = []
-  for join_row in collection_docs(engine, join_table) {
-    let owner_value = doc_field(join_row, join_owner_key).unwrap_or(
-      Json::null(),
-    )
-    if !owner_keys.contains(owner_value) {
-      continue
+  Some(FixedArray::from_array(out))
+}
+
+///|
+fn decode_json_set_array(value : Json) -> FixedArray[@engine.Set]? {
+  guard value is Array(items) else { return None }
+  let out : Array[@engine.Set] = []
+  for item in items {
+    guard item is { "col": String(col), "value": set_value, .. } else {
+      return None
     }
-    let target_value = doc_field(join_row, join_target_key).unwrap_or(
-      Json::null(),
-    )
-    if target_index.get(target_value.stringify()) is Some(target_row) {
-      let merged = match target_row {
-        Object(obj) => obj.copy()
-        _ => Map::new()
+    out.push({ col, value: json_to_param(set_value) })
+  }
+  Some(FixedArray::from_array(out))
+}
+
+///|
+fn decode_json_where_array(value : Json) -> FixedArray[@engine.Where]? {
+  guard value is Array(items) else { return None }
+  let out : Array[@engine.Where] = []
+  for item in items {
+    guard item
+      is { "col": String(col), "value": where_value, "ty": String(ty), .. } else {
+      return None
+    }
+    let where_ty = match ty {
+      "eq" => Some(@engine.WhereType::Eq)
+      "ne" => Some(@engine.WhereType::Ne)
+      "gt" => Some(@engine.WhereType::Gt)
+      "lt" => Some(@engine.WhereType::Lt)
+      "gte" => Some(@engine.WhereType::Gte)
+      "lte" => Some(@engine.WhereType::Lte)
+      "like" => Some(@engine.WhereType::Like)
+      _ => None
+    }
+    guard where_ty is Some(where_ty) else { return None }
+    out.push({ col, value: json_to_param(where_value), ty: where_ty })
+  }
+  Some(FixedArray::from_array(out))
+}
+
+///|
+fn decode_json_order_array(value : Json) -> FixedArray[@engine.OrderBy]? {
+  guard value is Array(items) else { return None }
+  let out : Array[@engine.OrderBy] = []
+  for item in items {
+    guard item is { "col": String(col), "desc": desc, .. } else { return None }
+    let flag = match desc {
+      True => Some(true)
+      False => Some(false)
+      _ => None
+    }
+    guard flag is Some(flag) else { return None }
+    out.push(if flag { Desc(col) } else { Asc(col) })
+  }
+  Some(FixedArray::from_array(out))
+}
+
+///|
+fn decode_json_int_opt(value : Json) -> (Bool, Int?) {
+  match value {
+    Null => (true, None)
+    Number(n, ..) =>
+      if n.to_int().to_double() == n {
+        (true, Some(n.to_int()))
+      } else {
+        (false, None)
       }
-      merged["__morm_owner_key"] = owner_value
-      out.push(merged.to_json())
-    }
+    _ => (false, None)
   }
-  ok_result(out.length(), FixedArray::from_array(out))
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with render(_self, stmt) {
-  (stmt.to_json().stringify(), [])
+fn encode_set_json(set_ : @engine.Set) -> Json {
+  { "col": set_.col, "value": param_to_json(set_.value) }
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with tx_begin_sql(_self) -> String {
-  "__morm_mongo_tx_begin__"
+fn encode_where_type(ty : @engine.WhereType) -> String {
+  match ty {
+    Eq => "eq"
+    Ne => "ne"
+    Gt => "gt"
+    Lt => "lt"
+    Gte => "gte"
+    Lte => "lte"
+    Like => "like"
+  }
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with tx_commit_sql(_self) -> String {
-  "__morm_mongo_tx_commit__"
+fn encode_where_json(where_ : @engine.Where) -> Json {
+  {
+    "col": where_.col,
+    "value": param_to_json(where_.value),
+    "ty": encode_where_type(where_.ty),
+  }
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with tx_rollback_sql(_self) -> String {
-  "__morm_mongo_tx_rollback__"
+fn encode_order_json(order : @engine.OrderBy) -> Json {
+  match order {
+    Asc(col) => { "col": col, "desc": false }
+    Desc(col) => { "col": col, "desc": true }
+  }
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with tx_savepoint_sql(
-  _self,
-  _name : String,
-) -> String {
-  ""
+fn render_command(stmt : @engine.Statement) -> Json {
+  match stmt {
+    Select(select_stmt) =>
+      {
+        "op": "select",
+        "select": select_stmt.select,
+        "from": select_stmt.from,
+        "joins": select_stmt.joins,
+        "where": select_stmt.where_.map(encode_where_json),
+        "order_by": select_stmt.order_by.map(encode_order_json),
+        "limit": select_stmt.limit.to_json(),
+        "offset": select_stmt.offset.to_json(),
+      }
+    Insert(insert_stmt) =>
+      {
+        "op": "insert",
+        "into": insert_stmt.into,
+        "columns": insert_stmt.columns,
+        "values": insert_stmt.values.map(param_to_json),
+      }
+    Upsert(upsert_stmt) =>
+      {
+        "op": "upsert",
+        "table": upsert_stmt.table,
+        "sets": upsert_stmt.sets.map(encode_set_json),
+        "conflict_target": upsert_stmt.conflict_target,
+        "update_sets": upsert_stmt.update_sets.map(encode_set_json),
+      }
+    Update(update_stmt) =>
+      {
+        "op": "update",
+        "table": update_stmt.table,
+        "sets": update_stmt.sets.map(encode_set_json),
+        "where": update_stmt.where_.map(encode_where_json),
+      }
+    Delete(delete_stmt) =>
+      {
+        "op": "delete",
+        "from": delete_stmt.from,
+        "where": delete_stmt.where_.map(encode_where_json),
+      }
+  }
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with tx_rollback_to_savepoint_sql(
-  _self,
-  _name : String,
-) -> String {
-  ""
-}
-
-///|
-impl @engine.Engine for MongoDBEngine with migrate_table(self, table_schema) {
-  if table_schema is { "name": String(name), .. } {
-    if self.state.val.get(name) is None {
-      self.state.val.set(name, [])
+fn decode_statement_command(cmd : Json) -> @engine.Statement? {
+  guard cmd is { "op": String(op), .. } else { return None }
+  match op {
+    "select" => {
+      guard cmd
+        is {
+          "select": String(select),
+          "from": String(from),
+          "joins": joins_json,
+          "where": where_json,
+          "order_by": order_json,
+          "limit": limit_json,
+          "offset": offset_json,
+          ..
+        } else {
+        return None
+      }
+      guard decode_json_string_array(joins_json) is Some(joins) else {
+        return None
+      }
+      guard decode_json_where_array(where_json) is Some(where_) else {
+        return None
+      }
+      guard decode_json_order_array(order_json) is Some(order_by) else {
+        return None
+      }
+      let (limit_ok, limit) = decode_json_int_opt(limit_json)
+      if !limit_ok {
+        return None
+      }
+      let (offset_ok, offset) = decode_json_int_opt(offset_json)
+      if !offset_ok {
+        return None
+      }
+      Some(Select({ select, from, joins, where_, order_by, limit, offset }))
     }
-    ok_result(0, [])
+    "insert" => {
+      guard cmd
+        is {
+          "into": String(into),
+          "columns": columns_json,
+          "values": values_json,
+          ..
+        } else {
+        return None
+      }
+      guard decode_json_string_array(columns_json) is Some(columns) else {
+        return None
+      }
+      guard decode_json_param_array(values_json) is Some(values) else {
+        return None
+      }
+      Some(Insert({ into, columns, values }))
+    }
+    "upsert" => {
+      guard cmd
+        is {
+          "table": String(table),
+          "sets": sets_json,
+          "conflict_target": conflict_json,
+          "update_sets": update_sets_json,
+          ..
+        } else {
+        return None
+      }
+      guard decode_json_set_array(sets_json) is Some(sets) else { return None }
+      guard decode_json_string_array(conflict_json) is Some(conflict_target) else {
+        return None
+      }
+      guard decode_json_set_array(update_sets_json) is Some(update_sets) else {
+        return None
+      }
+      Some(Upsert({ table, sets, conflict_target, update_sets }))
+    }
+    "update" => {
+      guard cmd
+        is {
+          "table": String(table),
+          "sets": sets_json,
+          "where": where_json,
+          ..
+        } else {
+        return None
+      }
+      guard decode_json_set_array(sets_json) is Some(sets) else { return None }
+      guard decode_json_where_array(where_json) is Some(where_) else {
+        return None
+      }
+      Some(Update({ table, sets, where_ }))
+    }
+    "delete" => {
+      guard cmd is { "from": String(from), "where": where_json, .. } else {
+        return None
+      }
+      guard decode_json_where_array(where_json) is Some(where_) else {
+        return None
+      }
+      Some(Delete({ from, where_ }))
+    }
+    _ => None
+  }
+}
+
+///|
+pub impl @engine.Engine for MongoDBEngine with render(_self, stmt) {
+  (render_command(stmt).stringify(), [])
+}
+
+///|
+pub impl @engine.Engine for MongoDBEngine with tx_begin_sql(_self) -> String {
+  ""
+}
+
+///|
+pub impl @engine.Engine for MongoDBEngine with tx_commit_sql(_self) -> String {
+  ""
+}
+
+///|
+pub impl @engine.Engine for MongoDBEngine with tx_rollback_sql(_self) -> String {
+  ""
+}
+
+///|
+pub impl @engine.Engine for MongoDBEngine with tx_savepoint_sql(
+  _self,
+  _name : String,
+) -> String {
+  ""
+}
+
+///|
+pub impl @engine.Engine for MongoDBEngine with tx_rollback_to_savepoint_sql(
+  _self,
+  _name : String,
+) -> String {
+  ""
+}
+
+///|
+pub impl @engine.Engine for MongoDBEngine with migrate_table(self, table_schema) {
+  if table_schema is { "name": String(name), .. } {
+    let reply = run_command(self, { "create": name })
+    match reply {
+      Ok(_) => ok_result(0, [])
+      Err(err) if err.contains("already exists") => ok_result(0, [])
+      Err(err) => fail_result(err)
+    }
   } else {
     fail_result("invalid table schema")
   }
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with exec_raw(
+pub impl @engine.Engine for MongoDBEngine with exec_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
+  _params : FixedArray[@engine.Param],
 ) {
-  if sql == "__morm_mongo_tx_begin__" {
-    self.tx_snapshot.val = Some(clone_state(self.state.val))
-    return ok_result(0, [])
-  }
-  if sql == "__morm_mongo_tx_commit__" {
-    self.tx_snapshot.val = None
-    return ok_result(0, [])
-  }
-  if sql == "__morm_mongo_tx_rollback__" {
-    if self.tx_snapshot.val is Some(snapshot) {
-      self.state.val = clone_state(snapshot)
-      self.tx_snapshot.val = None
-    }
-    return ok_result(0, [])
-  }
   guard parse_command(sql) is Some(cmd) else {
     return fail_result("mongodb_engine expects JSON commands")
   }
-  match cmd {
-    Object(obj) =>
-      match obj {
-        { "op": "preload_in", .. } => run_preload_in(self, obj, params)
-        { "op": "preload_many_to_many", .. } =>
-          run_preload_many_to_many(self, obj, params)
-        _ => {
-          let stmt : @engine.Statement = @json.from_json(obj.to_json()) catch {
-            _ => return fail_result("mongodb_engine command decode failed")
-          }
-          match stmt {
-            Select(select_stmt) => run_select(self, select_stmt)
-            Insert(insert_stmt) => run_insert(self, insert_stmt)
-            Upsert(upsert_stmt) => run_upsert(self, upsert_stmt)
-            Update(update_stmt) => run_update(self, update_stmt)
-            Delete(delete_stmt) => run_delete(self, delete_stmt)
-          }
-        }
-      }
-    _ => {
-      let stmt : @engine.Statement = @json.from_json(cmd) catch {
-        _ => return fail_result("mongodb_engine command decode failed")
-      }
-      match stmt {
-        Select(select_stmt) => run_select(self, select_stmt)
-        Insert(insert_stmt) => run_insert(self, insert_stmt)
-        Upsert(upsert_stmt) => run_upsert(self, upsert_stmt)
-        Update(update_stmt) => run_update(self, update_stmt)
-        Delete(delete_stmt) => run_delete(self, delete_stmt)
-      }
-    }
+  let stmt = match decode_statement_command(cmd) {
+    Some(stmt) => stmt
+    None => return fail_result("mongodb_engine command decode failed")
+  }
+  match stmt {
+    Select(select_stmt) => run_select(self, select_stmt)
+    Insert(insert_stmt) => run_insert(self, insert_stmt)
+    Upsert(upsert_stmt) => run_upsert(self, upsert_stmt)
+    Update(update_stmt) => run_update(self, update_stmt)
+    Delete(delete_stmt) => run_delete(self, delete_stmt)
   }
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with preload_belongs_to_json(
+pub impl @engine.Engine for MongoDBEngine with preload_belongs_to_json(
   self,
   target_table : String,
   target_key : String,
   key_params : FixedArray[@engine.Param],
 ) -> Map[String, Json] {
+  let filter = in_filter(target_key, key_params.map(param_to_json))
   let out : Map[String, Json] = Map::new()
-  let keys = key_params.map(param_to_json)
-  for row in collection_docs(self, target_table) {
-    let value = doc_field(row, target_key).unwrap_or(Json::null())
-    if keys.contains(value) {
-      out.set(value.stringify(), row)
-    }
+  match find_docs(self, target_table, filter) {
+    Ok(rows) =>
+      for row in rows {
+        if row is Object(obj) && obj.get(target_key) is Some(value) {
+          out.set(value.stringify(), row)
+        }
+      }
+    Err(_) => ()
   }
   out
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with preload_has_one_json(
+pub impl @engine.Engine for MongoDBEngine with preload_has_one_json(
   self,
   target_table : String,
   target_key : String,
@@ -592,32 +1017,34 @@ impl @engine.Engine for MongoDBEngine with preload_has_one_json(
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with preload_has_many_json(
+pub impl @engine.Engine for MongoDBEngine with preload_has_many_json(
   self,
   target_table : String,
   target_key : String,
   key_params : FixedArray[@engine.Param],
 ) -> Map[String, Array[Json]] {
+  let filter = in_filter(target_key, key_params.map(param_to_json))
   let out : Map[String, Array[Json]] = Map::new()
-  let keys = key_params.map(param_to_json)
-  for row in collection_docs(self, target_table) {
-    let value = doc_field(row, target_key).unwrap_or(Json::null())
-    if !keys.contains(value) {
-      continue
-    }
-    let key = value.stringify()
-    if out.get(key) is Some(items) {
-      items.push(row)
-      out.set(key, items)
-    } else {
-      out.set(key, [row])
-    }
+  match find_docs(self, target_table, filter) {
+    Ok(rows) =>
+      for row in rows {
+        if row is Object(obj) && obj.get(target_key) is Some(value) {
+          let key = value.stringify()
+          if out.get(key) is Some(items) {
+            items.push(row)
+            out.set(key, items)
+          } else {
+            out.set(key, [row])
+          }
+        }
+      }
+    Err(_) => ()
   }
   out
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with preload_many_to_many_json(
+pub impl @engine.Engine for MongoDBEngine with preload_many_to_many_json(
   self,
   target_table : String,
   target_key : String,
@@ -626,37 +1053,48 @@ impl @engine.Engine for MongoDBEngine with preload_many_to_many_json(
   join_target_key : String,
   key_params : FixedArray[@engine.Param],
 ) -> Map[String, Array[Json]] {
-  let owner_keys = key_params.map(param_to_json)
-  let target_rows = collection_docs(self, target_table)
+  let owner_values = key_params.map(param_to_json)
+  let join_filter = in_filter(join_owner_key, owner_values)
+  let join_rows = match find_docs(self, join_table, join_filter) {
+    Ok(rows) => rows
+    Err(_) => return Map::new()
+  }
+  let target_ids : Array[Json] = []
+  for row in join_rows {
+    if row is Object(obj) && obj.get(join_target_key) is Some(value) {
+      target_ids.push(value)
+    }
+  }
+  let target_filter = in_filter(target_key, FixedArray::from_array(target_ids))
+  let target_rows = match find_docs(self, target_table, target_filter) {
+    Ok(rows) => rows
+    Err(_) => return Map::new()
+  }
   let target_index : Map[String, Json] = {}
   for row in target_rows {
-    let key = doc_field(row, target_key).unwrap_or(Json::null()).stringify()
-    target_index[key] = row
+    if row is Object(obj) && obj.get(target_key) is Some(value) {
+      target_index.set(value.stringify(), row)
+    }
   }
   let out : Map[String, Array[Json]] = Map::new()
-  for join_row in collection_docs(self, join_table) {
-    let owner_value = doc_field(join_row, join_owner_key).unwrap_or(
-      Json::null(),
-    )
-    if !owner_keys.contains(owner_value) {
-      continue
-    }
-    let target_value = doc_field(join_row, join_target_key).unwrap_or(
-      Json::null(),
-    )
-    if target_index.get(target_value.stringify()) is Some(target_row) {
-      let merged = match target_row {
-        Object(obj) => obj.copy()
-        _ => Map::new()
-      }
-      merged["__morm_owner_key"] = owner_value
-      let owner_key = owner_value.stringify()
-      let row = merged.to_json()
-      if out.get(owner_key) is Some(items) {
-        items.push(row)
-        out.set(owner_key, items)
-      } else {
-        out.set(owner_key, [row])
+  for join_row in join_rows {
+    if join_row is Object(obj) {
+      let owner_value = obj.get(join_owner_key).unwrap_or(Json::null())
+      let target_value = obj.get(join_target_key).unwrap_or(Json::null())
+      if target_index.get(target_value.stringify()) is Some(target_row) {
+        let merged = match target_row {
+          Object(target_obj) => target_obj.copy()
+          _ => Map::new()
+        }
+        merged["__morm_owner_key"] = owner_value
+        let owner_key = owner_value.stringify()
+        let row = merged.to_json()
+        if out.get(owner_key) is Some(items) {
+          items.push(row)
+          out.set(owner_key, items)
+        } else {
+          out.set(owner_key, [row])
+        }
       }
     }
   }
@@ -664,6 +1102,6 @@ impl @engine.Engine for MongoDBEngine with preload_many_to_many_json(
 }
 
 ///|
-impl @engine.Engine for MongoDBEngine with close(_self) -> Unit {
+pub impl @engine.Engine for MongoDBEngine with close(_self) -> Unit {
   ()
 }
