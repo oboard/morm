@@ -5,6 +5,8 @@ pub struct MySQLEngine {
   user : String
   password : String
   database : String
+  pool : @engine.ConnectionPool[@socket.Tcp]
+  mut tx_conn : @socket.Tcp?
 }
 
 ///|
@@ -78,7 +80,15 @@ fn parse_mysql_dsn(dsn : String) -> MySQLEngine? {
   }
 
   let (host, port) = parse_host_port(host_port, 3306)
-  Some({ host, port, user, password, database })
+  Some({
+    host,
+    port,
+    user,
+    password,
+    database,
+    pool: @engine.ConnectionPool::new(8),
+    tx_conn: None,
+  })
 }
 
 ///|
@@ -500,25 +510,24 @@ fn parse_server_caps(payload : Bytes) -> Int {
 }
 
 ///|
-async fn mysql_query_async(
-  cfg : MySQLEngine,
-  sql : String,
-) -> @engine.QueryResult {
+async fn mysql_query_async(cfg : MySQLEngine) -> Result[@socket.Tcp, String] {
   let conn = @socket.Tcp::connect_to_host(cfg.host, port=cfg.port) catch {
-    _ => return fail("mysql connect failed")
+    _ => return Err("mysql connect failed")
   }
-  defer conn.close()
 
   let handshake = read_packet(conn) catch { _ => None }
   if handshake is None {
-    return fail("mysql handshake read failed")
+    conn.close()
+    return Err("mysql handshake read failed")
   }
   let (_, hs_payload) = handshake.unwrap()
   if hs_payload.length() == 0 {
-    return fail("mysql empty handshake")
+    conn.close()
+    return Err("mysql empty handshake")
   }
   if hs_payload[0].to_int() == 0xff {
-    return fail(parse_error_packet(hs_payload))
+    conn.close()
+    return Err(parse_error_packet(hs_payload))
   }
 
   let server_caps = parse_server_caps(hs_payload)
@@ -527,12 +536,14 @@ async fn mysql_query_async(
   let resp = make_handshake_response(cfg, server_caps, plugin, seed)
 
   if !(write_packet(conn, 1, resp) catch { _ => false }) {
-    return fail("mysql handshake write failed")
+    conn.close()
+    return Err("mysql handshake write failed")
   }
 
   let auth_res = read_packet(conn) catch { _ => None }
   if auth_res is None {
-    return fail("mysql auth response read failed")
+    conn.close()
+    return Err("mysql auth response read failed")
   }
   let (seq0, auth_payload0) = auth_res.unwrap()
   let mut seq = seq0
@@ -556,11 +567,13 @@ async fn mysql_query_async(
     }
     let token = auth_token(switch_plugin, cfg.password, switch_seed)
     if !(write_packet(conn, seq + 1, token) catch { _ => false }) {
-      return fail("mysql auth switch write failed")
+      conn.close()
+      return Err("mysql auth switch write failed")
     }
     let p = read_packet(conn) catch { _ => None }
     if p is None {
-      return fail("mysql auth switch read failed")
+      conn.close()
+      return Err("mysql auth switch read failed")
     }
     let (s2, p2) = p.unwrap()
     seq = s2
@@ -572,53 +585,71 @@ async fn mysql_query_async(
     if auth_payload.length() >= 2 && auth_payload[1].to_int() == 0x03 {
       let p = read_packet(conn) catch { _ => None }
       if p is None {
-        return fail("mysql auth final read failed")
+        conn.close()
+        return Err("mysql auth final read failed")
       }
       let (_, final_auth) = p.unwrap()
       auth_payload = final_auth
     } else {
-      return fail("mysql auth requires full authentication")
+      conn.close()
+      return Err("mysql auth requires full authentication")
     }
   }
 
   if auth_payload.length() == 0 {
-    return fail("mysql empty auth response")
+    conn.close()
+    return Err("mysql empty auth response")
   }
   if auth_payload[0].to_int() == 0xff {
-    return fail(parse_error_packet(auth_payload))
+    conn.close()
+    return Err(parse_error_packet(auth_payload))
   }
   if auth_payload[0].to_int() != 0x00 {
-    return fail("mysql auth failed")
+    conn.close()
+    return Err("mysql auth failed")
   }
 
+  Ok(conn)
+}
+
+///|
+fn close_mysql_tcp(conn : @socket.Tcp) -> Unit {
+  conn.close()
+}
+
+///|
+async fn mysql_query_on_conn(
+  conn : @socket.Tcp,
+  sql : String,
+) -> (@engine.QueryResult, Bool) {
   let q = @buffer.new()
   q.write_byte(0x03) // COM_QUERY
   q.write_bytes(@utf8.encode(sql))
   if !(write_packet(conn, 0, q.to_bytes()) catch { _ => false }) {
-    return fail("mysql query write failed")
+    return (fail("mysql query write failed"), false)
   }
 
   let first = read_packet(conn) catch { _ => None }
   if first is None {
-    return fail("mysql query read failed")
+    return (fail("mysql query read failed"), false)
   }
   let (_, first_payload) = first.unwrap()
   if first_payload.length() == 0 {
-    return fail("mysql empty query response")
+    return (fail("mysql empty query response"), false)
   }
 
   let tag = first_payload[0].to_int()
   if tag == 0xff {
-    return fail(parse_error_packet(first_payload))
+    return (fail(parse_error_packet(first_payload)), true)
   }
   if tag == 0x00 {
     let affected = parse_ok_affected_rows(first_payload)
-    return { ok: true, rows_affected: affected, rows: [], error: None }
+    return ({ ok: true, rows_affected: affected, rows: [], error: None }, true)
   }
 
   let col_count = match lenenc_int(first_payload, 0) {
     Some((n, _)) => n
-    None => return fail("mysql invalid column-count packet")
+    None => return (fail("mysql invalid column-count packet"), false)
   }
 
   let cols : Array[String] = []
@@ -626,28 +657,28 @@ async fn mysql_query_async(
   while i < col_count {
     let p = read_packet(conn) catch { _ => None }
     if p is None {
-      return fail("mysql column definition read failed")
+      return (fail("mysql column definition read failed"), false)
     }
     let (_, col_def) = p.unwrap()
     let (_, p1) = match lenenc_str(col_def, 0) {
       Some(v) => v
-      None => return fail("mysql bad column definition")
+      None => return (fail("mysql bad column definition"), false)
     }
     let (_, p2) = match lenenc_str(col_def, p1) {
       Some(v) => v
-      None => return fail("mysql bad column definition")
+      None => return (fail("mysql bad column definition"), false)
     }
     let (_, p3) = match lenenc_str(col_def, p2) {
       Some(v) => v
-      None => return fail("mysql bad column definition")
+      None => return (fail("mysql bad column definition"), false)
     }
     let (_, p4) = match lenenc_str(col_def, p3) {
       Some(v) => v
-      None => return fail("mysql bad column definition")
+      None => return (fail("mysql bad column definition"), false)
     }
     let (name, _) = match lenenc_str(col_def, p4) {
       Some(v) => v
-      None => return fail("mysql bad column definition")
+      None => return (fail("mysql bad column definition"), false)
     }
     cols.push(name.unwrap_or("c" + i.to_string()))
     i = i + 1
@@ -657,7 +688,7 @@ async fn mysql_query_async(
   let mut pending_row : Bytes? = None
   let after_cols = read_packet(conn) catch { _ => None }
   if after_cols is None {
-    return fail("mysql missing packet after column definitions")
+    return (fail("mysql missing packet after column definitions"), false)
   }
   let (_, after_cols_payload) = after_cols.unwrap()
   if !(after_cols_payload.length() > 0 &&
@@ -686,14 +717,14 @@ async fn mysql_query_async(
       None => {
         let p = read_packet(conn) catch { _ => None }
         if p is None {
-          return fail("mysql row read failed")
+          return (fail("mysql row read failed"), false)
         }
         let (_, pkt) = p.unwrap()
         pkt
       }
     }
     if row_pkt.length() > 0 && row_pkt[0].to_int() == 0xff {
-      return fail(parse_error_packet(row_pkt))
+      return (fail(parse_error_packet(row_pkt)), true)
     }
     if row_pkt.length() > 0 &&
       row_pkt[0].to_int() == 0xfe &&
@@ -710,7 +741,7 @@ async fn mysql_query_async(
       while c < cols.length() {
         let parsed = lenenc_str(row_pkt, pos)
         if parsed is None {
-          return fail("mysql bad row packet")
+          return (fail("mysql bad row packet"), false)
         }
         let (v, np) = parsed.unwrap()
         pos = np
@@ -724,17 +755,78 @@ async fn mysql_query_async(
     }
   }
 
-  {
-    ok: true,
-    rows_affected: rows.length(),
-    rows: FixedArray::from_array(rows),
-    error: None,
+  (
+    {
+      ok: true,
+      rows_affected: rows.length(),
+      rows: FixedArray::from_array(rows),
+      error: None,
+    },
+    true,
+  )
+}
+
+///|
+fn mysql_is_tx_begin(sql : String) -> Bool {
+  sql.trim() == "START TRANSACTION"
+}
+
+///|
+fn mysql_is_tx_commit(sql : String) -> Bool {
+  sql.trim() == "COMMIT"
+}
+
+///|
+fn mysql_is_tx_rollback(sql : String) -> Bool {
+  sql.trim() == "ROLLBACK"
+}
+
+///|
+async fn mysql_exec_sql(
+  engine : MySQLEngine,
+  sql : String,
+) -> @engine.QueryResult {
+  if mysql_is_tx_begin(sql) {
+    if engine.tx_conn is Some(_) {
+      return fail("mysql transaction already active")
+    }
+    let conn = match engine.pool.borrow(() => mysql_query_async(engine)) {
+      Ok(conn) => conn
+      Err(err) => return fail(err)
+    }
+    let (res, reusable) = mysql_query_on_conn(conn, sql)
+    if res.ok {
+      engine.tx_conn = Some(conn)
+    } else {
+      engine.pool.release(conn, close_mysql_tcp, reusable~)
+    }
+    return res
   }
+
+  if engine.tx_conn is Some(conn) {
+    let (res, reusable) = mysql_query_on_conn(conn, sql)
+    if mysql_is_tx_commit(sql) || mysql_is_tx_rollback(sql) {
+      engine.tx_conn = None
+      engine.pool.release(conn, close_mysql_tcp, reusable~)
+    } else if !reusable {
+      engine.tx_conn = None
+      engine.pool.release(conn, close_mysql_tcp, reusable=false)
+    }
+    return res
+  }
+
+  let conn = match engine.pool.borrow(() => mysql_query_async(engine)) {
+    Ok(conn) => conn
+    Err(err) => return fail(err)
+  }
+  let (res, reusable) = mysql_query_on_conn(conn, sql)
+  engine.pool.release(conn, close_mysql_tcp, reusable~)
+  res
 }
 
 ///|
 pub async fn MySQLEngine::ping(self : MySQLEngine) -> Bool {
-  mysql_query_async(self, "SELECT 1").ok
+  mysql_exec_sql(self, "SELECT 1").ok
 }
 
 ///|
@@ -1161,7 +1253,7 @@ pub impl @engine.Engine for MySQLEngine with exec_raw(
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
   let query = inline_sql(sql, params)
-  mysql_query_async(self, query)
+  mysql_exec_sql(self, query)
 }
 
 ///|
@@ -1231,6 +1323,10 @@ pub impl @engine.Engine for MySQLEngine with preload_many_to_many_json(
 }
 
 ///|
-pub impl @engine.Engine for MySQLEngine with close(_self) -> Unit {
-  ()
+pub impl @engine.Engine for MySQLEngine with close(self) -> Unit {
+  if self.tx_conn is Some(conn) {
+    self.tx_conn = None
+    close_mysql_tcp(conn)
+  }
+  self.pool.close(close_mysql_tcp)
 }

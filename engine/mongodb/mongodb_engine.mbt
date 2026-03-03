@@ -6,6 +6,7 @@ pub(all) struct MongoDBEngine {
   auth_database : String
   user : String
   password : String
+  pool : @engine.ConnectionPool[@socket.Tcp]
 }
 
 ///|
@@ -116,6 +117,7 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
     },
     user,
     password,
+    pool: @engine.ConnectionPool::new(8),
   })
 }
 
@@ -184,6 +186,11 @@ async fn connect_server(engine : MongoDBEngine) -> @socket.Tcp? {
   @async.with_timeout_opt(2000, () => {
     @socket.Tcp::connect_to_host(engine.host, port=engine.port)
   })
+}
+
+///|
+fn close_tcp(conn : @socket.Tcp) -> Unit {
+  conn.close()
 }
 
 ///|
@@ -478,6 +485,23 @@ async fn write_checked(
 }
 
 ///|
+async fn write_read(
+  conn : @socket.Tcp,
+  request_id : Int,
+  command_bson : Bytes,
+  label : String,
+) -> Result[Json, String] {
+  if !(write_op_msg(conn, request_id, command_bson) catch { _ => false }) {
+    return Err("mongodb \{label} write failed")
+  }
+  let reply = read_op_msg(conn) catch { _ => None }
+  guard reply is Some(reply_doc) else {
+    return Err("mongodb \{label} read failed")
+  }
+  Ok(reply_doc)
+}
+
+///|
 async fn authenticate_connection(
   engine : MongoDBEngine,
   conn : @socket.Tcp,
@@ -607,13 +631,11 @@ async fn authenticate_connection(
 }
 
 ///|
-async fn run_command_bson(
+async fn open_authenticated_connection(
   engine : MongoDBEngine,
-  command_bson : Bytes,
-) -> Result[Json, String] {
+) -> Result[@socket.Tcp, String] {
   let conn = connect_server(engine)
   guard conn is Some(conn) else { return Err("mongodb connect failed") }
-  defer conn.close()
 
   let hello : Json = {
     "hello": Json::number(1.0),
@@ -622,22 +644,48 @@ async fn run_command_bson(
   let hello_bson = @bson.to_document_bytes(hello) catch {
     _ => return Err("mongodb hello encode failed")
   }
-  if !(write_op_msg(conn, 1, hello_bson) catch { _ => false }) {
-    return Err("mongodb hello write failed")
-  }
-  let hello_res = read_op_msg(conn) catch { _ => None }
-  guard hello_res is Some(hello_doc) else {
-    return Err("mongodb hello read failed")
-  }
-  guard command_ok(hello_doc) else {
-    return Err(command_failed_message(hello_doc, "mongodb hello failed"))
+  match write_checked(conn, 1, hello_bson, "hello") {
+    Ok(_) => ()
+    Err(err) => {
+      close_tcp(conn)
+      return Err(err)
+    }
   }
   match authenticate_connection(engine, conn) {
     Ok(_) => ()
+    Err(err) => {
+      close_tcp(conn)
+      return Err(err)
+    }
+  }
+  Ok(conn)
+}
+
+///|
+async fn run_command_bson(
+  engine : MongoDBEngine,
+  command_bson : Bytes,
+) -> Result[Json, String] {
+  let conn = match
+    engine.pool.borrow(() => open_authenticated_connection(engine)) {
+    Ok(conn) => conn
     Err(err) => return Err(err)
   }
-
-  write_checked(conn, 10, command_bson, "command")
+  let reply = write_read(conn, 10, command_bson, "command")
+  match reply {
+    Ok(doc) => {
+      engine.pool.release(conn, close_tcp)
+      if !command_ok(doc) {
+        Err(command_failed_message(doc, "mongodb command failed"))
+      } else {
+        Ok(doc)
+      }
+    }
+    Err(err) => {
+      engine.pool.release(conn, close_tcp, reusable=false)
+      Err(err)
+    }
+  }
 }
 
 ///|
@@ -853,11 +901,14 @@ fn document_from_sets(sets : FixedArray[@engine.Set]) -> Json {
 }
 
 ///|
-fn sanitize_rows(rows : Array[Json]) -> FixedArray[Json] {
+fn normalize_rows(
+  rows : Array[Json],
+  strip_internal_id? : Bool = true,
+) -> FixedArray[Json] {
   let out : Array[Json] = []
   for row in rows {
     match row {
-      Object(obj) => {
+      Object(obj) if strip_internal_id => {
         let next = obj.copy()
         ignore(next.remove("_id"))
         out.push(next.to_json())
@@ -885,17 +936,20 @@ fn json_to_int64(value : Json) -> Int64? {
 }
 
 ///|
-fn extract_cursor_info(doc : Json) -> (FixedArray[Json], Int64)? {
+fn extract_cursor_info(
+  doc : Json,
+  strip_internal_id? : Bool = true,
+) -> (FixedArray[Json], Int64)? {
   match doc {
     { "cursor": { "firstBatch": Array(rows), "id": id_json, .. }, .. } =>
       if json_to_int64(id_json) is Some(cursor_id) {
-        Some((sanitize_rows(rows), cursor_id))
+        Some((normalize_rows(rows, strip_internal_id~), cursor_id))
       } else {
         None
       }
     { "cursor": { "nextBatch": Array(rows), "id": id_json, .. }, .. } =>
       if json_to_int64(id_json) is Some(cursor_id) {
-        Some((sanitize_rows(rows), cursor_id))
+        Some((normalize_rows(rows, strip_internal_id~), cursor_id))
       } else {
         None
       }
@@ -997,6 +1051,172 @@ async fn find_docs(
       }
     Err(err) => Err(err)
   }
+}
+
+///|
+async fn find_docs_raw(
+  engine : MongoDBEngine,
+  collection : String,
+  filter : Json,
+  projection? : Json? = None,
+  sort? : Json? = None,
+  limit? : Int? = None,
+  skip? : Int? = None,
+) -> Result[FixedArray[Json], String] {
+  let batch_size = match limit {
+    Some(n) if n > 0 && n < 100 => n
+    _ => 100
+  }
+  let cmd : Map[String, Json] = {}
+  cmd["find"] = Json::string(collection)
+  cmd["filter"] = filter
+  if projection is Some(projection) {
+    cmd["projection"] = projection
+  }
+  if sort is Some(sort) {
+    cmd["sort"] = sort
+  }
+  if limit is Some(n) && n > 0 {
+    cmd["limit"] = Json::number(n.to_double())
+    cmd["batchSize"] = Json::number(batch_size.to_double())
+  }
+  if skip is Some(n) && n > 0 {
+    cmd["skip"] = Json::number(n.to_double())
+  }
+  let reply = run_command(engine, cmd.to_json())
+  match reply {
+    Ok(doc) =>
+      match extract_cursor_info(doc, strip_internal_id=false) {
+        Some((first_batch, cursor_id)) => {
+          let rows : Array[Json] = []
+          for row in first_batch {
+            rows.push(row)
+          }
+          let mut next_cursor = cursor_id
+          while next_cursor != 0L {
+            let next_batch_size = match limit {
+              Some(n) => {
+                let remaining = n - rows.length()
+                if remaining <= 0 {
+                  next_cursor = 0L
+                  0
+                } else if remaining < batch_size {
+                  remaining
+                } else {
+                  batch_size
+                }
+              }
+              None => batch_size
+            }
+            if next_cursor == 0L || next_batch_size <= 0 {
+              next_cursor = 0L
+            } else {
+              let next_reply = run_command_bson(
+                engine,
+                encode_getmore_command(
+                  engine, next_cursor, collection, next_batch_size,
+                ),
+              )
+              match next_reply {
+                Ok(next_doc) =>
+                  match extract_cursor_info(next_doc, strip_internal_id=false) {
+                    Some((batch, next_id)) => {
+                      for row in batch {
+                        rows.push(row)
+                      }
+                      next_cursor = next_id
+                    }
+                    None => return Err("mongodb invalid getMore response")
+                  }
+                Err(err) => return Err(err)
+              }
+            }
+          }
+          let final_rows = match limit {
+            Some(n) if n >= 0 && rows.length() > n =>
+              FixedArray::from_iter(rows.iter().take(n))
+            _ => FixedArray::from_array(rows)
+          }
+          Ok(final_rows)
+        }
+        None => Err("mongodb invalid find response")
+      }
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::run_command_json(
+  self : MongoDBEngine,
+  command : Json,
+) -> Result[Json, String] {
+  run_command(self, command)
+}
+
+///|
+pub async fn MongoDBEngine::find(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+  projection? : Json? = None,
+  sort? : Json? = None,
+  limit? : Int? = None,
+  skip? : Int? = None,
+) -> Result[FixedArray[Json], String] {
+  find_docs_raw(self, collection, filter, projection~, sort~, limit~, skip~)
+}
+
+///|
+pub async fn MongoDBEngine::find_one(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+  projection? : Json? = None,
+  sort? : Json? = None,
+) -> Result[Json?, String] {
+  match
+    find_docs_raw(self, collection, filter, projection~, sort~, limit=Some(1)) {
+    Ok(rows) => if rows.is_empty() { Ok(None) } else { Ok(Some(rows[0])) }
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::insert_one(
+  self : MongoDBEngine,
+  collection : String,
+  document : Json,
+) -> Result[Json, String] {
+  let cmd : Json = { "insert": collection, "documents": [document] }
+  run_command(self, cmd)
+}
+
+///|
+pub async fn MongoDBEngine::update_one(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+  update : Json,
+  upsert? : Bool = false,
+) -> Result[Json, String] {
+  let cmd : Json = {
+    "update": collection,
+    "updates": [{ "q": filter, "u": update, "upsert": upsert, "multi": false }],
+  }
+  run_command(self, cmd)
+}
+
+///|
+pub async fn MongoDBEngine::delete_one(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+) -> Result[Json, String] {
+  let cmd : Json = {
+    "delete": collection,
+    "deletes": [{ "q": filter, "limit": 1 }],
+  }
+  run_command(self, cmd)
 }
 
 ///|
@@ -1634,6 +1854,6 @@ pub impl @engine.Engine for MongoDBEngine with preload_many_to_many_json(
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with close(_self) -> Unit {
-  ()
+pub impl @engine.Engine for MongoDBEngine with close(self) -> Unit {
+  self.pool.close(close_tcp)
 }

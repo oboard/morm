@@ -61,3 +61,62 @@ async test "mongodb cursor getMore" {
 
   engine.close()
 }
+
+///|
+async test "mongodb client helpers" {
+  let engine = match
+    @mongodb.MongoDBEngine::open("mongodb://127.0.0.1:27017/morm_test") {
+    Ok(e) => e
+    Err(_) => panic()
+  }
+
+  let clear = engine.run_command_json({
+    "delete": "client_api_test",
+    "deletes": [{ "q": {}, "limit": 0 }],
+  })
+  assert_true(clear is Ok(_))
+
+  let ins = engine.insert_one("client_api_test", {
+    "id": 1,
+    "name": "doc",
+    "tags": ["a", "b"],
+  })
+  assert_true(ins is Ok(_))
+
+  let one = match engine.find_one("client_api_test", { "id": 1 }) {
+    Ok(Some(doc)) => doc
+    _ => panic()
+  }
+  inspect(
+    one is { "_id": _, "id": 1, "name": "doc", "tags": ["a", "b"], .. },
+    content="true",
+  )
+
+  let upd = engine.update_one("client_api_test", { "id": 1 }, {
+    "$set": { "name": "renamed" },
+  })
+  assert_true(upd is Ok(_))
+
+  let rows = match
+    engine.find("client_api_test", {}, sort=Some({ "id": 1 }), limit=Some(10)) {
+    Ok(rows) => rows
+    Err(_) => panic()
+  }
+  inspect(rows.length(), content="1")
+  inspect(
+    rows[0] is { "_id": _, "id": 1, "name": "renamed", .. },
+    content="true",
+  )
+
+  let del = engine.delete_one("client_api_test", { "id": 1 })
+  assert_true(del is Ok(_))
+  inspect(
+    match engine.find("client_api_test", {}, limit=Some(10)) {
+      Ok(rows) => rows.length()
+      Err(_) => -1
+    },
+    content="0",
+  )
+
+  engine.close()
+}

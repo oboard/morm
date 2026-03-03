@@ -121,6 +121,54 @@ async test "mysql sql execution coverage" {
 }
 
 ///|
+async test "mysql transaction pins one connection" {
+  let engine = match
+    MySQLEngine::open("mysql://root:123456@127.0.0.1:13306/morm_test") {
+    Ok(e) => e
+    Err(_) => panic()
+  }
+
+  ignore(engine.exec_raw("DROP TABLE IF EXISTS morm_engine_tx_pin_test", []))
+  inspect(
+    engine.exec_raw(
+      "CREATE TABLE morm_engine_tx_pin_test (id INT PRIMARY KEY, name VARCHAR(64))",
+      [],
+    ).ok,
+    content="true",
+  )
+
+  inspect(@engine.tx_begin(engine).ok, content="true")
+  inspect(
+    engine.exec_raw(
+      "INSERT INTO morm_engine_tx_pin_test (id, name) VALUES (1, 'A')",
+      [],
+    ).ok,
+    content="true",
+  )
+  inspect(@engine.tx_rollback(engine).ok, content="true")
+  json_inspect(
+    engine.exec_raw("SELECT COUNT(*) AS c FROM morm_engine_tx_pin_test", []).rows[0],
+    content={ "c": 0 },
+  )
+
+  inspect(@engine.tx_begin(engine).ok, content="true")
+  inspect(
+    engine.exec_raw(
+      "INSERT INTO morm_engine_tx_pin_test (id, name) VALUES (1, 'A')",
+      [],
+    ).ok,
+    content="true",
+  )
+  inspect(@engine.tx_commit(engine).ok, content="true")
+  json_inspect(
+    engine.exec_raw("SELECT COUNT(*) AS c FROM morm_engine_tx_pin_test", []).rows[0],
+    content={ "c": 1 },
+  )
+
+  engine.close()
+}
+
+///|
 test "mysql compatible dsn schemes" {
   inspect(
     MySQLEngine::open("mariadb://root@127.0.0.1:3306/test") is Ok(_),

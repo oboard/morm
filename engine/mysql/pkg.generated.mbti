@@ -2,6 +2,7 @@
 package "oboard/morm/engine/mysql"
 
 import {
+  "moonbitlang/async/socket",
   "oboard/morm/engine",
 }
 
@@ -16,6 +17,8 @@ pub struct MySQLEngine {
   user : String
   password : String
   database : String
+  pool : @engine.ConnectionPool[@socket.Tcp]
+  mut tx_conn : @socket.Tcp?
 }
 pub fn MySQLEngine::open(String) -> Result[Self, String]
 pub async fn MySQLEngine::ping(Self) -> Bool

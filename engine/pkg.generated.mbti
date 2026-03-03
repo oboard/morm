@@ -2,6 +2,8 @@
 package "oboard/morm/engine"
 
 import {
+  "moonbitlang/async/aqueue",
+  "moonbitlang/async/semaphore",
   "moonbitlang/core/bigint",
   "moonbitlang/core/json",
   "oboard/morm/time",
@@ -55,6 +57,16 @@ pub impl Show for ParamDecodeError
 pub impl ToJson for ParamDecodeError
 
 // Types and methods
+pub(all) struct ConnectionPool[C] {
+  idle : @aqueue.Queue[C]
+  permits : @semaphore.Semaphore
+  mut closed : Bool
+}
+pub async fn[C] ConnectionPool::borrow(Self[C], async () -> Result[C, String]) -> Result[C, String]
+pub fn[C] ConnectionPool::close(Self[C], (C) -> Unit) -> Unit
+pub fn[C] ConnectionPool::new(Int, max_idle? : Int) -> Self[C]
+pub fn[C] ConnectionPool::release(Self[C], C, (C) -> Unit, reusable? : Bool) -> Unit
+
 pub(all) struct DeleteStatement {
   from : String
   where_ : FixedArray[Where]

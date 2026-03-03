@@ -5,6 +5,8 @@ pub struct PgSQLEngine {
   user : String
   password : String
   database : String
+  pool : @engine.ConnectionPool[@socket.Tcp]
+  mut tx_conn : @socket.Tcp?
 }
 
 ///|
@@ -84,7 +86,15 @@ fn parse_pg_dsn(dsn : String) -> PgSQLEngine? {
   }
 
   let (host, port) = parse_host_port(host_port, 5432)
-  Some({ host, port, user, password, database })
+  Some({
+    host,
+    port,
+    user,
+    password,
+    database,
+    pool: @engine.ConnectionPool::new(8),
+    tx_conn: None,
+  })
 }
 
 ///|
@@ -303,26 +313,28 @@ async fn send_startup(conn : @socket.Tcp, cfg : PgSQLEngine) -> Bool {
 }
 
 ///|
-async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult {
+async fn open_pg_connection(cfg : PgSQLEngine) -> Result[@socket.Tcp, String] {
   let conn = @socket.Tcp::connect_to_host(cfg.host, port=cfg.port) catch {
-    _ => return fail("pgsql connect failed")
+    _ => return Err("pgsql connect failed")
   }
-  defer conn.close()
 
   if !(send_startup(conn, cfg) catch { _ => false }) {
-    return fail("pgsql startup write failed")
+    conn.close()
+    return Err("pgsql startup write failed")
   }
 
   let mut startup_done = false
   while !startup_done {
     let msg = read_message(conn) catch { _ => None }
     if msg is None {
-      return fail("pgsql startup read failed")
+      conn.close()
+      return Err("pgsql startup read failed")
     }
     let (tag, payload) = msg.unwrap()
     if tag == b'R' {
       if payload.length() < 4 {
-        return fail("pgsql bad auth message")
+        conn.close()
+        return Err("pgsql bad auth message")
       }
       let kind = match payload[:4] {
         [u8be(b0), u8be(b1), u8be(b2), u8be(b3)] =>
@@ -330,7 +342,10 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
           (b1.reinterpret_as_int() << 16) |
           (b2.reinterpret_as_int() << 8) |
           b3.reinterpret_as_int()
-        _ => return fail("pgsql bad auth message")
+        _ => {
+          conn.close()
+          return Err("pgsql bad auth message")
+        }
       }
       if kind == 0 {
         ()
@@ -339,11 +354,13 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
         p.write_bytes(@utf8.encode(cfg.password))
         p.write_byte(0)
         if !(write_tagged(conn, b'p', p.to_bytes()) catch { _ => false }) {
-          return fail("pgsql cleartext auth write failed")
+          conn.close()
+          return Err("pgsql cleartext auth write failed")
         }
       } else if kind == 5 {
         if payload.length() < 8 {
-          return fail("pgsql bad md5 auth payload")
+          conn.close()
+          return Err("pgsql bad md5 auth payload")
         }
         let salt = payload[4:8].to_bytes()
         let md5_pass = pg_md5_password(cfg.user, cfg.password, salt)
@@ -351,13 +368,16 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
         p.write_bytes(@utf8.encode(md5_pass))
         p.write_byte(0)
         if !(write_tagged(conn, b'p', p.to_bytes()) catch { _ => false }) {
-          return fail("pgsql md5 auth write failed")
+          conn.close()
+          return Err("pgsql md5 auth write failed")
         }
       } else {
-        return fail("unsupported pg auth kind: " + kind.to_string())
+        conn.close()
+        return Err("unsupported pg auth kind: " + kind.to_string())
       }
     } else if tag == b'E' {
-      return fail(parse_error_response(payload))
+      conn.close()
+      return Err(parse_error_response(payload))
     } else if tag == b'Z' {
       startup_done = true
     } else {
@@ -365,11 +385,24 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
     }
   }
 
+  Ok(conn)
+}
+
+///|
+fn close_pg_tcp(conn : @socket.Tcp) -> Unit {
+  conn.close()
+}
+
+///|
+async fn pg_query_on_conn(
+  conn : @socket.Tcp,
+  sql : String,
+) -> (@engine.QueryResult, Bool) {
   let q = @buffer.new()
   q.write_bytes(@utf8.encode(sql))
   q.write_byte(0)
   if !(write_tagged(conn, b'Q', q.to_bytes()) catch { _ => false }) {
-    return fail("pgsql query write failed")
+    return (fail("pgsql query write failed"), false)
   }
 
   let cols : Array[String] = []
@@ -380,18 +413,18 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
   while !done {
     let msg = read_message(conn) catch { _ => None }
     if msg is None {
-      return fail("pgsql query read failed")
+      return (fail("pgsql query read failed"), false)
     }
     let (tag, payload) = msg.unwrap()
     if tag == b'T' {
       if payload.length() < 2 {
-        return fail("pgsql bad row-description")
+        return (fail("pgsql bad row-description"), false)
       }
       cols.clear()
       let count = match payload[:2] {
         [u8be(b0), u8be(b1)] =>
           (b0.reinterpret_as_int() << 8) | b1.reinterpret_as_int()
-        _ => return fail("pgsql bad row-description")
+        _ => return (fail("pgsql bad row-description"), false)
       }
       let mut pos = 2
       let mut i = 0
@@ -400,28 +433,28 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
           cols.push(name)
           pos = next + 18
           if pos > payload.length() {
-            return fail("pgsql truncated row-description")
+            return (fail("pgsql truncated row-description"), false)
           }
         } else {
-          return fail("pgsql bad column name")
+          return (fail("pgsql bad column name"), false)
         }
         i = i + 1
       }
     } else if tag == b'D' {
       if payload.length() < 2 {
-        return fail("pgsql bad data-row")
+        return (fail("pgsql bad data-row"), false)
       }
       let count = match payload[:2] {
         [u8be(b0), u8be(b1)] =>
           (b0.reinterpret_as_int() << 8) | b1.reinterpret_as_int()
-        _ => return fail("pgsql bad data-row")
+        _ => return (fail("pgsql bad data-row"), false)
       }
       let obj : Map[String, Json] = {}
       let mut pos = 2
       let mut i = 0
       while i < count {
         if pos + 4 > payload.length() {
-          return fail("pgsql truncated data-row")
+          return (fail("pgsql truncated data-row"), false)
         }
         let len = match payload[pos:pos + 4] {
           [u8be(b0), u8be(b1), u8be(b2), u8be(b3)] =>
@@ -429,7 +462,7 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
             (b1.reinterpret_as_int() << 16) |
             (b2.reinterpret_as_int() << 8) |
             b3.reinterpret_as_int()
-          _ => return fail("pgsql truncated data-row")
+          _ => return (fail("pgsql truncated data-row"), false)
         }
         pos = pos + 4
         let key = if i < cols.length() { cols[i] } else { "c" + i.to_string() }
@@ -437,7 +470,7 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
           obj[key] = Json::null()
         } else {
           if pos + len > payload.length() {
-            return fail("pgsql truncated data value")
+            return (fail("pgsql truncated data value"), false)
           }
           let text = @utf8.decode_lossy(payload[pos:pos + len].to_bytes())
           obj[key] = json_from_text(text)
@@ -451,7 +484,7 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
         rows_affected = parse_rows_affected(cmd)
       }
     } else if tag == b'E' {
-      return fail(parse_error_response(payload))
+      return (fail(parse_error_response(payload)), true)
     } else if tag == b'Z' {
       done = true
     } else {
@@ -459,13 +492,71 @@ async fn pg_query_async(cfg : PgSQLEngine, sql : String) -> @engine.QueryResult 
     }
   }
 
-  { ok: true, rows_affected, rows: FixedArray::from_array(rows), error: None }
+  (
+    { ok: true, rows_affected, rows: FixedArray::from_array(rows), error: None },
+    true,
+  )
+}
+
+///|
+fn pg_is_tx_begin(sql : String) -> Bool {
+  sql.trim() == "BEGIN"
+}
+
+///|
+fn pg_is_tx_commit(sql : String) -> Bool {
+  sql.trim() == "COMMIT"
+}
+
+///|
+fn pg_is_tx_rollback(sql : String) -> Bool {
+  sql.trim() == "ROLLBACK"
+}
+
+///|
+async fn pg_exec_sql(engine : PgSQLEngine, sql : String) -> @engine.QueryResult {
+  if pg_is_tx_begin(sql) {
+    if engine.tx_conn is Some(_) {
+      return fail("pgsql transaction already active")
+    }
+    let conn = match engine.pool.borrow(() => open_pg_connection(engine)) {
+      Ok(conn) => conn
+      Err(err) => return fail(err)
+    }
+    let (res, reusable) = pg_query_on_conn(conn, sql)
+    if res.ok {
+      engine.tx_conn = Some(conn)
+    } else {
+      engine.pool.release(conn, close_pg_tcp, reusable~)
+    }
+    return res
+  }
+
+  if engine.tx_conn is Some(conn) {
+    let (res, reusable) = pg_query_on_conn(conn, sql)
+    if pg_is_tx_commit(sql) || pg_is_tx_rollback(sql) {
+      engine.tx_conn = None
+      engine.pool.release(conn, close_pg_tcp, reusable~)
+    } else if !reusable {
+      engine.tx_conn = None
+      engine.pool.release(conn, close_pg_tcp, reusable=false)
+    }
+    return res
+  }
+
+  let conn = match engine.pool.borrow(() => open_pg_connection(engine)) {
+    Ok(conn) => conn
+    Err(err) => return fail(err)
+  }
+  let (res, reusable) = pg_query_on_conn(conn, sql)
+  engine.pool.release(conn, close_pg_tcp, reusable~)
+  res
 }
 
 ///|
 pub async fn PgSQLEngine::ping(self : PgSQLEngine) -> Bool {
   let res_opt = @async.with_timeout_opt(5000, () => {
-    pg_query_async(self, "SELECT 1")
+    pg_exec_sql(self, "SELECT 1")
   })
   match res_opt {
     Some(res) => res.ok
@@ -866,7 +957,7 @@ pub impl @engine.Engine for PgSQLEngine with exec_raw(
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
   let query = inline_sql(sql, params)
-  let res_opt = @async.with_timeout_opt(5000, () => pg_query_async(self, query))
+  let res_opt = @async.with_timeout_opt(5000, () => pg_exec_sql(self, query))
   match res_opt {
     Some(v) => v
     None =>
@@ -946,6 +1037,10 @@ pub impl @engine.Engine for PgSQLEngine with preload_many_to_many_json(
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with close(_self) -> Unit {
-  ()
+pub impl @engine.Engine for PgSQLEngine with close(self) -> Unit {
+  if self.tx_conn is Some(conn) {
+    self.tx_conn = None
+    close_pg_tcp(conn)
+  }
+  self.pool.close(close_pg_tcp)
 }

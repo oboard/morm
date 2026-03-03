@@ -24,6 +24,7 @@ This separation is deliberate. Builders stay generic; engines handle dialect and
 
 This repository includes engine packages for:
 
+- MongoDB
 - MySQL
 - PostgreSQL
 - SQLite
@@ -36,6 +37,9 @@ Each engine adapts:
 - upsert behavior
 - returning-row behavior
 - migration strategy
+
+For network engines, connection reuse is also engine-owned but built on top of a shared pool core.
+See [Connection Pooling](./connection-pooling.md).
 
 ## Shared Execution Path
 
@@ -97,3 +101,38 @@ If you write your own engine, keep it aligned with the same contract:
 4. return rows in a JSON-compatible shape that application decoding can consume
 
 That keeps the rest of the stack stable.
+
+## MongoDB As A Native Client
+
+`MongoDBEngine` can be used through the ORM layer, but it also exposes Mongo-native helper methods for direct document work:
+
+- `run_command_json`
+- `find`
+- `find_one`
+- `insert_one`
+- `update_one`
+- `delete_one`
+
+These methods are useful when:
+
+- you need raw MongoDB commands
+- you want direct collection access outside generated mappers
+- the operation does not map cleanly onto SQL-like ORM builders
+
+Example:
+
+```moonbit
+let engine = match @mongodb.MongoDBEngine::open("mongodb://127.0.0.1:27017/app") {
+  Ok(e) => e
+  Err(_) => panic()
+}
+
+ignore(engine.insert_one("events", { "kind": "signup", "user_id": 7 }))
+
+let docs = match engine.find("events", { "user_id": 7 }, limit=Some(20)) {
+  Ok(rows) => rows
+  Err(_) => panic()
+}
+```
+
+Unlike the ORM row path, these client helpers keep MongoDB-native fields such as `_id` intact.
