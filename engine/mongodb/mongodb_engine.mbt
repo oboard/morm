@@ -67,7 +67,9 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
   }
   let main = first_part(raw, "?")
   let raw_query = if raw.find("?") is Some(idx) {
-    raw[idx + 1:].to_string() catch { _ => "" }
+    raw[idx + 1:].to_string() catch {
+      _ => ""
+    }
   } else {
     ""
   }
@@ -387,12 +389,11 @@ fn i32be_bytes(v : Int) -> Bytes {
 }
 
 ///|
-fn xor_bytes(lhs : FixedArray[Byte], rhs : FixedArray[Byte]) -> FixedArray[Byte] {
-  let n = if lhs.length() < rhs.length() {
-    lhs.length()
-  } else {
-    rhs.length()
-  }
+fn xor_bytes(
+  lhs : FixedArray[Byte],
+  rhs : FixedArray[Byte],
+) -> FixedArray[Byte] {
+  let n = if lhs.length() < rhs.length() { lhs.length() } else { rhs.length() }
   let out = FixedArray::make(n, b'\x00')
   for i = 0; i < n; i = i + 1 {
     out[i] = lhs[i] ^ rhs[i]
@@ -430,11 +431,11 @@ fn pbkdf2_sha256(
 ///|
 fn auth_payload_text(doc : Json) -> String? {
   match doc {
+    { "payload": String(text), .. } => Some(text)
     { "payload": payload, .. } =>
-      if @bson.json_bytes_to_bytes(payload) is Some(data) {
-        Some(@utf8.decode_lossy(data))
-      } else {
-        None
+      match @bson.json_bytes_to_bytes(payload) {
+        Some(data) => Some(@utf8.decode_lossy(data))
+        None => None
       }
     _ => None
   }
@@ -546,8 +547,11 @@ async fn authenticate_connection(
   let password = @utf8.encode(engine.password)
   let salted_password = pbkdf2_sha256(password, salt, iterations, 32)
   let client_final_without_proof = "c=biws,r=\{server_nonce}"
-  let auth_message =
-    client_first_bare + "," + server_first + "," + client_final_without_proof
+  let auth_message = client_first_bare +
+    "," +
+    server_first +
+    "," +
+    client_final_without_proof
   let client_key = scram_hmac(salted_password, @utf8.encode("Client Key"))
   let stored_key = @crypto.sha256(client_key.unsafe_reinterpret_as_bytes())
   let client_signature = scram_hmac(
@@ -588,12 +592,13 @@ async fn authenticate_connection(
   }
 
   if !auth_done(continue_doc) {
-    match write_checked(
-      conn,
-      next_request_id,
-      encode_sasl_continue_command(engine, conversation_id, ""),
-      "saslContinue finalize",
-    ) {
+    match
+      write_checked(
+        conn,
+        next_request_id,
+        encode_sasl_continue_command(engine, conversation_id, ""),
+        "saslContinue finalize",
+      ) {
       Ok(_) => ()
       Err(err) => return Err(err)
     }

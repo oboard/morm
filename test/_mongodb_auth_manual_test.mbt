@@ -1,11 +1,8 @@
 ///|
-async test "mongodb auth manual verify" {
-  let engine = match
-    @mongodb.MongoDBEngine::open(
-      "mongodb://root:secret@127.0.0.1:27018/morm_auth_test?authSource=admin",
-    ) {
+pub async fn manual_verify_mongodb_auth(dsn : String) -> Bool {
+  let engine = match @mongodb.MongoDBEngine::open(dsn) {
     Ok(e) => e
-    Err(_) => panic()
+    Err(_) => return false
   }
 
   ignore(@engine.exec_query(engine, @morm.delete_from("auth_test_docs")))
@@ -13,8 +10,13 @@ async test "mongodb auth manual verify" {
   let ins = @morm.insert_into("auth_test_docs")
     .columns(["id", "name"])
     .values([@engine.Int(1), @engine.String("secure")])
-  let ins_res = @engine.exec_query(engine, ins)
-  inspect(ins_res.to_json())
+  if !@engine.exec_query(engine, ins).ok {
+    engine.close()
+    return false
+  }
 
+  let sel = @morm.select_from("auth_test_docs").where_eq("id", 1)
+  let res = @engine.exec_query(engine, sel)
   engine.close()
+  res.ok && res.rows.length() == 1
 }
