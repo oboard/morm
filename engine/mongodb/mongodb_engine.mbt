@@ -1204,6 +1204,21 @@ pub async fn MongoDBEngine::insert_one(
 }
 
 ///|
+pub async fn MongoDBEngine::insert_many(
+  self : MongoDBEngine,
+  collection : String,
+  documents : FixedArray[Json],
+  ordered? : Bool = true,
+) -> Result[Json, String] {
+  let cmd : Json = {
+    "insert": collection,
+    "documents": documents,
+    "ordered": ordered,
+  }
+  run_command(self, cmd)
+}
+
+///|
 pub async fn MongoDBEngine::update_one(
   self : MongoDBEngine,
   collection : String,
@@ -1219,6 +1234,38 @@ pub async fn MongoDBEngine::update_one(
 }
 
 ///|
+pub async fn MongoDBEngine::update_many(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+  update : Json,
+  upsert? : Bool = false,
+) -> Result[Json, String] {
+  let cmd : Json = {
+    "update": collection,
+    "updates": [{ "q": filter, "u": update, "upsert": upsert, "multi": true }],
+  }
+  run_command(self, cmd)
+}
+
+///|
+pub async fn MongoDBEngine::replace_one(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+  replacement : Json,
+  upsert? : Bool = false,
+) -> Result[Json, String] {
+  let cmd : Json = {
+    "update": collection,
+    "updates": [
+      { "q": filter, "u": replacement, "upsert": upsert, "multi": false },
+    ],
+  }
+  run_command(self, cmd)
+}
+
+///|
 pub async fn MongoDBEngine::delete_one(
   self : MongoDBEngine,
   collection : String,
@@ -1227,6 +1274,19 @@ pub async fn MongoDBEngine::delete_one(
   let cmd : Json = {
     "delete": collection,
     "deletes": [{ "q": filter, "limit": 1 }],
+  }
+  run_command(self, cmd)
+}
+
+///|
+pub async fn MongoDBEngine::delete_many(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+) -> Result[Json, String] {
+  let cmd : Json = {
+    "delete": collection,
+    "deletes": [{ "q": filter, "limit": 0 }],
   }
   run_command(self, cmd)
 }

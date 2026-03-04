@@ -22,14 +22,18 @@ pub(all) struct MongoDBEngine {
 }
 pub async fn MongoDBEngine::aggregate(Self, String, FixedArray[Json], allow_disk_use? : Bool, limit? : Int?) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::count_documents(Self, String, filter? : Json) -> Result[Int, String]
+pub async fn MongoDBEngine::delete_many(Self, String, Json) -> Result[Json, String]
 pub async fn MongoDBEngine::delete_one(Self, String, Json) -> Result[Json, String]
 pub async fn MongoDBEngine::distinct(Self, String, String, filter? : Json) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::find(Self, String, Json, projection? : Json?, sort? : Json?, limit? : Int?, skip? : Int?) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::find_one(Self, String, Json, projection? : Json?, sort? : Json?) -> Result[Json?, String]
 pub async fn MongoDBEngine::find_one_and_update(Self, String, Json, Json, return_new? : Bool, upsert? : Bool) -> Result[Json?, String]
+pub async fn MongoDBEngine::insert_many(Self, String, FixedArray[Json], ordered? : Bool) -> Result[Json, String]
 pub async fn MongoDBEngine::insert_one(Self, String, Json) -> Result[Json, String]
 pub fn MongoDBEngine::open(String) -> Result[Self, String]
+pub async fn MongoDBEngine::replace_one(Self, String, Json, Json, upsert? : Bool) -> Result[Json, String]
 pub async fn MongoDBEngine::run_command_json(Self, Json) -> Result[Json, String]
+pub async fn MongoDBEngine::update_many(Self, String, Json, Json, upsert? : Bool) -> Result[Json, String]
 pub async fn MongoDBEngine::update_one(Self, String, Json, Json, upsert? : Bool) -> Result[Json, String]
 pub impl @engine.Engine for MongoDBEngine
 

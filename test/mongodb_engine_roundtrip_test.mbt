@@ -82,6 +82,11 @@ async test "mongodb client helpers" {
     "tags": ["a", "b"],
   })
   assert_true(ins is Ok(_))
+  let many = engine.insert_many("client_api_test", [
+    { "id": 2, "name": "bulk" },
+    { "id": 3, "name": "bulk" },
+  ])
+  assert_true(many is Ok(_))
 
   let one = match engine.find_one("client_api_test", { "id": 1 }) {
     Ok(Some(doc)) => doc
@@ -102,7 +107,7 @@ async test "mongodb client helpers" {
     Ok(rows) => rows
     Err(_) => panic()
   }
-  inspect(rows.length(), content="1")
+  inspect(rows.length(), content="3")
   inspect(
     rows[0] is { "_id": _, "id": 1, "name": "renamed", .. },
     content="true",
@@ -112,14 +117,13 @@ async test "mongodb client helpers" {
     Ok(n) => n
     Err(_) => panic()
   }
-  inspect(count, content="1")
+  inspect(count, content="3")
 
   let distinct = match engine.distinct("client_api_test", "name", filter={}) {
     Ok(values) => values
     Err(_) => panic()
   }
-  inspect(distinct.length(), content="1")
-  json_inspect(distinct[0], content="renamed")
+  inspect(distinct.length(), content="2")
 
   let modified = match
     engine.find_one_and_update("client_api_test", { "id": 1 }, {
@@ -132,19 +136,33 @@ async test "mongodb client helpers" {
     modified is { "_id": _, "id": 1, "name": "final", .. },
     content="true",
   )
+  let replaced = engine.replace_one("client_api_test", { "id": 2 }, {
+    "id": 2,
+    "name": "replaced",
+    "flag": true,
+  })
+  assert_true(replaced is Ok(_))
+  let updated_many = engine.update_many("client_api_test", { "name": "bulk" }, {
+    "$set": { "grouped": true },
+  })
+  assert_true(updated_many is Ok(_))
 
   let grouped = match
     engine.aggregate("client_api_test", [
-      { "$group": { "_id": "$name", "count": { "$sum": 1 } } },
+      { "$match": { "id": { "$gte": 2 } } },
+      { "$group": { "_id": "$grouped", "count": { "$sum": 1 } } },
     ]) {
     Ok(rows) => rows
     Err(_) => panic()
   }
-  inspect(grouped.length(), content="1")
-  inspect(grouped[0] is { "_id": "final", "count": 1, .. }, content="true")
+  inspect(grouped.length(), content="2")
+  inspect(grouped[0] is { "_id": Null, "count": 1, .. }, content="true")
+  inspect(grouped[1] is { "_id": true, "count": 1, .. }, content="true")
 
   let del = engine.delete_one("client_api_test", { "id": 1 })
   assert_true(del is Ok(_))
+  let del_many = engine.delete_many("client_api_test", { "id": { "$gte": 2 } })
+  assert_true(del_many is Ok(_))
   inspect(
     match engine.find("client_api_test", {}, limit=Some(10)) {
       Ok(rows) => rows.length()

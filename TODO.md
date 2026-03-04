@@ -1,4 +1,4 @@
-# GORM/JDBC Gap Todo (Current Round)
+# Todo List
 
 ## Scope
 - Compare GORM capability baseline and JDBC ecosystem expectations with current morm.
@@ -36,3 +36,46 @@
 
 ## Notes
 - Current round implements the above as MVP APIs with test coverage.
+
+# MongoDB Driver Roadmap
+
+## Current Status
+- [x] Real network-backed `MongoDBEngine`
+- [x] SCRAM-SHA-256 auth
+- [x] Shared connection pool integration
+- [x] Mongo-native client helpers:
+  - `run_command_json`
+  - `find`
+  - `find_one`
+  - `insert_one`
+  - `update_one`
+  - `delete_one`
+  - `aggregate`
+  - `count_documents`
+  - `distinct`
+  - `find_one_and_update`
+
+## Next Batch
+- [x] `insert_many`
+- [x] `update_many`
+- [x] `delete_many`
+- [x] `replace_one`
+
+## Later Batch
+- [ ] `find_one_and_delete`
+- [ ] `find_one_and_replace`
+- [ ] `estimated_document_count`
+- [ ] `drop`
+- [ ] index management:
+  - `create_index`
+  - `create_indexes`
+  - `list_indexes`
+  - `list_index_names`
+  - `drop_index`
+  - `drop_indexes`
+- [ ] search index management
+- [ ] `watch`
+- [ ] sessions and MongoDB transactions
+- [ ] `mongodb+srv`
+- [ ] TLS
+- [ ] topology / server selection
