@@ -62,11 +62,11 @@
 - [x] `replace_one`
 
 ## Later Batch
-- [ ] `find_one_and_delete`
-- [ ] `find_one_and_replace`
-- [ ] `estimated_document_count`
-- [ ] `drop`
-- [ ] index management:
+- [x] `find_one_and_delete`
+- [x] `find_one_and_replace`
+- [x] `estimated_document_count`
+- [x] `drop`
+- [x] index management:
   - `create_index`
   - `create_indexes`
   - `list_indexes`

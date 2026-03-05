@@ -1376,6 +1376,148 @@ pub async fn MongoDBEngine::find_one_and_update(
 }
 
 ///|
+pub async fn MongoDBEngine::find_one_and_delete(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+) -> Result[Json?, String] {
+  let cmd : Json = {
+    "findAndModify": collection,
+    "query": filter,
+    "remove": true,
+  }
+  match run_command(self, cmd) {
+    Ok({ "value": Null, .. }) => Ok(None)
+    Ok({ "value": value, .. }) => Ok(Some(value))
+    Ok(_) => Err("mongodb invalid findAndModify response")
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::find_one_and_replace(
+  self : MongoDBEngine,
+  collection : String,
+  filter : Json,
+  replacement : Json,
+  return_new? : Bool = true,
+  upsert? : Bool = false,
+) -> Result[Json?, String] {
+  let cmd : Json = {
+    "findAndModify": collection,
+    "query": filter,
+    "update": replacement,
+    "new": return_new,
+    "upsert": upsert,
+  }
+  match run_command(self, cmd) {
+    Ok({ "value": Null, .. }) => Ok(None)
+    Ok({ "value": value, .. }) => Ok(Some(value))
+    Ok(_) => Err("mongodb invalid findAndModify response")
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::estimated_document_count(
+  self : MongoDBEngine,
+  collection : String,
+) -> Result[Int, String] {
+  match run_command(self, { "count": collection }) {
+    Ok(doc) =>
+      match extract_count(doc) {
+        Some(n) => Ok(n)
+        None => Err("mongodb invalid count response")
+      }
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::drop(
+  self : MongoDBEngine,
+  collection : String,
+) -> Result[Json, String] {
+  run_command(self, { "drop": collection })
+}
+
+///|
+pub async fn MongoDBEngine::create_index(
+  self : MongoDBEngine,
+  collection : String,
+  keys : Json,
+  name? : String? = None,
+  unique? : Bool = false,
+  sparse? : Bool = false,
+) -> Result[Json, String] {
+  let spec : Map[String, Json] = {
+    "key": keys,
+    "unique": unique.to_json(),
+    "sparse": sparse.to_json(),
+  }
+  if name is Some(name) {
+    spec["name"] = Json::string(name)
+  }
+  run_command(self, { "createIndexes": collection, "indexes": [spec] })
+}
+
+///|
+pub async fn MongoDBEngine::create_indexes(
+  self : MongoDBEngine,
+  collection : String,
+  indexes : FixedArray[Json],
+) -> Result[Json, String] {
+  run_command(self, { "createIndexes": collection, "indexes": indexes })
+}
+
+///|
+pub async fn MongoDBEngine::list_indexes(
+  self : MongoDBEngine,
+  collection : String,
+) -> Result[FixedArray[Json], String] {
+  match run_command(self, { "listIndexes": collection }) {
+    Ok(doc) => collect_cursor_rows(self, collection, doc)
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::list_index_names(
+  self : MongoDBEngine,
+  collection : String,
+) -> Result[FixedArray[String], String] {
+  match self.list_indexes(collection) {
+    Ok(indexes) => {
+      let names : Array[String] = []
+      for index in indexes {
+        if index is { "name": String(name), .. } {
+          names.push(name)
+        }
+      }
+      Ok(FixedArray::from_array(names))
+    }
+    Err(err) => Err(err)
+  }
+}
+
+///|
+pub async fn MongoDBEngine::drop_index(
+  self : MongoDBEngine,
+  collection : String,
+  name : String,
+) -> Result[Json, String] {
+  run_command(self, { "dropIndexes": collection, "index": name })
+}
+
+///|
+pub async fn MongoDBEngine::drop_indexes(
+  self : MongoDBEngine,
+  collection : String,
+) -> Result[Json, String] {
+  run_command(self, { "dropIndexes": collection, "index": "*" })
+}
+
+///|
 async fn run_select(
   engine : MongoDBEngine,
   stmt : @engine.SelectStatement,

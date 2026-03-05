@@ -1,4 +1,16 @@
 ///|
+
+///|
+fn has_string(values : FixedArray[String], target : String) -> Bool {
+  for value in values {
+    if value == target {
+      return true
+    }
+  }
+  false
+}
+
+///|
 async test "mongodb render exec_raw roundtrip" {
   let engine = match
     @mongodb.MongoDBEngine::open("mongodb://127.0.0.1:27017/morm_test") {
@@ -151,6 +163,7 @@ async test "mongodb client helpers" {
     engine.aggregate("client_api_test", [
       { "$match": { "id": { "$gte": 2 } } },
       { "$group": { "_id": "$grouped", "count": { "$sum": 1 } } },
+      { "$sort": { "_id": 1 } },
     ]) {
     Ok(rows) => rows
     Err(_) => panic()
@@ -158,6 +171,73 @@ async test "mongodb client helpers" {
   inspect(grouped.length(), content="2")
   inspect(grouped[0] is { "_id": Null, "count": 1, .. }, content="true")
   inspect(grouped[1] is { "_id": true, "count": 1, .. }, content="true")
+
+  let estimated = match engine.estimated_document_count("client_api_test") {
+    Ok(n) => n
+    Err(_) => panic()
+  }
+  inspect(estimated, content="3")
+
+  let replaced_doc = match
+    engine.find_one_and_replace("client_api_test", { "id": 3 }, {
+      "id": 3,
+      "name": "swap",
+      "kind": "replaced",
+    }) {
+    Ok(Some(doc)) => doc
+    _ => panic()
+  }
+  inspect(
+    replaced_doc
+    is { "_id": _, "id": 3, "name": "swap", "kind": "replaced", .. },
+    content="true",
+  )
+
+  let removed = match
+    engine.find_one_and_delete("client_api_test", { "id": 3 }) {
+    Ok(Some(doc)) => doc
+    _ => panic()
+  }
+  inspect(
+    removed is { "_id": _, "id": 3, "name": "swap", "kind": "replaced", .. },
+    content="true",
+  )
+
+  let create_one = engine.create_index(
+    "client_api_test",
+    { "name": 1 },
+    name=Some("idx_client_name"),
+  )
+  assert_true(create_one is Ok(_))
+  let create_many = engine.create_indexes("client_api_test", [
+    { "key": { "id": 1, "name": -1 }, "name": "idx_client_compound" },
+  ])
+  assert_true(create_many is Ok(_))
+
+  let index_names = match engine.list_index_names("client_api_test") {
+    Ok(names) => names
+    Err(_) => panic()
+  }
+  inspect(has_string(index_names, "_id_"), content="true")
+  inspect(has_string(index_names, "idx_client_name"), content="true")
+  inspect(has_string(index_names, "idx_client_compound"), content="true")
+
+  let indexes = match engine.list_indexes("client_api_test") {
+    Ok(rows) => rows
+    Err(_) => panic()
+  }
+  inspect(indexes.length() >= 3, content="true")
+
+  let drop_one = engine.drop_index("client_api_test", "idx_client_name")
+  assert_true(drop_one is Ok(_))
+  let drop_all = engine.drop_indexes("client_api_test")
+  assert_true(drop_all is Ok(_))
+  let final_names = match engine.list_index_names("client_api_test") {
+    Ok(names) => names
+    Err(_) => panic()
+  }
+  inspect(final_names.length(), content="1")
+  inspect(final_names[0], content="_id_")
 
   let del = engine.delete_one("client_api_test", { "id": 1 })
   assert_true(del is Ok(_))
@@ -170,6 +250,9 @@ async test "mongodb client helpers" {
     },
     content="0",
   )
+
+  let dropped = engine.drop("client_api_test")
+  assert_true(dropped is Ok(_))
 
   engine.close()
 }

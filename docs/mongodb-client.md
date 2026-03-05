@@ -26,8 +26,18 @@ Current native helpers on `MongoDBEngine`:
 - `delete_one(collection, filter)`
 - `aggregate(collection, pipeline, ...)`
 - `count_documents(collection, filter?)`
+- `estimated_document_count(collection)`
 - `distinct(collection, field, filter?)`
 - `find_one_and_update(collection, filter, update, ...)`
+- `find_one_and_delete(collection, filter)`
+- `find_one_and_replace(collection, filter, replacement, ...)`
+- `drop(collection)`
+- `create_index(collection, keys, ...)`
+- `create_indexes(collection, indexes)`
+- `list_indexes(collection)`
+- `list_index_names(collection)`
+- `drop_index(collection, name)`
+- `drop_indexes(collection)`
 
 All of these use the same authenticated pooled connections as the ORM path.
 
@@ -96,9 +106,18 @@ let users = match engine.distinct("events", "user_id") {
 }
 ```
 
+If you want a quick collection-wide estimate without a filter, use:
+
+```moonbit
+let approx = match engine.estimated_document_count("events") {
+  Ok(n) => n
+  Err(_) => panic()
+}
+```
+
 ## Atomic Find-And-Modify
 
-Use `find_one_and_update` when you want MongoDB's single-document atomic update flow:
+Use the `findAndModify` family when you want MongoDB's single-document atomic read-modify-write flow:
 
 ```moonbit
 let updated = match engine.find_one_and_update(
@@ -113,6 +132,65 @@ let updated = match engine.find_one_and_update(
 
 By default it returns the updated version of the document.
 
+The same family also includes:
+
+- `find_one_and_delete`
+- `find_one_and_replace`
+
+## Drop A Collection
+
+To drop a collection directly:
+
+```moonbit
+ignore(engine.drop("events_tmp"))
+```
+
+## Index Management
+
+`MongoDBEngine` also exposes the common collection index commands.
+
+Create one index:
+
+```moonbit
+ignore(
+  engine.create_index(
+    "events",
+    { "user_id": 1 },
+    name=Some("idx_events_user_id"),
+  ),
+)
+```
+
+Create multiple indexes with raw spec documents:
+
+```moonbit
+ignore(
+  engine.create_indexes(
+    "events",
+    [
+      { "key": { "kind": 1 }, "name": "idx_events_kind" },
+      { "key": { "created_at": -1 }, "name": "idx_events_created_at" },
+    ],
+  ),
+)
+```
+
+List indexes:
+
+```moonbit
+let names = match engine.list_index_names("events") {
+  Ok(names) => names
+  Err(_) => panic()
+}
+```
+
+Drop indexes:
+
+```moonbit
+ignore(engine.drop_index("events", "idx_events_kind"))
+ignore(engine.drop_indexes("events"))
+```
+
 ## Current Scope
 
 This native API is intentionally focused on common single-command operations.
@@ -124,13 +202,10 @@ What it already gives you:
 - aggregation
 - raw commands
 - cursor continuation via `getMore`
+- collection index management
 
 What is still future work:
 
-- `insert_many`
-- `update_many`
-- `delete_many`
-- `replace_one`
 - `bulk_write`
 - sessions and transactions
 - change streams
