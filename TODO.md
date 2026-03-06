@@ -73,9 +73,10 @@
   - `list_index_names`
   - `drop_index`
   - `drop_indexes`
-- [ ] search index management
+- [x] `bulk_write`
+- [x] search index management
 - [ ] `watch`
 - [ ] sessions and MongoDB transactions
-- [ ] `mongodb+srv`
+- [x] `mongodb+srv` (compat mode, no DNS SRV lookup yet)
 - [ ] TLS
 - [ ] topology / server selection

@@ -2,6 +2,7 @@
 pub(all) struct MongoDBEngine {
   host : String
   port : Int
+  seeds : FixedArray[String]
   database : String
   auth_database : String
   user : String
@@ -60,9 +61,27 @@ fn parse_host_port(text : String, default_port : Int) -> (String, Int) {
 }
 
 ///|
+fn parse_seed_list(hosts : String, default_port : Int) -> FixedArray[String] {
+  let out : Array[String] = []
+  for part in hosts.split(",") {
+    let item = part.trim().to_string()
+    if item != "" {
+      let (host, port) = parse_host_port(item, default_port)
+      out.push("\{host}:\{port}")
+    }
+  }
+  if out.is_empty() {
+    out.push("127.0.0.1:\{default_port}")
+  }
+  FixedArray::from_array(out)
+}
+
+///|
 fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
-  let raw = if dsn.strip_prefix("mongodb://") is Some(rest) {
-    rest.to_string()
+  let (raw, is_srv) = if dsn.strip_prefix("mongodb://") is Some(rest) {
+    (rest.to_string(), false)
+  } else if dsn.strip_prefix("mongodb+srv://") is Some(rest) {
+    (rest.to_string(), true)
   } else {
     return None
   }
@@ -97,14 +116,23 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
     }
   }
 
-  let (host, port) = parse_host_port(host_port, 27017)
+  let seeds = parse_seed_list(host_port, 27017)
+  let (host, port) = if seeds.length() > 0 {
+    parse_host_port(seeds[0], 27017)
+  } else {
+    ("127.0.0.1", 27017)
+  }
   let auth_database = match find_query_param(raw_query, "authSource") {
     Some(source) if source != "" => source
     _ => if user != "" && !has_database { "admin" } else { database }
   }
+  if is_srv && host_port.contains(":") {
+    return None
+  }
   Some({
     host,
     port,
+    seeds,
     database: if database == "" {
       "test"
     } else {
@@ -183,9 +211,18 @@ async fn read_exact_timed(
 
 ///|
 async fn connect_server(engine : MongoDBEngine) -> @socket.Tcp? {
-  @async.with_timeout_opt(2000, () => {
-    @socket.Tcp::connect_to_host(engine.host, port=engine.port)
-  })
+  for seed in engine.seeds {
+    let (host, port) = parse_host_port(seed, 27017)
+    let conn = @async.with_timeout_opt(2000, () => {
+      @socket.Tcp::connect_to_host(host, port~)
+    }) catch {
+      _ => None
+    }
+    if conn is Some(conn) {
+      return Some(conn)
+    }
+  }
+  None
 }
 
 ///|
@@ -1515,6 +1552,181 @@ pub async fn MongoDBEngine::drop_indexes(
   collection : String,
 ) -> Result[Json, String] {
   run_command(self, { "dropIndexes": collection, "index": "*" })
+}
+
+///|
+pub async fn MongoDBEngine::create_search_index(
+  self : MongoDBEngine,
+  collection : String,
+  name : String,
+  definition : Json,
+) -> Result[Json, String] {
+  run_command(self, {
+    "createSearchIndexes": collection,
+    "indexes": [{ "name": name, "definition": definition }],
+  })
+}
+
+///|
+pub async fn MongoDBEngine::create_search_indexes(
+  self : MongoDBEngine,
+  collection : String,
+  indexes : FixedArray[Json],
+) -> Result[Json, String] {
+  run_command(self, { "createSearchIndexes": collection, "indexes": indexes })
+}
+
+///|
+pub async fn MongoDBEngine::list_search_indexes(
+  self : MongoDBEngine,
+  collection : String,
+  name? : String? = None,
+) -> Result[FixedArray[Json], String] {
+  let stage = if name is Some(name) {
+    { "$listSearchIndexes": { "name": name } }
+  } else {
+    { "$listSearchIndexes": {} }
+  }
+  self.aggregate(collection, [stage])
+}
+
+///|
+pub async fn MongoDBEngine::update_search_index(
+  self : MongoDBEngine,
+  collection : String,
+  name : String,
+  definition : Json,
+) -> Result[Json, String] {
+  run_command(self, {
+    "updateSearchIndex": collection,
+    "name": name,
+    "definition": definition,
+  })
+}
+
+///|
+pub async fn MongoDBEngine::drop_search_index(
+  self : MongoDBEngine,
+  collection : String,
+  name : String,
+) -> Result[Json, String] {
+  run_command(self, { "dropSearchIndex": collection, "name": name })
+}
+
+///|
+fn bulk_bool_option(
+  body : Map[String, Json],
+  key : String,
+  default : Bool,
+) -> Bool {
+  match body.get(key) {
+    Some(True) => true
+    Some(False) => false
+    _ => default
+  }
+}
+
+///|
+pub async fn MongoDBEngine::bulk_write(
+  self : MongoDBEngine,
+  collection : String,
+  operations : FixedArray[Json],
+  ordered? : Bool = true,
+) -> Result[FixedArray[Json], String] {
+  let out : Array[Json] = []
+  let mut i = 0
+  while i < operations.length() {
+    let op = operations[i]
+    let result : Result[Json, String] = match op {
+      { "insertOne": Object(body), .. } =>
+        match body.get("document") {
+          Some(document) => self.insert_one(collection, document)
+          None =>
+            Err(
+              "mongodb bulk_write insertOne missing document at index " +
+              i.to_string(),
+            )
+        }
+      { "updateOne": Object(body), .. } =>
+        match (body.get("filter"), body.get("update")) {
+          (Some(filter), Some(update)) =>
+            self.update_one(
+              collection,
+              filter,
+              update,
+              upsert=bulk_bool_option(body, "upsert", false),
+            )
+          _ =>
+            Err(
+              "mongodb bulk_write updateOne missing filter/update at index " +
+              i.to_string(),
+            )
+        }
+      { "updateMany": Object(body), .. } =>
+        match (body.get("filter"), body.get("update")) {
+          (Some(filter), Some(update)) =>
+            self.update_many(
+              collection,
+              filter,
+              update,
+              upsert=bulk_bool_option(body, "upsert", false),
+            )
+          _ =>
+            Err(
+              "mongodb bulk_write updateMany missing filter/update at index " +
+              i.to_string(),
+            )
+        }
+      { "replaceOne": Object(body), .. } =>
+        match (body.get("filter"), body.get("replacement")) {
+          (Some(filter), Some(replacement)) =>
+            self.replace_one(
+              collection,
+              filter,
+              replacement,
+              upsert=bulk_bool_option(body, "upsert", false),
+            )
+          _ =>
+            Err(
+              "mongodb bulk_write replaceOne missing filter/replacement at index " +
+              i.to_string(),
+            )
+        }
+      { "deleteOne": Object(body), .. } =>
+        match body.get("filter") {
+          Some(filter) => self.delete_one(collection, filter)
+          None =>
+            Err(
+              "mongodb bulk_write deleteOne missing filter at index " +
+              i.to_string(),
+            )
+        }
+      { "deleteMany": Object(body), .. } =>
+        match body.get("filter") {
+          Some(filter) => self.delete_many(collection, filter)
+          None =>
+            Err(
+              "mongodb bulk_write deleteMany missing filter at index " +
+              i.to_string(),
+            )
+        }
+      _ =>
+        Err(
+          "mongodb bulk_write unsupported operation at index " + i.to_string(),
+        )
+    }
+    match result {
+      Ok(reply) => out.push(reply)
+      Err(err) =>
+        if ordered {
+          return Err(err)
+        } else {
+          out.push({ "error": err, "index": i.to_json() })
+        }
+    }
+    i = i + 1
+  }
+  Ok(FixedArray::from_array(out))
 }
 
 ///|

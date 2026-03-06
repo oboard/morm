@@ -77,16 +77,16 @@ Current boundary:
 
 ## MongoDB
 
-`MongoDBEngine` also uses the shared pool, but MongoDB transactions are not implemented yet.
+`MongoDBEngine` also uses the shared pool.
 
-So pooling is already active for:
+Pooling is active for:
 
 - `hello`
 - authentication
 - CRUD commands
 - cursor `getMore`
 
-But session-based multi-document transactions are still a future step.
+MongoDB session-based transactions are still future work.
 
 ## Operational Notes
 

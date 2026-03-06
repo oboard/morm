@@ -11,6 +11,14 @@ fn has_string(values : FixedArray[String], target : String) -> Bool {
 }
 
 ///|
+fn is_search_index_unsupported(err : String) -> Bool {
+  err.contains("no such command") ||
+  err.contains("CommandNotFound") ||
+  err.contains("$listSearchIndexes is not allowed") ||
+  err.contains("requires Atlas")
+}
+
+///|
 async test "mongodb render exec_raw roundtrip" {
   let engine = match
     @mongodb.MongoDBEngine::open("mongodb://127.0.0.1:27017/morm_test") {
@@ -239,6 +247,57 @@ async test "mongodb client helpers" {
   inspect(final_names.length(), content="1")
   inspect(final_names[0], content="_id_")
 
+  ignore(
+    engine.run_command_json({
+      "delete": "bulk_write_test",
+      "deletes": [{ "q": {}, "limit": 0 }],
+    }),
+  )
+  let bulk = match
+    engine.bulk_write("bulk_write_test", [
+      { "insertOne": { "document": { "id": 1, "name": "a" } } },
+      { "insertOne": { "document": { "id": 2, "name": "b" } } },
+      { "updateMany": { "filter": {}, "update": { "$set": { "bulk": true } } } },
+      {
+        "replaceOne": {
+          "filter": { "id": 1 },
+          "replacement": { "id": 1, "name": "x" },
+        },
+      },
+      { "deleteOne": { "filter": { "id": 2 } } },
+    ]) {
+    Ok(replies) => replies
+    Err(_) => panic()
+  }
+  inspect(bulk.length(), content="5")
+  let bulk_rows = match engine.find("bulk_write_test", {}, limit=Some(10)) {
+    Ok(rows) => rows
+    Err(_) => panic()
+  }
+  inspect(bulk_rows.length(), content="1")
+  inspect(bulk_rows[0] is { "id": 1, "name": "x", .. }, content="true")
+
+  let bulk_unordered = match
+    engine.bulk_write(
+      "bulk_write_test",
+      [
+        { "insertOne": { "document": { "id": 10 } } },
+        { "unknown": {} },
+        { "insertOne": { "document": { "id": 11 } } },
+      ],
+      ordered=false,
+    ) {
+    Ok(replies) => replies
+    Err(_) => panic()
+  }
+  inspect(bulk_unordered.length(), content="3")
+  let bulk_count = match
+    engine.count_documents("bulk_write_test", filter={ "id": { "$gte": 10 } }) {
+    Ok(n) => n
+    Err(_) => panic()
+  }
+  inspect(bulk_count, content="2")
+
   let del = engine.delete_one("client_api_test", { "id": 1 })
   assert_true(del is Ok(_))
   let del_many = engine.delete_many("client_api_test", { "id": { "$gte": 2 } })
@@ -253,6 +312,77 @@ async test "mongodb client helpers" {
 
   let dropped = engine.drop("client_api_test")
   assert_true(dropped is Ok(_))
+
+  engine.close()
+}
+
+///|
+async test "mongodb dsn srv and failover seeds" {
+  let failover = match
+    @mongodb.MongoDBEngine::open(
+      "mongodb://127.0.0.1:27099,127.0.0.1:27017/morm_test",
+    ) {
+    Ok(e) => e
+    Err(_) => panic()
+  }
+  let ping1 = failover.run_command_json({ "ping": 1 })
+  assert_true(ping1 is Ok(_))
+  failover.close()
+
+  let srv = match
+    @mongodb.MongoDBEngine::open("mongodb+srv://127.0.0.1/morm_test") {
+    Ok(e) => e
+    Err(_) => panic()
+  }
+  let ping2 = srv.run_command_json({ "ping": 1 })
+  assert_true(ping2 is Ok(_))
+  srv.close()
+}
+
+///|
+async test "mongodb search index helpers" {
+  let engine = match
+    @mongodb.MongoDBEngine::open("mongodb://127.0.0.1:27017/morm_test") {
+    Ok(e) => e
+    Err(_) => panic()
+  }
+
+  ignore(
+    engine.run_command_json({
+      "delete": "search_test",
+      "deletes": [{ "q": {}, "limit": 0 }],
+    }),
+  )
+  ignore(
+    engine.insert_one("search_test", {
+      "title": "hello mongodb",
+      "body": "search index smoke test",
+    }),
+  )
+
+  let create = engine.create_search_index("search_test", "idx_search_text", {
+    "mappings": {
+      "dynamic": false,
+      "fields": { "title": { "type": "string" }, "body": { "type": "string" } },
+    },
+  })
+  match create {
+    Ok(_) => {
+      let listed = match
+        engine.list_search_indexes("search_test", name=Some("idx_search_text")) {
+        Ok(rows) => rows
+        Err(_) => panic()
+      }
+      inspect(listed.length() >= 1, content="true")
+      let upd = engine.update_search_index("search_test", "idx_search_text", {
+        "mappings": { "dynamic": true },
+      })
+      assert_true(upd is Ok(_))
+      let drop = engine.drop_search_index("search_test", "idx_search_text")
+      assert_true(drop is Ok(_))
+    }
+    Err(err) => inspect(is_search_index_unsupported(err), content="true")
+  }
 
   engine.close()
 }

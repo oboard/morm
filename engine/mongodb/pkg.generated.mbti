@@ -14,6 +14,7 @@ import {
 pub(all) struct MongoDBEngine {
   host : String
   port : Int
+  seeds : FixedArray[String]
   database : String
   auth_database : String
   user : String
@@ -21,15 +22,19 @@ pub(all) struct MongoDBEngine {
   pool : @engine.ConnectionPool[@socket.Tcp]
 }
 pub async fn MongoDBEngine::aggregate(Self, String, FixedArray[Json], allow_disk_use? : Bool, limit? : Int?) -> Result[FixedArray[Json], String]
+pub async fn MongoDBEngine::bulk_write(Self, String, FixedArray[Json], ordered? : Bool) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::count_documents(Self, String, filter? : Json) -> Result[Int, String]
 pub async fn MongoDBEngine::create_index(Self, String, Json, name? : String?, unique? : Bool, sparse? : Bool) -> Result[Json, String]
 pub async fn MongoDBEngine::create_indexes(Self, String, FixedArray[Json]) -> Result[Json, String]
+pub async fn MongoDBEngine::create_search_index(Self, String, String, Json) -> Result[Json, String]
+pub async fn MongoDBEngine::create_search_indexes(Self, String, FixedArray[Json]) -> Result[Json, String]
 pub async fn MongoDBEngine::delete_many(Self, String, Json) -> Result[Json, String]
 pub async fn MongoDBEngine::delete_one(Self, String, Json) -> Result[Json, String]
 pub async fn MongoDBEngine::distinct(Self, String, String, filter? : Json) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::drop(Self, String) -> Result[Json, String]
 pub async fn MongoDBEngine::drop_index(Self, String, String) -> Result[Json, String]
 pub async fn MongoDBEngine::drop_indexes(Self, String) -> Result[Json, String]
+pub async fn MongoDBEngine::drop_search_index(Self, String, String) -> Result[Json, String]
 pub async fn MongoDBEngine::estimated_document_count(Self, String) -> Result[Int, String]
 pub async fn MongoDBEngine::find(Self, String, Json, projection? : Json?, sort? : Json?, limit? : Int?, skip? : Int?) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::find_one(Self, String, Json, projection? : Json?, sort? : Json?) -> Result[Json?, String]
@@ -40,11 +45,13 @@ pub async fn MongoDBEngine::insert_many(Self, String, FixedArray[Json], ordered?
 pub async fn MongoDBEngine::insert_one(Self, String, Json) -> Result[Json, String]
 pub async fn MongoDBEngine::list_index_names(Self, String) -> Result[FixedArray[String], String]
 pub async fn MongoDBEngine::list_indexes(Self, String) -> Result[FixedArray[Json], String]
+pub async fn MongoDBEngine::list_search_indexes(Self, String, name? : String?) -> Result[FixedArray[Json], String]
 pub fn MongoDBEngine::open(String) -> Result[Self, String]
 pub async fn MongoDBEngine::replace_one(Self, String, Json, Json, upsert? : Bool) -> Result[Json, String]
 pub async fn MongoDBEngine::run_command_json(Self, Json) -> Result[Json, String]
 pub async fn MongoDBEngine::update_many(Self, String, Json, Json, upsert? : Bool) -> Result[Json, String]
 pub async fn MongoDBEngine::update_one(Self, String, Json, Json, upsert? : Bool) -> Result[Json, String]
+pub async fn MongoDBEngine::update_search_index(Self, String, String, Json) -> Result[Json, String]
 pub impl @engine.Engine for MongoDBEngine
 
 // Type aliases

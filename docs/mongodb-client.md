@@ -38,6 +38,12 @@ Current native helpers on `MongoDBEngine`:
 - `list_index_names(collection)`
 - `drop_index(collection, name)`
 - `drop_indexes(collection)`
+- `create_search_index(collection, name, definition)`
+- `create_search_indexes(collection, indexes)`
+- `list_search_indexes(collection, name?)`
+- `update_search_index(collection, name, definition)`
+- `drop_search_index(collection, name)`
+- `bulk_write(collection, operations, ordered?)`
 
 All of these use the same authenticated pooled connections as the ORM path.
 
@@ -191,6 +197,63 @@ ignore(engine.drop_index("events", "idx_events_kind"))
 ignore(engine.drop_indexes("events"))
 ```
 
+## Search Index Management
+
+Search index helpers are also available:
+
+```moonbit
+ignore(
+  engine.create_search_index(
+    "events",
+    "idx_events_search",
+    {
+      "mappings": {
+        "dynamic": true,
+      },
+    },
+  ),
+)
+```
+
+Also available:
+
+- `create_search_indexes`
+- `list_search_indexes`
+- `update_search_index`
+- `drop_search_index`
+
+## Bulk Write
+
+Use `bulk_write` when you want multiple write models in one ordered/unordered batch:
+
+```moonbit
+let replies = match engine.bulk_write(
+  "events",
+  [
+    { "insertOne": { "document": { "id": 1, "kind": "signup" } } },
+    {
+      "updateMany": {
+        "filter": { "kind": "signup" },
+        "update": { "$set": { "flagged": true } },
+      },
+    },
+    { "deleteOne": { "filter": { "id": 1 } } },
+  ],
+) {
+  Ok(replies) => replies
+  Err(_) => panic()
+}
+```
+
+Supported operation models in this helper:
+
+- `insertOne`
+- `updateOne`
+- `updateMany`
+- `replaceOne`
+- `deleteOne`
+- `deleteMany`
+
 ## Current Scope
 
 This native API is intentionally focused on common single-command operations.
@@ -206,6 +269,7 @@ What it already gives you:
 
 What is still future work:
 
-- `bulk_write`
-- sessions and transactions
 - change streams
+- sessions and transactions
+- cluster topology and server selection
+- TLS transport
