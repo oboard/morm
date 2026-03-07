@@ -19,6 +19,15 @@ pub impl ToJson for BsonDoc
 pub impl @json.FromJson for BsonDoc
 pub impl @morm.Entity for BsonDoc
 
+pub(all) struct UpdateFromEntity {
+  id : Int
+  name : String
+  display_name : String?
+}
+pub impl ToJson for UpdateFromEntity
+pub impl @json.FromJson for UpdateFromEntity
+pub impl @morm.Entity for UpdateFromEntity
+
 // Type aliases
 
 // Traits

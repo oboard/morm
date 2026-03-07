@@ -162,6 +162,13 @@ pub(all) struct BsonDoc {
 } derive(ToJson, FromJson)
 
 ///|
+pub(all) struct UpdateFromEntity {
+  id : Int
+  name : String
+  display_name : String?
+} derive(ToJson, FromJson)
+
+///|
 pub impl @morm.Entity for BsonDoc with table(_self) -> @morm.Table {
   @morm.Table::new("bson_doc", columns=[
     @morm.Column::new("id", @morm.BigInt),
@@ -169,6 +176,14 @@ pub impl @morm.Entity for BsonDoc with table(_self) -> @morm.Table {
       ..@morm.Column::new("payload", @morm.Json),
       engine_options: [{ key: "json.storage", value: "bson" }],
     },
+  ])
+}
+
+///|
+pub impl @morm.Entity for UpdateFromEntity with table(_self) -> @morm.Table {
+  @morm.Table::new("update_from_entity", columns=[
+    @morm.Column::new("id", @morm.Int),
+    @morm.Column::new("name", @morm.VarChar(255)),
   ])
 }
 
@@ -194,6 +209,18 @@ test "bson roundtrip" {
   } else {
     fail("unexpected bson decode result")
   }
+}
+
+///|
+test "update from entity only uses physical table columns" {
+  let q = @morm.update("update_from_entity").from(UpdateFromEntity::{
+    id: 1,
+    name: "alice",
+    display_name: Some("Alice"),
+  })
+  let (sql, params) = @engine.render_default_sql(q.to_statement())
+  inspect(sql, content="UPDATE update_from_entity SET id = ?, name = ?")
+  inspect(params.to_json().stringify(), content="[1,\"alice\"]")
 }
 
 ///|

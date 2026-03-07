@@ -187,6 +187,17 @@ enrollments : FixedArray[Int]
 
 This is treated as a logical relation and is not emitted as a physical table column.
 
+## Transient Fields
+
+Use `#morm.transient` when a field should stay in the entity model but not be persisted as a database column.
+
+```moonbit
+#morm.transient
+display_name : String?
+```
+
+Transient fields are excluded from generated table columns and from `insert/update/upsert ... from(entity)` write paths.
+
 ## Auto Timestamp Fields
 
 Entity fields can participate in generated timestamp logic.

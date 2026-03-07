@@ -168,6 +168,7 @@ These are the attributes you will use most often:
 | `#morm.foreign_key(...)` | Adds a foreign key constraint |
 | `#morm.many_to_one(...)` | Models a relation that materializes as a foreign key column |
 | `#morm.one_to_many(...)` | Models a collection side that is not emitted as a physical column |
+| `#morm.transient` | Keeps a field on the entity only (no physical column, excluded from `from(entity)` writes) |
 | `#morm.auto_create_time` | Opts a field into generated create timestamp behavior |
 | `#morm.auto_update_time` | Opts a field into generated update timestamp behavior |
 

@@ -129,6 +129,7 @@ pub(all) struct Teacher {
 | `#morm.foreign_key` | 放在外键字段上一行 | 将该字段解析为外键，约束名：`fk_<表名>_<列名>`，引用列默认 `id`；引用表按列名约定或类型名推断 |
 | `#morm.on_delete_cascade` | 与 `#morm.foreign_key` 同用 | 外键 `on_delete` 设为 `CASCADE` |
 | `#morm.on_update_cascade` | 与 `#morm.foreign_key` 同用 | 外键 `on_update` 设为 `CASCADE` |
+| `#morm.transient` | 纯标签 | 字段仅保留在实体中，不会生成数据库列，也不会参与 `insert/update/upsert ... from(entity)` |
 
 说明：目前生成器尚未读取编译器暴露的参数字典，长度/精度等参数采用保守默认与示例形式；未来会增强为真正读取参数值并完全可配置。
 

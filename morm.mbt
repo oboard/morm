@@ -1022,13 +1022,18 @@ pub fn[E : Entity] UpdateQuery::from(
   entity : E,
 ) -> UpdateQuery {
   let json = entity.to_json()
-  let values = FixedArray::from_iter(
-    if json is Object(obj) {
-      obj.map((k, v) => Set::{ col: k, value: json_to_param(v) }).values()
-    } else {
-      [].iter()
-    },
-  )
+  let table = entity.table()
+  let values = if json is Object(obj) {
+    let out : Array[Set] = []
+    for col in table.columns {
+      if obj.get(col.name) is Some(value) {
+        out.push({ col: col.name, value: json_to_param_for_column(value, col) })
+      }
+    }
+    FixedArray::from_array(out)
+  } else {
+    []
+  }
   { ..self, sets: values }
 }
 

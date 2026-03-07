@@ -806,6 +806,17 @@ fn field_is_one_to_many(
 }
 
 ///|
+fn field_is_transient(
+  attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
+  source : String,
+) -> Bool {
+  let parsed = collect_orm_attributes_from_source(attrs, source)
+  let mut hit = false
+  parsed.each(a => if a.name == "#morm.transient" { hit = true })
+  hit
+}
+
+///|
 fn field_many_to_one_fk_column(
   field_label : String,
   attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],

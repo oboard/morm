@@ -4,7 +4,8 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
   let columns : Array[@morm.Column] = []
   let foreign_keys : Array[@morm.ForeignKey] = []
   for f in spec.fields {
-    if field_is_one_to_many(f.attrs, source) {
+    if field_is_one_to_many(f.attrs, source) ||
+      field_is_transient(f.attrs, source) {
       continue
     }
     let fk_col_opt = field_many_to_one_fk_column(f.label, f.attrs, source)

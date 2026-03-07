@@ -21,6 +21,7 @@ The project deliberately avoids runtime reflection and hidden ORM state.
 - multi-engine support through a shared `Engine` contract
 - local time-type support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime`
 - generated auto timestamp handling for `created_at` / `updated_at` and explicit timestamp annotations
+- transient entity fields via `#morm.transient` (kept in model, excluded from physical columns and `from(entity)` writes)
 
 ## Install
 
