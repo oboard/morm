@@ -520,10 +520,14 @@ impl @engine.Engine for SQLiteEngine with exec_raw(
         @engine.Int64(v) => stmt.bind(index~, val=v)
         @engine.BigInt(v) => stmt.bind(index~, val=v.to_string())
         @engine.Decimal(v) => stmt.bind(index~, val=v)
-        @engine.Date(v) => stmt.bind(index~, val=v.to_string())
-        @engine.Time(v) => stmt.bind(index~, val=v.to_string())
-        @engine.DateTime(v) => stmt.bind(index~, val=v.to_string())
-        @engine.Timestamp(v) => stmt.bind(index~, val=v.to_string())
+        @engine.Date(v, format) =>
+          stmt.bind(index~, val=@engine.format_plain_date(v, format))
+        @engine.Time(v, format) =>
+          stmt.bind(index~, val=@engine.format_plain_time(v, format))
+        @engine.DateTime(v, format) =>
+          stmt.bind(index~, val=@engine.format_plain_date_time(v, format))
+        @engine.Timestamp(v, format) =>
+          stmt.bind(index~, val=@engine.format_zoned_date_time(v, format))
         @engine.Uuid(v) => stmt.bind(index~, val=v)
         @engine.Json(v) => stmt.bind(index~, val=v.stringify())
         @engine.String(v) => stmt.bind(index~, val=v)

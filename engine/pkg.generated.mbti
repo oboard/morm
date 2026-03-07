@@ -16,6 +16,14 @@ pub fn decode_json_column(Json, String) -> Json raise ParamDecodeError
 
 pub async fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
 
+pub fn format_plain_date(@time.PlainDate, String?) -> String
+
+pub fn format_plain_date_time(@time.PlainDateTime, String?) -> String
+
+pub fn format_plain_time(@time.PlainTime, String?) -> String
+
+pub fn format_zoned_date_time(@time.ZonedDateTime, String?) -> String
+
 pub fn[T : FromParam] from_param(Param) -> T raise ParamDecodeError
 
 pub fn param_from_json_value(Json) -> Param
@@ -109,10 +117,10 @@ pub(all) enum Param {
   Float(Float)
   Double(Double)
   Decimal(String)
-  Date(@time.PlainDate)
-  Time(@time.PlainTime)
-  DateTime(@time.PlainDateTime)
-  Timestamp(@time.ZonedDateTime)
+  Date(@time.PlainDate, String?)
+  Time(@time.PlainTime, String?)
+  DateTime(@time.PlainDateTime, String?)
+  Timestamp(@time.ZonedDateTime, String?)
   Uuid(String)
   Json(Json)
   String(String)

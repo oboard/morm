@@ -96,10 +96,12 @@ fn param_sql(p : @engine.Param) -> String {
     @engine.Float(v) => v.to_string()
     @engine.Double(v) => v.to_string()
     @engine.Decimal(v) => v
-    @engine.Date(v) => quote(v.to_string())
-    @engine.Time(v) => quote(v.to_string())
-    @engine.DateTime(v) => quote(v.to_string())
-    @engine.Timestamp(v) => quote(v.to_string())
+    @engine.Date(v, format) => quote(@engine.format_plain_date(v, format))
+    @engine.Time(v, format) => quote(@engine.format_plain_time(v, format))
+    @engine.DateTime(v, format) =>
+      quote(@engine.format_plain_date_time(v, format))
+    @engine.Timestamp(v, format) =>
+      quote(@engine.format_zoned_date_time(v, format))
     @engine.Uuid(v) => quote(v)
     @engine.Json(v) => quote(v.stringify())
     @engine.String(v) => quote(v)

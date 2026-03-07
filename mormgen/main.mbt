@@ -38,6 +38,15 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
         attr.value.get("storage") is Some(storage) {
         col = @morm.add_column_engine_option(col, "json.storage", storage)
       }
+      if (
+          attr.name == "#morm.date" ||
+          attr.name == "#morm.time" ||
+          attr.name == "#morm.datetime" ||
+          attr.name == "#morm.timestamp"
+        ) &&
+        attr.value.get("format") is Some(format) {
+        col = @morm.add_column_engine_option(col, "temporal.format", format)
+      }
     }
     columns.push(col)
     if parse_foreign_key_for_field(

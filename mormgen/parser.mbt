@@ -834,31 +834,53 @@ fn find_morm_type_attribute(
   // 单次遍历 attrs，记录首个匹配并在遍历结束返回，避免多次线性扫描与闭包返回类型不匹配
   let mut result : @morm.ColumnType? = None
   attrs.each(attr => {
-    match attr.raw {
-      "#morm.datetime" => result = Some(@morm.ColumnType::DateTime)
-      "#morm.date" => result = Some(@morm.ColumnType::Date)
-      "#morm.time" => result = Some(@morm.ColumnType::Time)
-      "#morm.timestamp" => result = Some(@morm.ColumnType::Timestamp)
-      "#morm.varchar" => result = Some(@morm.ColumnType::VarChar(255))
-      "#morm.char" => result = Some(@morm.ColumnType::Char(1))
-      "#morm.text" => result = Some(@morm.ColumnType::Text)
-      "#morm.mediumtext" => result = Some(@morm.ColumnType::MediumText)
-      "#morm.longtext" => result = Some(@morm.ColumnType::LongText)
-      "#morm.binary" => result = Some(@morm.ColumnType::Binary(1))
-      "#morm.varbinary" => result = Some(@morm.ColumnType::VarBinary(255))
-      "#morm.blob" => result = Some(@morm.ColumnType::Blob)
-      "#morm.tinyint" => result = Some(@morm.ColumnType::TinyInt)
-      "#morm.smallint" => result = Some(@morm.ColumnType::SmallInt)
-      "#morm.int" => result = Some(@morm.ColumnType::Int)
-      "#morm.bigint" => result = Some(@morm.ColumnType::BigInt)
-      "#morm.float" => result = Some(@morm.ColumnType::Float)
-      "#morm.double" => result = Some(@morm.ColumnType::Double)
-      "#morm.decimal" => result = Some(@morm.ColumnType::Decimal(10, 2))
-      "#morm.boolean" => result = Some(@morm.ColumnType::Boolean)
-      "#morm.json" => result = Some(@morm.ColumnType::Json)
-      "#morm.jsonb" => result = Some(@morm.ColumnType::JsonB)
-      "#morm.uuid" => result = Some(@morm.ColumnType::VarChar(36))
-      _ => ()
+    let raw = attr.raw
+    if raw.has_prefix("#morm.datetime") {
+      result = Some(@morm.ColumnType::DateTime)
+    } else if raw.has_prefix("#morm.date") {
+      result = Some(@morm.ColumnType::Date)
+    } else if raw.has_prefix("#morm.time") {
+      result = Some(@morm.ColumnType::Time)
+    } else if raw.has_prefix("#morm.timestamp") {
+      result = Some(@morm.ColumnType::Timestamp)
+    } else if raw.has_prefix("#morm.varchar") {
+      result = Some(@morm.ColumnType::VarChar(255))
+    } else if raw.has_prefix("#morm.char") {
+      result = Some(@morm.ColumnType::Char(1))
+    } else if raw.has_prefix("#morm.text") {
+      result = Some(@morm.ColumnType::Text)
+    } else if raw.has_prefix("#morm.mediumtext") {
+      result = Some(@morm.ColumnType::MediumText)
+    } else if raw.has_prefix("#morm.longtext") {
+      result = Some(@morm.ColumnType::LongText)
+    } else if raw.has_prefix("#morm.binary") {
+      result = Some(@morm.ColumnType::Binary(1))
+    } else if raw.has_prefix("#morm.varbinary") {
+      result = Some(@morm.ColumnType::VarBinary(255))
+    } else if raw.has_prefix("#morm.blob") {
+      result = Some(@morm.ColumnType::Blob)
+    } else if raw.has_prefix("#morm.tinyint") {
+      result = Some(@morm.ColumnType::TinyInt)
+    } else if raw.has_prefix("#morm.smallint") {
+      result = Some(@morm.ColumnType::SmallInt)
+    } else if raw.has_prefix("#morm.int") {
+      result = Some(@morm.ColumnType::Int)
+    } else if raw.has_prefix("#morm.bigint") {
+      result = Some(@morm.ColumnType::BigInt)
+    } else if raw.has_prefix("#morm.float") {
+      result = Some(@morm.ColumnType::Float)
+    } else if raw.has_prefix("#morm.double") {
+      result = Some(@morm.ColumnType::Double)
+    } else if raw.has_prefix("#morm.decimal") {
+      result = Some(@morm.ColumnType::Decimal(10, 2))
+    } else if raw.has_prefix("#morm.boolean") {
+      result = Some(@morm.ColumnType::Boolean)
+    } else if raw.has_prefix("#morm.json") {
+      result = Some(@morm.ColumnType::Json)
+    } else if raw.has_prefix("#morm.jsonb") {
+      result = Some(@morm.ColumnType::JsonB)
+    } else if raw.has_prefix("#morm.uuid") {
+      result = Some(@morm.ColumnType::VarChar(36))
     }
   })
   result

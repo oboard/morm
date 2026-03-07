@@ -123,9 +123,9 @@ pub(all) struct Teacher {
 | `#morm.jsonb` | 纯标签 | 将该列类型设为 `JsonB` |
 | `#morm.uuid` | 纯标签 | 将该列类型设为 `VarChar(36)` |
 | `#morm.datetime` | 纯标签 | 将该列类型设为 `DateTime` |
-| `#morm.date` | 纯标签 | 将该列类型设为 `Date` |
-| `#morm.time` | 纯标签 | 将该列类型设为 `Time` |
-| `#morm.timestamp` | 纯标签 | 将该列类型设为 `Timestamp` |
+| `#morm.date` | `#morm.date(format="yyyy/MM/dd")` | 将该列类型设为 `Date`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
+| `#morm.time` | `#morm.time(format="HH-mm-ss")` | 将该列类型设为 `Time`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
+| `#morm.timestamp` | `#morm.timestamp(format="yyyy-MM-dd HH:mm:ss Z")` | 将该列类型设为 `Timestamp`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
 | `#morm.foreign_key` | 放在外键字段上一行 | 将该字段解析为外键，约束名：`fk_<表名>_<列名>`，引用列默认 `id`；引用表按列名约定或类型名推断 |
 | `#morm.on_delete_cascade` | 与 `#morm.foreign_key` 同用 | 外键 `on_delete` 设为 `CASCADE` |
 | `#morm.on_update_cascade` | 与 `#morm.foreign_key` 同用 | 外键 `on_update` 设为 `CASCADE` |

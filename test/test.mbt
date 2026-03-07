@@ -93,6 +93,29 @@ test "param extended types to_json" {
 }
 
 ///|
+test "param temporal format annotation" {
+  let date = @time.PlainDate::from_string("2026-01-02") catch { _ => panic() }
+  let time = @time.PlainTime::from_string("12:34:56") catch { _ => panic() }
+  let timestamp = @time.ZonedDateTime::from_string("2026-01-02T12:34:56Z") catch {
+    _ => panic()
+  }
+  inspect(
+    @engine.Date(date, Some("yyyy/MM/dd")).to_json().stringify(),
+    content="\"2026/01/02\"",
+  )
+  inspect(
+    @engine.Time(time, Some("HH-mm-ss")).to_json().stringify(),
+    content="\"12-34-56\"",
+  )
+  inspect(
+    @engine.Timestamp(timestamp, Some("yyyy-MM-dd HH:mm:ss Z"))
+    .to_json()
+    .stringify(),
+    content="\"2026-01-02 12:34:56 Z\"",
+  )
+}
+
+///|
 test "time types json roundtrip" {
   let date : @time.PlainDate = @json.from_json("2026-01-02".to_json()) catch {
     _ => panic()
