@@ -349,68 +349,7 @@ fn json_storage_for_column(col : Column) -> String {
 }
 
 ///|
-fn temporal_format_for_column(col : Column) -> String? {
-  for option in col.engine_options {
-    if option.key == "temporal.format" {
-      return Some(option.value)
-    }
-  }
-  None
-}
-
-///|
-fn json_to_temporal_param_for_column(
-  value : Json,
-  col : Column,
-) -> @engine.Param? {
-  guard value is String(text) else { return None }
-  let format = temporal_format_for_column(col)
-  match col.column_type {
-    Date =>
-      Some(
-        @engine.Date(
-          @time.PlainDate::from_string(text) catch {
-            _ => return None
-          },
-          format,
-        ),
-      )
-    Time =>
-      Some(
-        @engine.Time(
-          @time.PlainTime::from_string(text) catch {
-            _ => return None
-          },
-          format,
-        ),
-      )
-    DateTime =>
-      Some(
-        @engine.DateTime(
-          @time.PlainDateTime::from_string(text) catch {
-            _ => return None
-          },
-          format,
-        ),
-      )
-    Timestamp =>
-      Some(
-        @engine.Timestamp(
-          @time.ZonedDateTime::from_string(text) catch {
-            _ => return None
-          },
-          format,
-        ),
-      )
-    _ => None
-  }
-}
-
-///|
 fn json_to_param_for_column(value : Json, col : Column) -> @engine.Param {
-  if json_to_temporal_param_for_column(value, col) is Some(param) {
-    return param
-  }
   match col.column_type {
     Json | JsonB =>
       match json_storage_for_column(col) {
@@ -1022,18 +961,13 @@ pub fn[E : Entity] UpdateQuery::from(
   entity : E,
 ) -> UpdateQuery {
   let json = entity.to_json()
-  let table = entity.table()
-  let values = if json is Object(obj) {
-    let out : Array[Set] = []
-    for col in table.columns {
-      if obj.get(col.name) is Some(value) {
-        out.push({ col: col.name, value: json_to_param_for_column(value, col) })
-      }
-    }
-    FixedArray::from_array(out)
-  } else {
-    []
-  }
+  let values = FixedArray::from_iter(
+    if json is Object(obj) {
+      obj.map((k, v) => Set::{ col: k, value: json_to_param(v) }).values()
+    } else {
+      [].iter()
+    },
+  )
   { ..self, sets: values }
 }
 

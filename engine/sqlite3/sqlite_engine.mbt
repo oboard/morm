@@ -428,12 +428,12 @@ fn render_sqlite(
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with close(self) -> Unit {
+pub impl @engine.Engine for SQLiteEngine with close(self) -> Unit {
   try! self.conn.close()
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with render(
+pub impl @engine.Engine for SQLiteEngine with render(
   _self,
   stmt : @engine.Statement,
 ) -> (String, FixedArray[@engine.Param]) {
@@ -441,27 +441,30 @@ impl @engine.Engine for SQLiteEngine with render(
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with tx_begin_sql(_self) -> String {
+pub impl @engine.Engine for SQLiteEngine with tx_begin_sql(_self) -> String {
   "BEGIN"
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with tx_commit_sql(_self) -> String {
+pub impl @engine.Engine for SQLiteEngine with tx_commit_sql(_self) -> String {
   "COMMIT"
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with tx_rollback_sql(_self) -> String {
+pub impl @engine.Engine for SQLiteEngine with tx_rollback_sql(_self) -> String {
   "ROLLBACK"
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with tx_savepoint_sql(_self, name : String) -> String {
+pub impl @engine.Engine for SQLiteEngine with tx_savepoint_sql(
+  _self,
+  name : String,
+) -> String {
   "SAVEPOINT " + name
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with tx_rollback_to_savepoint_sql(
+pub impl @engine.Engine for SQLiteEngine with tx_rollback_to_savepoint_sql(
   _self,
   name : String,
 ) -> String {
@@ -469,7 +472,7 @@ impl @engine.Engine for SQLiteEngine with tx_rollback_to_savepoint_sql(
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with migrate_table(
+pub impl @engine.Engine for SQLiteEngine with migrate_table(
   self,
   table_schema : Json,
 ) -> @engine.QueryResult {
@@ -496,7 +499,7 @@ impl @engine.Engine for SQLiteEngine with migrate_table(
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with exec_raw(
+pub impl @engine.Engine for SQLiteEngine with exec_raw(
   self,
   sql : String,
   params : FixedArray[@engine.Param],
@@ -587,7 +590,7 @@ impl @engine.Engine for SQLiteEngine with exec_raw(
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with preload_belongs_to_json(
+pub impl @engine.Engine for SQLiteEngine with preload_belongs_to_json(
   self,
   target_table : String,
   target_key : String,
@@ -602,7 +605,7 @@ impl @engine.Engine for SQLiteEngine with preload_belongs_to_json(
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with preload_has_one_json(
+pub impl @engine.Engine for SQLiteEngine with preload_has_one_json(
   self,
   target_table : String,
   target_key : String,
@@ -617,7 +620,7 @@ impl @engine.Engine for SQLiteEngine with preload_has_one_json(
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with preload_has_many_json(
+pub impl @engine.Engine for SQLiteEngine with preload_has_many_json(
   self,
   target_table : String,
   target_key : String,
@@ -632,7 +635,7 @@ impl @engine.Engine for SQLiteEngine with preload_has_many_json(
 }
 
 ///|
-impl @engine.Engine for SQLiteEngine with preload_many_to_many_json(
+pub impl @engine.Engine for SQLiteEngine with preload_many_to_many_json(
   self,
   target_table : String,
   target_key : String,
