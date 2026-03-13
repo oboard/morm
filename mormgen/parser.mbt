@@ -27,7 +27,7 @@ fn trim_key(s : String) -> String {
   let mut t = s
   // 去除前缀空白
   while t.has_prefix(" ") || t.has_prefix("\t") {
-    t = t[1:].to_string() catch { _ => t }
+    t = t[1:].to_string()
   }
   // 去除后缀空白
   while t.has_suffix(" ") || t.has_suffix("\t") {
@@ -35,7 +35,7 @@ fn trim_key(s : String) -> String {
     if n == 0 {
       break
     }
-    t = t[0:n - 1].to_string() catch { _ => t }
+    t = t[0:n - 1].to_string()
   }
   t
 }
@@ -52,11 +52,9 @@ fn collect_orm_attributes(
       let mut name = raw
       let mut params_part = ""
       if raw.find("(") is Some(open_idx) {
-        name = raw[0:open_idx].to_string() catch { _ => raw }
+        name = raw[0:open_idx].to_string()
         if raw.find(")") is Some(close_idx) {
-          params_part = raw[open_idx + 1:close_idx].to_string() catch {
-            _ => ""
-          }
+          params_part = raw[open_idx + 1:close_idx].to_string()
         }
       }
       // 解析 params_part 为 key="value" 的字典
@@ -64,32 +62,32 @@ fn collect_orm_attributes(
       let mut i = 0
       let n = params_part.length()
       while i < n {
-        let rest = params_part[i:].to_string() catch { _ => "" }
+        let rest = params_part[i:].to_string()
         if rest.find(",") is Some(comma_rel) {
           let comma_abs = i + comma_rel
-          let pair = params_part[i:comma_abs].to_string() catch { _ => "" }
+          let pair = params_part[i:comma_abs].to_string()
           i = comma_abs + 1
           if pair.find("=") is Some(eq_idx) {
-            let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
-            let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
+            let k = trim_key(pair[0:eq_idx].to_string())
+            let vrest = pair[eq_idx + 1:].to_string()
             if vrest.has_prefix("\"") {
-              let vrest_tail = vrest[1:].to_string() catch { _ => "" }
+              let vrest_tail = vrest[1:].to_string()
               if vrest_tail.find("\"") is Some(end_rel) {
-                let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
+                let v = vrest[1:1 + end_rel].to_string()
                 m.set(k, v)
               }
             }
           }
         } else {
-          let pair = params_part[i:].to_string() catch { _ => "" }
+          let pair = params_part[i:].to_string()
           i = n
           if pair.find("=") is Some(eq_idx) {
-            let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
-            let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
+            let k = trim_key(pair[0:eq_idx].to_string())
+            let vrest = pair[eq_idx + 1:].to_string()
             if vrest.has_prefix("\"") {
-              let vrest_tail = vrest[1:].to_string() catch { _ => "" }
+              let vrest_tail = vrest[1:].to_string()
               if vrest_tail.find("\"") is Some(end_rel) {
-                let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
+                let v = vrest[1:1 + end_rel].to_string()
                 m.set(k, v)
               }
             }
@@ -121,43 +119,41 @@ fn collect_orm_attributes_from_source(
       let mut name = raw
       let mut params_part = ""
       if raw.find("(") is Some(open_idx) {
-        name = raw[0:open_idx].to_string() catch { _ => raw }
+        name = raw[0:open_idx].to_string()
         if raw.find(")") is Some(close_idx) {
-          params_part = raw[open_idx + 1:close_idx].to_string() catch {
-            _ => ""
-          }
+          params_part = raw[open_idx + 1:close_idx].to_string()
         }
       }
       let m : Map[String, String] = Map::new()
       let mut i = 0
       let n = params_part.length()
       while i < n {
-        let rest = params_part[i:].to_string() catch { _ => "" }
+        let rest = params_part[i:].to_string()
         if rest.find(",") is Some(comma_rel) {
           let comma_abs = i + comma_rel
-          let pair = params_part[i:comma_abs].to_string() catch { _ => "" }
+          let pair = params_part[i:comma_abs].to_string()
           i = comma_abs + 1
           if pair.find("=") is Some(eq_idx) {
-            let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
-            let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
+            let k = trim_key(pair[0:eq_idx].to_string())
+            let vrest = pair[eq_idx + 1:].to_string()
             if vrest.has_prefix("\"") {
-              let vrest_tail = vrest[1:].to_string() catch { _ => "" }
+              let vrest_tail = vrest[1:].to_string()
               if vrest_tail.find("\"") is Some(end_rel) {
-                let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
+                let v = vrest[1:1 + end_rel].to_string()
                 m.set(k, v)
               }
             }
           }
         } else {
-          let pair = params_part[i:].to_string() catch { _ => "" }
+          let pair = params_part[i:].to_string()
           i = n
           if pair.find("=") is Some(eq_idx) {
-            let k = trim_key(pair[0:eq_idx].to_string() catch { _ => "" })
-            let vrest = pair[eq_idx + 1:].to_string() catch { _ => "" }
+            let k = trim_key(pair[0:eq_idx].to_string())
+            let vrest = pair[eq_idx + 1:].to_string()
             if vrest.has_prefix("\"") {
-              let vrest_tail = vrest[1:].to_string() catch { _ => "" }
+              let vrest_tail = vrest[1:].to_string()
               if vrest_tail.find("\"") is Some(end_rel) {
-                let v = vrest[1:1 + end_rel].to_string() catch { _ => "" }
+                let v = vrest[1:1 + end_rel].to_string()
                 m.set(k, v)
               }
             }
@@ -198,7 +194,7 @@ struct MapperSpec {
 fn extract_text_inside_parens(raw : String) -> String? {
   if raw.find("(") is Some(open_idx) {
     if raw.find(")") is Some(close_idx) {
-      return Some(try! raw[open_idx + 1:close_idx].to_string())
+      return Some(raw[open_idx + 1:close_idx].to_string())
     }
   }
   None
@@ -208,9 +204,9 @@ fn extract_text_inside_parens(raw : String) -> String? {
 /// 提取 attribute 中首个引号包裹的字符串
 fn extract_quoted_string_in_parens(raw : String) -> String? {
   if raw.find("\"") is Some(start_idx) {
-    let tail = try! raw[start_idx + 1:].to_string()
+    let tail = raw[start_idx + 1:].to_string()
     if tail.find("\"") is Some(end_rel) {
-      return Some(try! raw[start_idx + 1:start_idx + 1 + end_rel].to_string())
+      return Some(raw[start_idx + 1:start_idx + 1 + end_rel].to_string())
     }
   }
   None
@@ -226,26 +222,22 @@ fn recover_attr_raw(
   let end_str = loc.end.to_string()
 
   let parse_pos = fn(s : String) -> (Int, Int) {
-    try {
-      let mut s = s
-      if s.has_prefix("\"") && s.length() >= 2 {
-        s = s[1:s.length()].to_string()
-      }
-      if s.has_suffix("\"") && s.length() >= 1 {
-        s = s[0:s.length() - 1].to_string()
-      }
+    let mut s = s
+    if s.has_prefix("\"") && s.length() >= 2 {
+      s = s[1:s.length()].to_string()
+    }
+    if s.has_suffix("\"") && s.length() >= 1 {
+      s = s[0:s.length() - 1].to_string()
+    }
 
-      let parts = s.split(":").collect()
-      let len = parts.length()
-      if len >= 2 {
-        let line = @strconv.parse_int(parts[len - 2])
-        let col = @strconv.parse_int(parts[len - 1])
-        (line, col)
-      } else {
-        (-1, -1)
-      }
-    } catch {
-      _ => (-1, -1)
+    let parts = s.split(":").collect()
+    let len = parts.length()
+    if len >= 2 {
+      let line = @strconv.parse_int(parts[len - 2]) catch { _ => -1 }
+      let col = @strconv.parse_int(parts[len - 1]) catch { _ => -1 }
+      (line, col)
+    } else {
+      (-1, -1)
     }
   }
 
@@ -262,12 +254,8 @@ fn recover_attr_raw(
     let line = lines[start_line]
     let len = line.length()
     if start_col >= 0 && end_col <= len && start_col <= end_col {
-      try {
-        let res = line[start_col:end_col].to_string()
-        return res
-      } catch {
-        _ => ()
-      }
+      let res = line[start_col:end_col].to_string()
+      return res
     }
   }
   ""
@@ -737,12 +725,8 @@ fn parse_foreign_key_for_field(
   if fkargs_refs is Some(r) {
     if r.find(".") is Some(dot_index) {
       let dot = dot_index
-      try {
-        referenced_table = r[0:dot].to_string()
-        referenced_column = r[dot + 1:].to_string()
-      } catch {
-        _ => ()
-      }
+      referenced_table = r[0:dot].to_string()
+      referenced_column = r[dot + 1:].to_string()
     }
   }
   if referenced_table == "" {
@@ -759,12 +743,8 @@ fn parse_foreign_key_for_field(
   // 兜底：仅声明 #morm.foreign_key 时，按常见命名推断 <name>_id -> <name>.id
   if referenced_table == "" && referenced_column == "" {
     if field_label.has_suffix("_id") && field_label.length() > 3 {
-      try {
-        referenced_table = field_label[0:field_label.length() - 3].to_string()
-        referenced_column = "id"
-      } catch {
-        _ => ()
-      }
+      referenced_table = field_label[0:field_label.length() - 3].to_string()
+      referenced_column = "id"
     } else {
       referenced_table = field_type.to_lower()
       referenced_column = "id"

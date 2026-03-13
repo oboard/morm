@@ -549,7 +549,7 @@ fn find_entity_spec_by_table(
 fn fixed_array_inner_type(type_name : String) -> String? {
   if type_name.strip_prefix("FixedArray[") is Some(rest) && rest.has_suffix("]") {
     let n = rest.length()
-    return Some(rest[0:n - 1].to_string() catch { _ => "" })
+    return Some(rest[0:n - 1].to_string())
   }
   None
 }
@@ -558,7 +558,7 @@ fn fixed_array_inner_type(type_name : String) -> String? {
 fn option_inner_type(type_name : String) -> String? {
   if type_name.has_suffix("?") {
     let n = type_name.length()
-    return Some(type_name[0:n - 1].to_string() catch { _ => "" })
+    return Some(type_name[0:n - 1].to_string())
   }
   None
 }
@@ -633,7 +633,7 @@ fn path_dirname(path : String) -> String {
   }
   match cut {
     Some(0) => "/"
-    Some(idx) => path[0:idx].to_string() catch { _ => "." }
+    Some(idx) => path[0:idx].to_string()
     None => "."
   }
 }

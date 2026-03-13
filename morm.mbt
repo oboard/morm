@@ -1413,7 +1413,7 @@ fn dsn_scheme(dsn : String) -> String? {
     dsn
   }
   if core.find("://") is Some(i) {
-    let scheme = core[:i].to_string() catch { _ => "" }
+    let scheme = core[:i].to_string()
     Some(scheme.to_lower())
   } else {
     None

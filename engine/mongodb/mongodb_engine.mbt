@@ -37,9 +37,9 @@ fn first_part(input : String, sep : String) -> String {
 fn find_query_param(raw_query : String, key : String) -> String? {
   for part in raw_query.split("&") {
     if part.find("=") is Some(idx) {
-      let name = part[:idx].to_string() catch { _ => "" }
+      let name = part[:idx].to_string()
       if name == key {
-        return Some(part[idx + 1:].to_string() catch { _ => "" })
+        return Some(part[idx + 1:].to_string())
       }
     } else if part == key {
       return Some("")
@@ -51,8 +51,8 @@ fn find_query_param(raw_query : String, key : String) -> String? {
 ///|
 fn parse_host_port(text : String, default_port : Int) -> (String, Int) {
   if text.rev_find(":") is Some(idx) {
-    let host = text[:idx].to_string() catch { _ => text }
-    let port_text = text[idx + 1:].to_string() catch { _ => "" }
+    let host = text[:idx].to_string()
+    let port_text = text[idx + 1:].to_string()
     let port = @strconv.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
@@ -87,9 +87,7 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
   }
   let main = first_part(raw, "?")
   let raw_query = if raw.find("?") is Some(idx) {
-    raw[idx + 1:].to_string() catch {
-      _ => ""
-    }
+    raw[idx + 1:].to_string()
   } else {
     ""
   }
@@ -97,8 +95,8 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
   let mut database = "test"
   let mut has_database = false
   if main.find("/") is Some(i) {
-    auth_host = main[:i].to_string() catch { _ => main }
-    database = main[i + 1:].to_string() catch { _ => "test" }
+    auth_host = main[:i].to_string()
+    database = main[i + 1:].to_string()
     has_database = database != ""
   }
 
@@ -106,11 +104,11 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
   let mut password = ""
   let mut host_port = auth_host
   if auth_host.find("@") is Some(i) {
-    let auth = auth_host[:i].to_string() catch { _ => "" }
-    host_port = auth_host[i + 1:].to_string() catch { _ => auth_host }
+    let auth = auth_host[:i].to_string()
+    host_port = auth_host[i + 1:].to_string()
     if auth.find(":") is Some(ci) {
-      user = auth[:ci].to_string() catch { _ => "" }
-      password = auth[ci + 1:].to_string() catch { _ => "" }
+      user = auth[:ci].to_string()
+      password = auth[ci + 1:].to_string()
     } else {
       user = auth
     }
@@ -409,8 +407,8 @@ fn parse_scram_fields(message : String) -> Map[String, String] {
   let out : Map[String, String] = {}
   for part in message.split(",") {
     if part.find("=") is Some(idx) {
-      let key = part[:idx].to_string() catch { _ => "" }
-      let value = part[idx + 1:].to_string() catch { _ => "" }
+      let key = part[:idx].to_string()
+      let value = part[idx + 1:].to_string()
       out[key] = value
     }
   }

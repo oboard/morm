@@ -7,5 +7,5 @@ import {
 
 options(
   "native-stub": [ "mbt_sqlite3.c", "sqlite3.c" ],
-  "supported-targets": [ "native" ],
+  "supported-targets": "+native",
 )

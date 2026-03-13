@@ -115,26 +115,16 @@ pub fn ZonedDateTime::from_string(str : String) -> ZonedDateTime raise Error {
     }
     idx += 1
   }
-  let core = if bracket_idx >= 0 {
-    str[:bracket_idx].to_string() catch {
-      _ => fail(invalid_date_time_err)
-    }
-  } else {
-    str
-  }
+  let core = if bracket_idx >= 0 { str[:bracket_idx].to_string() } else { str }
   let zone_name = if bracket_idx >= 0 {
     if str.length() < bracket_idx + 2 {
       fail(invalid_date_time_err)
     }
-    let end = str[str.length() - 1:str.length()].to_string() catch {
-      _ => fail(invalid_date_time_err)
-    }
+    let end = str[str.length() - 1:str.length()].to_string()
     if end != "]" {
       fail(invalid_date_time_err)
     }
-    str[bracket_idx + 1:str.length() - 1].to_string() catch {
-      _ => fail(invalid_date_time_err)
-    }
+    str[bracket_idx + 1:str.length() - 1].to_string()
   } else {
     ""
   }
@@ -150,12 +140,8 @@ pub fn ZonedDateTime::from_string(str : String) -> ZonedDateTime raise Error {
   if offset_idx < 0 {
     fail(invalid_date_time_err)
   }
-  let datetime_text = core[:offset_idx].to_string() catch {
-    _ => fail(invalid_date_time_err)
-  }
-  let offset_text = core[offset_idx:].to_string() catch {
-    _ => fail(invalid_date_time_err)
-  }
+  let datetime_text = core[:offset_idx].to_string()
+  let offset_text = core[offset_idx:].to_string()
   let datetime = PlainDateTime::from_string(datetime_text)
   let offset_seconds = parse_offset_seconds(offset_text)
   let zone = if zone_name == "" {
@@ -235,18 +221,10 @@ fn parse_offset_seconds(offset : String) -> Int raise Error {
   if offset.length() != 6 && offset.length() != 9 {
     fail(invalid_date_time_err)
   }
-  let sign_text = offset[:1].to_string() catch {
-    _ => fail(invalid_date_time_err)
-  }
-  let hour_text = offset[1:3].to_string() catch {
-    _ => fail(invalid_date_time_err)
-  }
-  let first_colon = offset[3:4].to_string() catch {
-    _ => fail(invalid_date_time_err)
-  }
-  let minute_text = offset[4:6].to_string() catch {
-    _ => fail(invalid_date_time_err)
-  }
+  let sign_text = offset[:1].to_string()
+  let hour_text = offset[1:3].to_string()
+  let first_colon = offset[3:4].to_string()
+  let minute_text = offset[4:6].to_string()
   if first_colon != ":" {
     fail(invalid_date_time_err)
   }
@@ -262,12 +240,8 @@ fn parse_offset_seconds(offset : String) -> Int raise Error {
     _ => fail(invalid_date_time_err)
   }
   let second = if offset.length() == 9 {
-    let second_colon = offset[6:7].to_string() catch {
-      _ => fail(invalid_date_time_err)
-    }
-    let second_text = offset[7:9].to_string() catch {
-      _ => fail(invalid_date_time_err)
-    }
+    let second_colon = offset[6:7].to_string()
+    let second_text = offset[7:9].to_string()
     if second_colon != ":" {
       fail(invalid_date_time_err)
     }

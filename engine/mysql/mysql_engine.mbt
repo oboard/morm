@@ -22,8 +22,8 @@ fn first_part(input : String, sep : String) -> String {
 ///|
 fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
   if input.find(":") is Some(i) {
-    let host = input[:i].to_string() catch { _ => "127.0.0.1" }
-    let port_text = input[i + 1:].to_string() catch { _ => "" }
+    let host = input[:i].to_string()
+    let port_text = input[i + 1:].to_string()
     let port = @strconv.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
@@ -61,19 +61,19 @@ fn parse_mysql_dsn(dsn : String) -> MySQLEngine? {
   let mut auth_host = main
   let mut database = ""
   if main.find("/") is Some(i) {
-    auth_host = main[:i].to_string() catch { _ => main }
-    database = main[i + 1:].to_string() catch { _ => "" }
+    auth_host = main[:i].to_string()
+    database = main[i + 1:].to_string()
   }
 
   let mut user = "root"
   let mut password = ""
   let mut host_port = auth_host
   if auth_host.find("@") is Some(i) {
-    let auth = auth_host[:i].to_string() catch { _ => "" }
-    host_port = auth_host[i + 1:].to_string() catch { _ => auth_host }
+    let auth = auth_host[:i].to_string()
+    host_port = auth_host[i + 1:].to_string()
     if auth.find(":") is Some(ci) {
-      user = auth[:ci].to_string() catch { _ => user }
-      password = auth[ci + 1:].to_string() catch { _ => password }
+      user = auth[:ci].to_string()
+      password = auth[ci + 1:].to_string()
     } else if auth != "" {
       user = auth
     }
