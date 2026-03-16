@@ -102,6 +102,7 @@ pub(all) struct Teacher {
 | `#morm.entity` | 置于 `struct` 顶部 | 声明该结构体为 ORM 实体，生成 `impl @morm.Entity` |
 | `#morm.primary_key` | 放在某字段上一行 | 将该列标记为主键；主键总是非空 |
 | `#morm.auto_increment` | 放在主键字段上一行 | 将该列设置为自增，同时 `primary_key=true`、`nullable=false` |
+| `#morm.primary_key(strategy="...")` | `#morm.primary_key(strategy="uuid")` | 声明主键生成策略，当前会写入列 engine option：`pk.strategy=<value>`；支持 `manual` / `auto_increment` / `uuid` |
 | `#morm.not_null` | 放在字段上一行 | 当前版本仅作标记，实际可空性仍由类型 `T` / `T?` 决定 |
 | `#morm.varchar` | `#morm.varchar(length="255")` | 将该列类型设为 `VarChar(255)`；若未提供参数，默认 255 |
 | `#morm.char` | `#morm.char(length="1")` | 将该列类型设为 `Char(1)`；若未提供参数，默认 1 |

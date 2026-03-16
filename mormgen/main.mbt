@@ -13,7 +13,10 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
       Some(_) => @morm.ColumnType::Int
       None => map_type_to_db_by_name(f.field_type, f.attrs)
     }
-    let (is_primary_key, is_auto_increment, _) = collect_field_flags(f.attrs)
+    let (is_primary_key, is_auto_increment, _, primary_key_strategy) = collect_field_flags(
+      f.attrs,
+      source,
+    )
     let is_nullable = f.nullable && !is_primary_key
     let col_name = match fk_col_opt {
       Some(n) => n
@@ -35,6 +38,10 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
     }
     let parsed_attrs = collect_orm_attributes_from_source(f.attrs, source)
     for attr in parsed_attrs {
+      if (attr.name == "#morm.primary_key" || attr.name == "#morm.id") &&
+        attr.value.get("strategy") is Some(strategy) {
+        col = @morm.add_column_engine_option(col, "pk.strategy", strategy)
+      }
       if (attr.name == "#morm.json" || attr.name == "#morm.jsonb") &&
         attr.value.get("storage") is Some(storage) {
         col = @morm.add_column_engine_option(col, "json.storage", storage)
@@ -47,6 +54,17 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
         ) &&
         attr.value.get("format") is Some(format) {
         col = @morm.add_column_engine_option(col, "temporal.format", format)
+      }
+    }
+    if primary_key_strategy is Some(strategy) {
+      let mut has_pk_strategy_opt = false
+      for opt in col.engine_options {
+        if opt.key == "pk.strategy" {
+          has_pk_strategy_opt = true
+        }
+      }
+      if !has_pk_strategy_opt {
+        col = @morm.add_column_engine_option(col, "pk.strategy", strategy)
       }
     }
     columns.push(col)

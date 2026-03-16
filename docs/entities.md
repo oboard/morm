@@ -82,6 +82,16 @@ Use `#morm.auto_increment` when the engine should treat it as an auto-incrementi
 id : Int64
 ```
 
+You can also declare a primary-key generation strategy inline:
+
+```moonbit
+#morm.primary_key(strategy="uuid")
+id : String
+```
+
+Currently this annotation is emitted as column engine option `pk.strategy=<value>`.
+`mormgen` also supports `strategy="auto_increment"` and `strategy="manual"`.
+
 ## String And Text Columns
 
 Use these attributes to force string-related SQL types:

@@ -881,19 +881,43 @@ fn find_morm_type_attribute(
 /// 单次遍历收集常用字段标志，避免重复扫描
 fn collect_field_flags(
   attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
-) -> (Bool, Bool, Bool) {
+  source : String,
+) -> (Bool, Bool, Bool, String?) {
   let mut is_primary_key = false
   let mut is_auto_increment = false
   let mut has_not_null = false
-  attrs.each(attr => {
-    match attr.raw {
-      "#morm.primary_key" => is_primary_key = true
+  let mut primary_key_strategy : String? = None
+  let parsed_attrs = collect_orm_attributes_from_source(attrs, source)
+  parsed_attrs.each(attr => {
+    match attr.name {
+      "#morm.primary_key" | "#morm.id" => {
+        is_primary_key = true
+        if attr.value.get("strategy") is Some(strategy) {
+          primary_key_strategy = Some(strategy)
+        }
+      }
       "#morm.auto_increment" => is_auto_increment = true
       "#morm.not_null" => has_not_null = true
       _ => ()
     }
   })
-  (is_primary_key, is_auto_increment, has_not_null)
+  if primary_key_strategy is Some(strategy) {
+    match strategy {
+      "auto_increment" => {
+        is_primary_key = true
+        is_auto_increment = true
+      }
+      "manual" => {
+        is_primary_key = true
+        is_auto_increment = false
+      }
+      _ => {
+        is_primary_key = true
+        is_auto_increment = false
+      }
+    }
+  }
+  (is_primary_key, is_auto_increment, has_not_null, primary_key_strategy)
 }
 
 ///|
