@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/strconv",
   "oboard/morm/engine",
+  "oboard/morm/table",
 }
 
 import {

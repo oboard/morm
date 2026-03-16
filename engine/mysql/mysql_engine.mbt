@@ -824,351 +824,253 @@ pub async fn MySQLEngine::ping(self : MySQLEngine) -> Bool {
 }
 
 ///|
-fn schema_get_string(
-  obj : Map[String, Json],
+fn mysql_table_engine_option(
+  table_schema : @table.Table,
   key : String,
   default : String,
 ) -> String {
-  match obj.get(key) {
-    Some(String(v)) => v
-    _ => default
-  }
-}
-
-///|
-fn schema_get_bool(
-  obj : Map[String, Json],
-  key : String,
-  default : Bool,
-) -> Bool {
-  match obj.get(key) {
-    Some(True) => true
-    Some(False) => false
-    _ => default
-  }
-}
-
-///|
-fn schema_get_int(obj : Map[String, Json], key : String, default : Int) -> Int {
-  match obj.get(key) {
-    Some(Number(n, ..)) => n.to_int()
-    _ => default
-  }
-}
-
-///|
-fn schema_get_engine_option(
-  obj : Map[String, Json],
-  key : String,
-  default : String,
-) -> String {
-  match obj.get("engine_options") {
-    Some([.. options]) => {
-      for option in options {
-        if option is Object(option_obj) &&
-          schema_get_string(option_obj, "key", "") == key {
-          return schema_get_string(option_obj, "value", default)
-        }
-      }
-      default
+  for option in table_schema.engine_options {
+    if option.key == key {
+      return option.value
     }
-    _ => default
   }
+  default
 }
 
 ///|
-fn mysql_table_name(obj : Map[String, Json], name : String) -> String {
-  let schema = schema_get_string(obj, "schema", "")
-  let catalog = schema_get_string(obj, "catalog", "")
+fn mysql_column_engine_option(
+  column : @table.Column,
+  key : String,
+  default : String,
+) -> String {
+  for option in column.engine_options {
+    if option.key == key {
+      return option.value
+    }
+  }
+  default
+}
+
+///|
+fn mysql_table_name(table_schema : @table.Table) -> String {
+  let schema = table_schema.schema.unwrap_or("")
+  let catalog = table_schema.catalog.unwrap_or("")
   let table_ns = if schema != "" { schema } else { catalog }
   if table_ns != "" {
-    "\{table_ns}.\{name}"
+    "\{table_ns}.\{table_schema.name}"
   } else {
-    name
+    table_schema.name
   }
 }
 
 ///|
-fn mysql_type_from_json(v : Json) -> String {
-  let from_name = fn(name : String, arg0 : Int, arg1 : Int) -> String {
-    match name {
-      "TinyInt" => "TINYINT"
-      "SmallInt" => "SMALLINT"
-      "MediumInt" => "MEDIUMINT"
-      "Int" => "INT"
-      "BigInt" => "BIGINT"
-      "Float" => "FLOAT"
-      "Double" => "DOUBLE"
-      "Decimal" => "DECIMAL(\{arg0}, \{arg1})"
-      "Char" => "CHAR(\{arg0})"
-      "VarChar" => "VARCHAR(\{arg0})"
-      "Text" => "TEXT"
-      "MediumText" => "MEDIUMTEXT"
-      "LongText" => "LONGTEXT"
-      "Binary" => "BINARY(\{arg0})"
-      "VarBinary" => "VARBINARY(\{arg0})"
-      "Blob" => "BLOB"
-      "MediumBlob" => "MEDIUMBLOB"
-      "LongBlob" => "LONGBLOB"
-      "Date" => "DATE"
-      "Time" => "TIME"
-      "DateTime" => "DATETIME"
-      "Timestamp" => "TIMESTAMP"
-      "Year" => "YEAR"
-      "Json" | "JsonB" => "JSON"
-      "Boolean" => "TINYINT(1)"
-      _ => "TEXT"
-    }
-  }
-  match v {
-    String(name) => from_name(name, 255, 2)
-    Array(arr) =>
-      if arr is [String(name), Number(a0, ..), Number(a1, ..), ..] {
-        from_name(name, a0.to_int(), a1.to_int())
-      } else if arr is [String(name), Number(a0, ..), ..] {
-        from_name(name, a0.to_int(), 2)
-      } else if arr is [String(name), ..] {
-        from_name(name, 255, 2)
-      } else {
-        "TEXT"
-      }
-    _ => "TEXT"
+fn mysql_type_from_column_type(column_type : @table.ColumnType) -> String {
+  match column_type {
+    @table.TinyInt => "TINYINT"
+    @table.SmallInt => "SMALLINT"
+    @table.MediumInt => "MEDIUMINT"
+    @table.Int => "INT"
+    @table.BigInt => "BIGINT"
+    @table.Float => "FLOAT"
+    @table.Double => "DOUBLE"
+    @table.Decimal(a0, a1) => "DECIMAL(\{a0}, \{a1})"
+    @table.Char(a0) => "CHAR(\{a0})"
+    @table.VarChar(a0) => "VARCHAR(\{a0})"
+    @table.Text => "TEXT"
+    @table.MediumText => "MEDIUMTEXT"
+    @table.LongText => "LONGTEXT"
+    @table.Binary(a0) => "BINARY(\{a0})"
+    @table.VarBinary(a0) => "VARBINARY(\{a0})"
+    @table.Blob => "BLOB"
+    @table.MediumBlob => "MEDIUMBLOB"
+    @table.LongBlob => "LONGBLOB"
+    @table.Date => "DATE"
+    @table.Time => "TIME"
+    @table.DateTime => "DATETIME"
+    @table.Timestamp => "TIMESTAMP"
+    @table.Year => "YEAR"
+    @table.Json | @table.JsonB => "JSON"
+    @table.Boolean => "TINYINT(1)"
   }
 }
 
 ///|
-fn mysql_json_storage_type(
-  obj : Map[String, Json],
-  default_jsonb : Bool,
-) -> String {
-  match schema_get_engine_option(obj, "json.storage", "") {
+fn mysql_json_storage_type(column : @table.Column) -> String {
+  match mysql_column_engine_option(column, "json.storage", "") {
     "blob" | "bson" => "LONGBLOB"
     "text" | "string" => "LONGTEXT"
-    "jsonb" => "JSON"
-    "json" => "JSON"
-    _ => if default_jsonb { "JSON" } else { "JSON" }
+    _ => "JSON"
   }
 }
 
 ///|
-fn mysql_column_def(col_json : Json) -> String {
-  if col_json is Object(obj) {
-    let name = schema_get_string(obj, "name", "")
-    if name == "" {
-      return ""
+fn mysql_column_def(column : @table.Column) -> String {
+  if column.name == "" {
+    return ""
+  }
+  let col_type = match column.column_type {
+    @table.Json | @table.JsonB => mysql_json_storage_type(column)
+    _ => mysql_type_from_column_type(column.column_type)
+  }
+  let default_value = column.default_value.unwrap_or("")
+  let buf = @buffer.new()
+  buf.write_string(column.name)
+  buf.write_string(" ")
+  buf.write_string(col_type)
+  if column.auto_increment {
+    buf.write_string(" AUTO_INCREMENT")
+  }
+  if !column.nullable {
+    buf.write_string(" NOT NULL")
+  }
+  if column.primary_key {
+    buf.write_string(" PRIMARY KEY")
+  }
+  if column.unique {
+    buf.write_string(" UNIQUE")
+  }
+  if default_value != "" {
+    buf.write_string(" DEFAULT ")
+    buf.write_string(default_value)
+  }
+  buf.to_string()
+}
+
+///|
+fn mysql_fk_def(fk : @table.ForeignKey) -> String {
+  if fk.column == "" || fk.referenced_table == "" || fk.referenced_column == "" {
+    return ""
+  }
+  let mut sql = "FOREIGN KEY (\{fk.column}) REFERENCES \{fk.referenced_table}(\{fk.referenced_column})"
+  if fk.name != "" {
+    sql = "CONSTRAINT \{fk.name} " + sql
+  }
+  if fk.on_delete != "" {
+    sql = sql + " ON DELETE " + fk.on_delete
+  }
+  if fk.on_update != "" {
+    sql = sql + " ON UPDATE " + fk.on_update
+  }
+  sql
+}
+
+///|
+fn mysql_create_table_sql(table_schema : @table.Table) -> String {
+  if table_schema.name == "" {
+    return ""
+  }
+  let table_name = mysql_table_name(table_schema)
+  let defs : Array[String] = []
+  for column in table_schema.columns {
+    let def = mysql_column_def(column)
+    if def != "" {
+      defs.push(def)
     }
-    let col_type = match obj.get("column_type") {
-      Some(String("Json")) => mysql_json_storage_type(obj, false)
-      Some(String("JsonB")) => mysql_json_storage_type(obj, true)
-      Some(v) => mysql_type_from_json(v)
-      None => "TEXT"
+  }
+  for fk in table_schema.foreign_keys {
+    let def = mysql_fk_def(fk)
+    if def != "" {
+      defs.push(def)
     }
-    let primary_key = schema_get_bool(obj, "primary_key", false)
-    let auto_increment = schema_get_bool(obj, "auto_increment", false)
-    let nullable = schema_get_bool(obj, "nullable", true)
-    let unique = schema_get_bool(obj, "unique", false)
-    let default_value = schema_get_string(obj, "default_value", "")
-    let mut sql = "\{name} \{col_type}"
-    if auto_increment {
-      sql = sql + " AUTO_INCREMENT"
-    }
-    if !nullable {
-      sql = sql + " NOT NULL"
-    }
-    if primary_key {
-      sql = sql + " PRIMARY KEY"
-    }
-    if unique {
-      sql = sql + " UNIQUE"
-    }
-    if default_value != "" {
-      sql = sql + " DEFAULT " + default_value
-    }
-    sql
+  }
+  let defs_sql = defs.join(", ")
+  let create_prefix = if table_schema.temporary {
+    "CREATE TEMPORARY TABLE"
   } else {
-    ""
+    "CREATE TABLE"
   }
-}
-
-///|
-fn mysql_fk_def(fk_json : Json) -> String {
-  if fk_json is Object(obj) {
-    let name = schema_get_string(obj, "name", "")
-    let col = schema_get_string(obj, "column", "")
-    let ref_table = schema_get_string(obj, "referenced_table", "")
-    let ref_col = schema_get_string(obj, "referenced_column", "")
-    if col == "" || ref_table == "" || ref_col == "" {
-      return ""
-    }
-    let mut sql = "FOREIGN KEY (\{col}) REFERENCES \{ref_table}(\{ref_col})"
-    if name != "" {
-      sql = "CONSTRAINT \{name} " + sql
-    }
-    let on_delete = schema_get_string(obj, "on_delete", "")
-    let on_update = schema_get_string(obj, "on_update", "")
-    if on_delete != "" {
-      sql = sql + " ON DELETE " + on_delete
-    }
-    if on_update != "" {
-      sql = sql + " ON UPDATE " + on_update
-    }
-    sql
+  let mut sql = if table_schema.if_not_exists {
+    "\{create_prefix} IF NOT EXISTS \{table_name} (\{defs_sql})"
   } else {
-    ""
+    "\{create_prefix} \{table_name} (\{defs_sql})"
   }
+  let engine_name = table_schema.engine.unwrap_or("InnoDB")
+  let charset = table_schema.charset.unwrap_or("utf8mb4")
+  let collation = table_schema.collation.unwrap_or("utf8mb4_unicode_ci")
+  sql = sql + " ENGINE=" + engine_name
+  sql = sql + " DEFAULT CHARSET=" + charset
+  sql = sql + " COLLATE=" + collation
+  let auto_increment = table_schema.auto_increment.unwrap_or(1)
+  if auto_increment > 1 {
+    sql = sql + " AUTO_INCREMENT=" + auto_increment.to_string()
+  }
+  let row_format = mysql_table_engine_option(
+    table_schema, "mysql.row_format", "",
+  )
+  if row_format != "" {
+    sql = sql + " ROW_FORMAT=" + row_format
+  }
+  let key_block_size = mysql_table_engine_option(
+    table_schema, "mysql.key_block_size", "",
+  )
+  if key_block_size != "" {
+    sql = sql + " KEY_BLOCK_SIZE=" + key_block_size
+  }
+  let compression = mysql_table_engine_option(
+    table_schema, "mysql.compression", "",
+  )
+  if compression != "" {
+    sql = sql + " COMPRESSION='" + compression.replace(old="'", new="''") + "'"
+  }
+  let tablespace = table_schema.tablespace.unwrap_or("")
+  if tablespace != "" {
+    sql = sql + " TABLESPACE=" + tablespace
+  }
+  if table_schema.comment != "" {
+    sql = sql +
+      " COMMENT='" +
+      table_schema.comment.replace(old="'", new="''") +
+      "'"
+  }
+  let create_suffix = mysql_table_engine_option(
+    table_schema, "create_suffix", "",
+  )
+  if create_suffix != "" {
+    sql = sql + " " + create_suffix
+  }
+  sql
 }
 
 ///|
-fn mysql_create_table_sql(table_schema : Json) -> String {
-  if table_schema is Object(obj) {
-    let base_name = schema_get_string(obj, "name", "")
-    if base_name == "" {
-      return ""
+fn mysql_comment_sql(table_schema : @table.Table) -> String {
+  if table_schema.comment == "" || table_schema.name == "" {
+    return ""
+  }
+  let table_name = mysql_table_name(table_schema)
+  "ALTER TABLE " +
+  table_name +
+  " COMMENT = '" +
+  table_schema.comment.replace(old="'", new="''") +
+  "'"
+}
+
+///|
+fn mysql_index_sqls(table_schema : @table.Table) -> Array[String] {
+  if table_schema.name == "" {
+    return []
+  }
+  let table_name = mysql_table_name(table_schema)
+  let sqls : Array[String] = []
+  for idx in table_schema.indexes {
+    if idx.name is ("" | "PRIMARY") || idx.columns.length() == 0 {
+      continue
     }
-    let table_name = mysql_table_name(obj, base_name)
-    let defs : Array[String] = []
-    if obj.get("columns") is Some([.. v]) {
-      for c in v {
-        let d = mysql_column_def(c)
-        if d != "" {
-          defs.push(d)
-        }
-      }
-    }
-    if obj.get("foreign_keys") is Some([.. v]) {
-      for fk in v {
-        let d = mysql_fk_def(fk)
-        if d != "" {
-          defs.push(d)
-        }
-      }
-    }
-    let defs_sql = defs.join(", ")
-    let temporary = schema_get_bool(obj, "temporary", false)
-    let if_not_exists = schema_get_bool(obj, "if_not_exists", true)
-    let create_prefix = if temporary {
-      "CREATE TEMPORARY TABLE"
+    let prefix = if idx.index_type == @table.Unique {
+      "CREATE UNIQUE INDEX "
     } else {
-      "CREATE TABLE"
+      "CREATE INDEX "
     }
-    let mut sql = if if_not_exists {
-      "\{create_prefix} IF NOT EXISTS \{table_name} (\{defs_sql})"
-    } else {
-      "\{create_prefix} \{table_name} (\{defs_sql})"
-    }
-    let engine_name = schema_get_string(obj, "engine", "InnoDB")
-    let charset = schema_get_string(obj, "charset", "utf8mb4")
-    let collation = schema_get_string(obj, "collation", "utf8mb4_unicode_ci")
-    sql = sql + " ENGINE=" + engine_name
-    sql = sql + " DEFAULT CHARSET=" + charset
-    sql = sql + " COLLATE=" + collation
-    let auto_increment = schema_get_int(obj, "auto_increment", 1)
-    if auto_increment > 1 {
-      sql = sql + " AUTO_INCREMENT=" + auto_increment.to_string()
-    }
-    let row_format = schema_get_engine_option(obj, "mysql.row_format", "")
-    if row_format != "" {
-      sql = sql + " ROW_FORMAT=" + row_format
-    }
-    let key_block_size = schema_get_engine_option(
-      obj, "mysql.key_block_size", "",
+    sqls.push(
+      prefix +
+      idx.name +
+      " ON " +
+      table_name +
+      " (" +
+      idx.columns.join(", ") +
+      ")",
     )
-    if key_block_size != "" {
-      sql = sql + " KEY_BLOCK_SIZE=" + key_block_size
-    }
-    let compression = schema_get_engine_option(obj, "mysql.compression", "")
-    if compression != "" {
-      sql = sql +
-        " COMPRESSION='" +
-        compression.replace(old="'", new="''") +
-        "'"
-    }
-    let tablespace = schema_get_string(obj, "tablespace", "")
-    if tablespace != "" {
-      sql = sql + " TABLESPACE=" + tablespace
-    }
-    let comment = schema_get_string(obj, "comment", "")
-    if comment != "" {
-      sql = sql + " COMMENT='" + comment.replace(old="'", new="''") + "'"
-    }
-    let create_suffix = schema_get_engine_option(obj, "create_suffix", "")
-    if create_suffix != "" {
-      sql = sql + " " + create_suffix
-    }
-    sql
-  } else {
-    ""
   }
-}
-
-///|
-fn mysql_comment_sql(table_schema : Json) -> String {
-  if table_schema is Object(obj) {
-    let comment = schema_get_string(obj, "comment", "")
-    let base_name = schema_get_string(obj, "name", "")
-    if comment == "" || base_name == "" {
-      return ""
-    }
-    let table_name = mysql_table_name(obj, base_name)
-    "ALTER TABLE " +
-    table_name +
-    " COMMENT = '" +
-    comment.replace(old="'", new="''") +
-    "'"
-  } else {
-    ""
-  }
-}
-
-///|
-fn mysql_index_sqls(table_schema : Json) -> Array[String] {
-  if table_schema is Object(obj) {
-    let base_name = schema_get_string(obj, "name", "")
-    if base_name == "" {
-      return []
-    }
-    let table_name = mysql_table_name(obj, base_name)
-    let sqls : Array[String] = []
-    if obj.get("indexes") is Some([.. v]) {
-      for idx_json in v {
-        if idx_json is Object(idx) {
-          let idx_name = schema_get_string(idx, "name", "")
-          if idx_name is ("" | "PRIMARY") {
-            continue
-          }
-          let idx_type = schema_get_string(idx, "index_type", "Index")
-          let cols : Array[String] = []
-          if idx.get("columns") is Some([.. cols_json]) {
-            for c in cols_json {
-              if c is String(name) {
-                cols.push(name)
-              }
-            }
-          }
-          if cols.length() == 0 {
-            continue
-          }
-          let prefix = if idx_type == "Unique" {
-            "CREATE UNIQUE INDEX "
-          } else {
-            "CREATE INDEX "
-          }
-          sqls.push(
-            prefix +
-            idx_name +
-            " ON " +
-            table_name +
-            " (" +
-            cols.join(", ") +
-            ")",
-          )
-        }
-      }
-    }
-    sqls
-  } else {
-    []
-  }
+  sqls
 }
 
 ///|
@@ -1205,7 +1107,7 @@ pub impl @engine.Engine for MySQLEngine with exec_raw(
 ///|
 pub impl @engine.Engine for MySQLEngine with migrate_table(
   self,
-  table_schema : Json,
+  table_schema : @table.Table,
 ) -> @engine.QueryResult {
   let create_sql = mysql_create_table_sql(table_schema)
   if create_sql == "" {

@@ -4,6 +4,7 @@ package "oboard/morm/engine/sqlite3"
 import {
   "moonbitlang/core/json",
   "oboard/morm/engine",
+  "oboard/morm/table",
 }
 
 // Values

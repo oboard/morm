@@ -1,0 +1,44 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/examples/curd"
+
+import {
+  "moonbitlang/core/json",
+  "oboard/morm",
+  "oboard/morm/engine",
+  "oboard/morm/table",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct User {
+  id : Int
+  email : String
+  active : Int
+}
+pub fn User::from_row(Json) -> Self
+pub fn User::table() -> @table.Table
+pub impl ToJson for User
+pub impl @json.FromJson for User
+pub impl @morm.Entity for User
+
+pub struct UserMapperImpl {
+  engine : &@engine.Engine
+}
+pub fn UserMapperImpl::new(&@engine.Engine) -> Self
+pub impl UserMapper for UserMapperImpl
+
+// Type aliases
+
+// Traits
+pub trait UserMapper {
+  async save(Self, User) -> Bool
+  async find_user_by_id(Self, Int) -> User?
+  async update(Self, User) -> Bool
+  async update_active_by_id(Self, Int, Int) -> Bool
+  async delete(Self, User) -> Bool
+  async delete_by_id(Self, Int) -> Bool
+}
+

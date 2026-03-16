@@ -11,10 +11,7 @@ async fn main {
   let engine = @sqlite3.SQLiteEngine::open(":memory:")
 
   // Use codegen table schema from `user.g.mbt`.
-  must_ok(
-    "migrate user table",
-    engine.migrate_table(User::table().to_json()).ok,
-  )
+  must_ok("migrate user table", engine.migrate_table(User::table()).ok)
 
   // Mapper implementation is generated in `user_mapper.g.mbt`.
   let mapper = UserMapperImpl::new(engine)

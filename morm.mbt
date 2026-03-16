@@ -19,17 +19,6 @@ pub fn current_plain_date_time_utc() -> @time.PlainDateTime {
 }
 
 ///|
-// 外键约束
-pub(all) struct ForeignKey {
-  name : String
-  column : String
-  referenced_table : String
-  referenced_column : String
-  on_delete : String // CASCADE, SET NULL, RESTRICT, NO ACTION
-  on_update : String // CASCADE, SET NULL, RESTRICT, NO ACTION
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
-
-///|
 pub fn add_column(table : Table, col : Column) -> Table {
   let new_columns = Array::new()
   for column in table.columns {
@@ -203,23 +192,23 @@ pub fn sqlite_table_strict(table : Table) -> Table {
 
 ///|
 // ---- 索引构建器函数 ----
-pub fn Index::new(name : String, columns : FixedArray[String]) -> Index {
+pub fn new_index(name : String, columns : FixedArray[String]) -> Index {
   { name, index_type: Index, columns, comment: "" }
 }
 
 ///|
-pub fn Index::new_unique(name : String, columns : FixedArray[String]) -> Index {
+pub fn new_unique_index(name : String, columns : FixedArray[String]) -> Index {
   { name, index_type: Unique, columns, comment: "" }
 }
 
 ///|
-pub fn Index::new_primary(columns : FixedArray[String]) -> Index {
+pub fn new_primary_index(columns : FixedArray[String]) -> Index {
   { name: "PRIMARY", index_type: Primary, columns, comment: "" }
 }
 
 ///|
 // ---- 外键构建器函数 ----
-pub fn ForeignKey::new(
+pub fn new_foreign_key(
   name : String,
   column : String,
   referenced_table : String,
@@ -957,7 +946,7 @@ pub fn[E : Entity] UpsertQuery::from(
     []
   }
   let mut conflict_cols : FixedArray[String] = []
-  match table.primary_key() {
+  match table_primary_key(table) {
     Some(pk) => conflict_cols = [pk]
     None =>
       for idx in table.indexes {
@@ -1248,7 +1237,7 @@ pub fn[E : Entity] DeleteQuery::from(
   entity : E,
 ) -> DeleteQuery {
   let table = entity.table()
-  let pk_opt = table.primary_key()
+  let pk_opt = table_primary_key(table)
   match pk_opt {
     Some(pk) => {
       let obj = if entity.to_json() is Object(obj) { obj } else { {} }

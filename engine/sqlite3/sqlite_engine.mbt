@@ -43,101 +43,74 @@ fn format_set_sql(sets : FixedArray[@engine.Set]) -> String {
 }
 
 ///|
-fn get_string(
-  obj : Map[String, Json],
+fn sqlite_table_engine_option(
+  table_schema : @table.Table,
   key : String,
   default : String,
 ) -> String {
-  match obj.get(key) {
-    Some(String(v)) => v
-    _ => default
-  }
-}
-
-///|
-fn get_bool(obj : Map[String, Json], key : String, default : Bool) -> Bool {
-  match obj.get(key) {
-    Some(True) => true
-    Some(False) => false
-    _ => default
-  }
-}
-
-///|
-fn get_engine_option(
-  obj : Map[String, Json],
-  key : String,
-  default : String,
-) -> String {
-  match obj.get("engine_options") {
-    Some([.. options]) => {
-      for option in options {
-        if option is Object(option_obj) &&
-          get_string(option_obj, "key", "") == key {
-          return get_string(option_obj, "value", default)
-        }
-      }
-      default
+  for option in table_schema.engine_options {
+    if option.key == key {
+      return option.value
     }
-    _ => default
   }
+  default
 }
 
 ///|
-fn has_engine_option_true(obj : Map[String, Json], key : String) -> Bool {
-  get_engine_option(obj, key, "") == "true"
+fn sqlite_column_engine_option(
+  column : @table.Column,
+  key : String,
+  default : String,
+) -> String {
+  for option in column.engine_options {
+    if option.key == key {
+      return option.value
+    }
+  }
+  default
 }
 
 ///|
-fn sqlite_table_name(obj : Map[String, Json], name : String) -> String {
-  let schema = get_string(obj, "schema", "")
-  let catalog = get_string(obj, "catalog", "")
+fn sqlite_table_name(table_schema : @table.Table) -> String {
+  let schema = table_schema.schema.unwrap_or("")
+  let catalog = table_schema.catalog.unwrap_or("")
   let table_ns = if schema != "" { schema } else { catalog }
   if table_ns != "" {
-    "\{table_ns}.\{name}"
+    "\{table_ns}.\{table_schema.name}"
   } else {
-    name
+    table_schema.name
   }
 }
 
 ///|
-fn json_array_values(v : Json) -> Array[Json] {
-  match v {
-    Array(arr) => arr
-    _ => []
+fn sqlite_col_type(column_type : @table.ColumnType) -> String {
+  match column_type {
+    @table.TinyInt
+    | @table.SmallInt
+    | @table.MediumInt
+    | @table.Int
+    | @table.BigInt
+    | @table.Year => "INTEGER"
+    @table.Float | @table.Double | @table.Decimal(_, _) => "REAL"
+    @table.Boolean => "INTEGER"
+    @table.Blob
+    | @table.MediumBlob
+    | @table.LongBlob
+    | @table.Binary(_)
+    | @table.VarBinary(_) => "BLOB"
+    @table.Date | @table.Time | @table.DateTime | @table.Timestamp => "TEXT"
+    @table.Json | @table.JsonB => "TEXT"
+    @table.Char(_)
+    | @table.VarChar(_)
+    | @table.Text
+    | @table.MediumText
+    | @table.LongText => "TEXT"
   }
 }
 
 ///|
-fn sqlite_col_type(v : Json) -> String {
-  let map_name = fn(name : String) -> String {
-    match name {
-      "TinyInt" | "SmallInt" | "MediumInt" | "Int" | "BigInt" | "Year" =>
-        "INTEGER"
-      "Float" | "Double" | "Decimal" => "REAL"
-      "Boolean" => "INTEGER"
-      "Blob" | "MediumBlob" | "LongBlob" | "Binary" | "VarBinary" => "BLOB"
-      "Date" | "Time" | "DateTime" | "Timestamp" => "TEXT"
-      "Json" | "JsonB" => "TEXT"
-      "Char" | "VarChar" | "Text" | "MediumText" | "LongText" => "TEXT"
-      _ => "TEXT"
-    }
-  }
-  match v {
-    String(name) => map_name(name)
-    Array(arr) =>
-      if arr is [String(name), ..] {
-        map_name(name)
-      } else {
-        "TEXT"
-      }
-    _ => "TEXT"
-  }
-}
-
-///|
-fn sqlite_json_storage_type(obj : Map[String, Json]) -> String {
-  match get_engine_option(obj, "json.storage", "") {
+fn sqlite_json_storage_type(column : @table.Column) -> String {
+  match sqlite_column_engine_option(column, "json.storage", "") {
     "blob" | "bson" => "BLOB"
     "text" | "string" | "json" | "jsonb" => "TEXT"
     _ => "TEXT"
@@ -145,174 +118,118 @@ fn sqlite_json_storage_type(obj : Map[String, Json]) -> String {
 }
 
 ///|
-fn render_column_def(col_json : Json) -> String {
-  if col_json is Object(obj) {
-    let name = get_string(obj, "name", "")
-    let primary_key = get_bool(obj, "primary_key", false)
-    let auto_increment = get_bool(obj, "auto_increment", false)
-    let nullable = get_bool(obj, "nullable", true)
-    let unique = get_bool(obj, "unique", false)
-    let default_value = get_string(obj, "default_value", "")
-    let col_type = match obj.get("column_type") {
-      Some(String("Json")) | Some(String("JsonB")) =>
-        sqlite_json_storage_type(obj)
-      Some(v) => sqlite_col_type(v)
-      None => "TEXT"
-    }
-    let parts : Array[String] = [name]
-    if primary_key && auto_increment {
-      parts.push("INTEGER")
-      parts.push("PRIMARY KEY")
-      parts.push("AUTOINCREMENT")
-    } else {
-      parts.push(col_type)
-      if primary_key {
-        parts.push("PRIMARY KEY")
-      }
-      if !nullable {
-        parts.push("NOT NULL")
-      }
-      if unique {
-        parts.push("UNIQUE")
-      }
-      if default_value != "" {
-        parts.push("DEFAULT")
-        parts.push(default_value)
-      }
-    }
-    parts.join(" ")
-  } else {
-    ""
+fn render_column_def(column : @table.Column) -> String {
+  if column.name == "" {
+    return ""
   }
+  let default_value = column.default_value.unwrap_or("")
+  let col_type = match column.column_type {
+    @table.Json | @table.JsonB => sqlite_json_storage_type(column)
+    _ => sqlite_col_type(column.column_type)
+  }
+  let buf = @buffer.new()
+  buf.write_string(column.name)
+  if column.primary_key && column.auto_increment {
+    buf.write_string(" INTEGER PRIMARY KEY AUTOINCREMENT")
+  } else {
+    buf.write_string(" ")
+    buf.write_string(col_type)
+    if column.primary_key {
+      buf.write_string(" PRIMARY KEY")
+    }
+    if !column.nullable {
+      buf.write_string(" NOT NULL")
+    }
+    if column.unique {
+      buf.write_string(" UNIQUE")
+    }
+    if default_value != "" {
+      buf.write_string(" DEFAULT ")
+      buf.write_string(default_value)
+    }
+  }
+  buf.to_string()
 }
 
 ///|
-fn render_fk_def(fk_json : Json) -> String {
-  if fk_json is Object(obj) {
-    let col = get_string(obj, "column", "")
-    let ref_table = get_string(obj, "referenced_table", "")
-    let ref_col = get_string(obj, "referenced_column", "")
-    if col == "" || ref_table == "" || ref_col == "" {
-      return ""
-    }
-    let mut s = "FOREIGN KEY (\{col}) REFERENCES \{ref_table}(\{ref_col})"
-    let on_delete = get_string(obj, "on_delete", "")
-    let on_update = get_string(obj, "on_update", "")
-    if on_delete != "" {
-      s = s + " ON DELETE " + on_delete
-    }
-    if on_update != "" {
-      s = s + " ON UPDATE " + on_update
-    }
-    s
-  } else {
-    ""
+fn render_fk_def(fk : @table.ForeignKey) -> String {
+  if fk.column == "" || fk.referenced_table == "" || fk.referenced_column == "" {
+    return ""
   }
+  let mut s = "FOREIGN KEY (\{fk.column}) REFERENCES \{fk.referenced_table}(\{fk.referenced_column})"
+  if fk.on_delete != "" {
+    s = s + " ON DELETE " + fk.on_delete
+  }
+  if fk.on_update != "" {
+    s = s + " ON UPDATE " + fk.on_update
+  }
+  s
 }
 
 ///|
-fn render_create_table_sql(table_schema : Json) -> String {
-  if table_schema is Object(obj) {
-    let base_name = get_string(obj, "name", "")
-    if base_name == "" {
-      return ""
-    }
-    let table_name = sqlite_table_name(obj, base_name)
-    let column_defs : Array[String] = []
-    match obj.get("columns") {
-      Some(v) =>
-        for c in json_array_values(v) {
-          let def = render_column_def(c)
-          if def != "" {
-            column_defs.push(def)
-          }
-        }
-      None => ()
-    }
-    match obj.get("foreign_keys") {
-      Some(v) =>
-        for fk in json_array_values(v) {
-          let fk_def = render_fk_def(fk)
-          if fk_def != "" {
-            column_defs.push(fk_def)
-          }
-        }
-      None => ()
-    }
-    let defs = column_defs.join(", ")
-    let temporary = get_bool(obj, "temporary", false)
-    let if_not_exists = get_bool(obj, "if_not_exists", true)
-    let create_prefix = if temporary {
-      "CREATE TEMPORARY TABLE"
-    } else {
-      "CREATE TABLE"
-    }
-    let mut sql = if if_not_exists {
-      "\{create_prefix} IF NOT EXISTS \{table_name} (\{defs})"
-    } else {
-      "\{create_prefix} \{table_name} (\{defs})"
-    }
-    if has_engine_option_true(obj, "sqlite.without_rowid") {
-      sql = sql + " WITHOUT ROWID"
-    }
-    if has_engine_option_true(obj, "sqlite.strict") {
-      sql = sql + " STRICT"
-    }
-    let create_suffix = get_engine_option(obj, "create_suffix", "")
-    if create_suffix != "" {
-      sql = sql + " " + create_suffix
-    }
-    sql
-  } else {
-    ""
+fn render_create_table_sql(table_schema : @table.Table) -> String {
+  if table_schema.name == "" {
+    return ""
   }
+  let table_name = sqlite_table_name(table_schema)
+  let defs : Array[String] = []
+  for column in table_schema.columns {
+    let def = render_column_def(column)
+    if def != "" {
+      defs.push(def)
+    }
+  }
+  for fk in table_schema.foreign_keys {
+    let fk_def = render_fk_def(fk)
+    if fk_def != "" {
+      defs.push(fk_def)
+    }
+  }
+  let defs_sql = defs.join(", ")
+  let create_prefix = if table_schema.temporary {
+    "CREATE TEMPORARY TABLE"
+  } else {
+    "CREATE TABLE"
+  }
+  let mut sql = if table_schema.if_not_exists {
+    "\{create_prefix} IF NOT EXISTS \{table_name} (\{defs_sql})"
+  } else {
+    "\{create_prefix} \{table_name} (\{defs_sql})"
+  }
+  if sqlite_table_engine_option(table_schema, "sqlite.without_rowid", "") ==
+    "true" {
+    sql = sql + " WITHOUT ROWID"
+  }
+  if sqlite_table_engine_option(table_schema, "sqlite.strict", "") == "true" {
+    sql = sql + " STRICT"
+  }
+  let create_suffix = sqlite_table_engine_option(
+    table_schema, "create_suffix", "",
+  )
+  if create_suffix != "" {
+    sql = sql + " " + create_suffix
+  }
+  sql
 }
 
 ///|
-fn render_index_sqls(table_schema : Json) -> Array[String] {
-  if table_schema is Object(obj) {
-    let base_name = get_string(obj, "name", "")
-    if base_name == "" {
-      return []
-    }
-    let table_name = sqlite_table_name(obj, base_name)
-    let sqls : Array[String] = []
-    match obj.get("indexes") {
-      Some(v) =>
-        for idx_json in json_array_values(v) {
-          if idx_json is Object(idx) {
-            let idx_name = get_string(idx, "name", "")
-            let idx_type = get_string(idx, "index_type", "")
-            if idx_name is ("" | "PRIMARY") {
-              continue
-            }
-            let cols : Array[String] = []
-            match idx.get("columns") {
-              Some(cols_json) =>
-                for c in json_array_values(cols_json) {
-                  match c {
-                    String(name) => cols.push(name)
-                    _ => ()
-                  }
-                }
-              None => ()
-            }
-            if cols.length() == 0 {
-              continue
-            }
-            let unique = if idx_type == "Unique" { "UNIQUE " } else { "" }
-            let cols_sql = cols.join(", ")
-            sqls.push(
-              "CREATE \{unique}INDEX IF NOT EXISTS \{idx_name} ON \{table_name} (\{cols_sql})",
-            )
-          }
-        }
-      None => ()
-    }
-    sqls
-  } else {
-    []
+fn render_index_sqls(table_schema : @table.Table) -> Array[String] {
+  if table_schema.name == "" {
+    return []
   }
+  let table_name = sqlite_table_name(table_schema)
+  let sqls : Array[String] = []
+  for idx in table_schema.indexes {
+    if idx.name is ("" | "PRIMARY") || idx.columns.length() == 0 {
+      continue
+    }
+    let unique = if idx.index_type == @table.Unique { "UNIQUE " } else { "" }
+    let cols_sql = idx.columns.join(", ")
+    sqls.push(
+      "CREATE \{unique}INDEX IF NOT EXISTS \{idx.name} ON \{table_name} (\{cols_sql})",
+    )
+  }
+  sqls
 }
 
 ///|
@@ -455,7 +372,7 @@ fn sqlite_tx_sql(op : @engine.TxOp) -> String {
 ///|
 pub impl @engine.Engine for SQLiteEngine with migrate_table(
   self,
-  table_schema : Json,
+  table_schema : @table.Table,
 ) -> @engine.QueryResult {
   let create_sql = render_create_table_sql(table_schema)
   if create_sql == "" {

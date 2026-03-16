@@ -3,6 +3,7 @@ import {
   "oboard/morm",
   "oboard/morm/engine",
   "oboard/morm/engine/mongodb" @mongodb,
+  "oboard/morm/table",
   "oboard/morm/time",
   "moonbitlang/async",
   "moonbitlang/core/json",

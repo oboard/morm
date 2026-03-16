@@ -4,6 +4,7 @@ package "oboard/morm/engine/mysql"
 import {
   "moonbitlang/async/socket",
   "oboard/morm/engine",
+  "oboard/morm/table",
 }
 
 // Values

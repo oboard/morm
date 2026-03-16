@@ -170,105 +170,71 @@ pub async fn OracleEngine::ping(self : OracleEngine) -> Bool {
 }
 
 ///|
-fn schema_get_string(
-  obj : Map[String, Json],
+fn oracle_table_engine_option(
+  table_schema : @table.Table,
   key : String,
   default : String,
 ) -> String {
-  match obj.get(key) {
-    Some(String(v)) => v
-    _ => default
-  }
-}
-
-///|
-fn schema_get_bool(
-  obj : Map[String, Json],
-  key : String,
-  default : Bool,
-) -> Bool {
-  match obj.get(key) {
-    Some(True) => true
-    Some(False) => false
-    _ => default
-  }
-}
-
-///|
-fn schema_get_engine_option(
-  obj : Map[String, Json],
-  key : String,
-  default : String,
-) -> String {
-  match obj.get("engine_options") {
-    Some([.. options]) => {
-      for option in options {
-        if option is Object(option_obj) &&
-          schema_get_string(option_obj, "key", "") == key {
-          return schema_get_string(option_obj, "value", default)
-        }
-      }
-      default
+  for option in table_schema.engine_options {
+    if option.key == key {
+      return option.value
     }
-    _ => default
   }
+  default
 }
 
 ///|
-fn oracle_table_name(obj : Map[String, Json], name : String) -> String {
-  let schema = schema_get_string(obj, "schema", "")
+fn oracle_column_engine_option(
+  column : @table.Column,
+  key : String,
+  default : String,
+) -> String {
+  for option in column.engine_options {
+    if option.key == key {
+      return option.value
+    }
+  }
+  default
+}
+
+///|
+fn oracle_table_name(table_schema : @table.Table) -> String {
+  let schema = table_schema.schema.unwrap_or("")
   if schema != "" {
-    "\{schema}.\{name}"
+    "\{schema}.\{table_schema.name}"
   } else {
-    name
+    table_schema.name
   }
 }
 
 ///|
-fn oracle_type_from_json(v : Json) -> String {
-  let from_name = fn(name : String, arg0 : Int, arg1 : Int) -> String {
-    match name {
-      "TinyInt" => "NUMBER(3)"
-      "SmallInt" => "NUMBER(5)"
-      "MediumInt" => "NUMBER(7)"
-      "Int" => "NUMBER(10)"
-      "BigInt" => "NUMBER(19)"
-      "Float" => "BINARY_FLOAT"
-      "Double" => "BINARY_DOUBLE"
-      "Decimal" => "NUMBER(\{arg0}, \{arg1})"
-      "Char" => "CHAR(\{arg0})"
-      "VarChar" => "VARCHAR2(\{arg0})"
-      "Text" | "MediumText" | "LongText" => "CLOB"
-      "Binary" | "VarBinary" => "RAW(\{arg0})"
-      "Blob" | "MediumBlob" | "LongBlob" => "BLOB"
-      "Date" => "DATE"
-      "Time" => "DATE"
-      "DateTime" | "Timestamp" => "TIMESTAMP"
-      "Year" => "NUMBER(4)"
-      "Json" | "JsonB" => "CLOB"
-      "Boolean" => "NUMBER(1)"
-      _ => "VARCHAR2(255)"
-    }
-  }
-  match v {
-    String(name) => from_name(name, 255, 2)
-    Array(arr) =>
-      if arr is [String(name), Number(a0, ..), Number(a1, ..), ..] {
-        from_name(name, a0.to_int(), a1.to_int())
-      } else if arr is [String(name), Number(a0, ..), ..] {
-        from_name(name, a0.to_int(), 2)
-      } else if arr is [String(name), ..] {
-        from_name(name, 255, 2)
-      } else {
-        "VARCHAR2(255)"
-      }
-    _ => "VARCHAR2(255)"
+fn oracle_type_from_column_type(column_type : @table.ColumnType) -> String {
+  match column_type {
+    @table.TinyInt => "NUMBER(3)"
+    @table.SmallInt => "NUMBER(5)"
+    @table.MediumInt => "NUMBER(7)"
+    @table.Int => "NUMBER(10)"
+    @table.BigInt => "NUMBER(19)"
+    @table.Float => "BINARY_FLOAT"
+    @table.Double => "BINARY_DOUBLE"
+    @table.Decimal(a0, a1) => "NUMBER(\{a0}, \{a1})"
+    @table.Char(a0) => "CHAR(\{a0})"
+    @table.VarChar(a0) => "VARCHAR2(\{a0})"
+    @table.Text | @table.MediumText | @table.LongText => "CLOB"
+    @table.Binary(a0) | @table.VarBinary(a0) => "RAW(\{a0})"
+    @table.Blob | @table.MediumBlob | @table.LongBlob => "BLOB"
+    @table.Date => "DATE"
+    @table.Time => "DATE"
+    @table.DateTime | @table.Timestamp => "TIMESTAMP"
+    @table.Year => "NUMBER(4)"
+    @table.Json | @table.JsonB => "CLOB"
+    @table.Boolean => "NUMBER(1)"
   }
 }
 
 ///|
-fn oracle_json_storage_type(obj : Map[String, Json]) -> String {
-  match schema_get_engine_option(obj, "json.storage", "") {
+fn oracle_json_storage_type(column : @table.Column) -> String {
+  match oracle_column_engine_option(column, "json.storage", "") {
     "blob" | "bson" | "jsonb" => "BLOB"
     "text" | "string" | "json" => "CLOB"
     _ => "CLOB"
@@ -276,192 +242,143 @@ fn oracle_json_storage_type(obj : Map[String, Json]) -> String {
 }
 
 ///|
-fn oracle_column_def(col_json : Json) -> String {
-  if col_json is Object(obj) {
-    let name = schema_get_string(obj, "name", "")
-    if name == "" {
-      return ""
-    }
-    let col_type = match obj.get("column_type") {
-      Some(String("Json")) | Some(String("JsonB")) =>
-        oracle_json_storage_type(obj)
-      Some(v) => oracle_type_from_json(v)
-      None => "VARCHAR2(255)"
-    }
-    let primary_key = schema_get_bool(obj, "primary_key", false)
-    let auto_increment = schema_get_bool(obj, "auto_increment", false)
-    let nullable = schema_get_bool(obj, "nullable", true)
-    let unique = schema_get_bool(obj, "unique", false)
-    let default_value = schema_get_string(obj, "default_value", "")
-    let bool_default = if default_value.to_lower() == "true" {
-      "1"
-    } else if default_value.to_lower() == "false" {
-      "0"
-    } else {
-      default_value
-    }
-    let mut sql = "\{name} \{col_type}"
-    if auto_increment {
-      sql = sql + " GENERATED BY DEFAULT AS IDENTITY"
-    }
-    if !nullable {
-      sql = sql + " NOT NULL"
-    }
-    if primary_key {
-      sql = sql + " PRIMARY KEY"
-    }
-    if unique {
-      sql = sql + " UNIQUE"
-    }
-    if bool_default != "" {
-      sql = sql + " DEFAULT " + bool_default
-    }
-    sql
-  } else {
-    ""
+fn oracle_column_def(column : @table.Column) -> String {
+  if column.name == "" {
+    return ""
   }
+  let col_type = match column.column_type {
+    @table.Json | @table.JsonB => oracle_json_storage_type(column)
+    _ => oracle_type_from_column_type(column.column_type)
+  }
+  let default_value = column.default_value.unwrap_or("")
+  let bool_default = if default_value.to_lower() == "true" {
+    "1"
+  } else if default_value.to_lower() == "false" {
+    "0"
+  } else {
+    default_value
+  }
+  let buf = @buffer.new()
+  buf.write_string(column.name)
+  buf.write_string(" ")
+  buf.write_string(col_type)
+  if column.auto_increment {
+    buf.write_string(" GENERATED BY DEFAULT AS IDENTITY")
+  }
+  if !column.nullable {
+    buf.write_string(" NOT NULL")
+  }
+  if column.primary_key {
+    buf.write_string(" PRIMARY KEY")
+  }
+  if column.unique {
+    buf.write_string(" UNIQUE")
+  }
+  if bool_default != "" {
+    buf.write_string(" DEFAULT ")
+    buf.write_string(bool_default)
+  }
+  buf.to_string()
 }
 
 ///|
-fn oracle_fk_def(fk_json : Json) -> String {
-  if fk_json is Object(obj) {
-    let name = schema_get_string(obj, "name", "")
-    let col = schema_get_string(obj, "column", "")
-    let ref_table = schema_get_string(obj, "referenced_table", "")
-    let ref_col = schema_get_string(obj, "referenced_column", "")
-    if col == "" || ref_table == "" || ref_col == "" {
-      return ""
-    }
-    let mut sql = "FOREIGN KEY (\{col}) REFERENCES \{ref_table}(\{ref_col})"
-    if name != "" {
-      sql = "CONSTRAINT \{name} " + sql
-    }
-    let on_delete = schema_get_string(obj, "on_delete", "")
-    let on_update = schema_get_string(obj, "on_update", "")
-    if on_delete != "" {
-      sql = sql + " ON DELETE " + on_delete
-    }
-    if on_update != "" {
-      sql = sql + " ON UPDATE " + on_update
-    }
-    sql
-  } else {
-    ""
+fn oracle_fk_def(fk : @table.ForeignKey) -> String {
+  if fk.column == "" || fk.referenced_table == "" || fk.referenced_column == "" {
+    return ""
   }
+  let mut sql = "FOREIGN KEY (\{fk.column}) REFERENCES \{fk.referenced_table}(\{fk.referenced_column})"
+  if fk.name != "" {
+    sql = "CONSTRAINT \{fk.name} " + sql
+  }
+  if fk.on_delete != "" {
+    sql = sql + " ON DELETE " + fk.on_delete
+  }
+  if fk.on_update != "" {
+    sql = sql + " ON UPDATE " + fk.on_update
+  }
+  sql
 }
 
 ///|
-fn oracle_create_table_sql(table_schema : Json) -> String {
-  if table_schema is Object(obj) {
-    let base_name = schema_get_string(obj, "name", "")
-    if base_name == "" {
-      return ""
-    }
-    let table_name = oracle_table_name(obj, base_name)
-    let defs : Array[String] = []
-    if obj.get("columns") is Some([.. v]) {
-      for c in v {
-        let d = oracle_column_def(c)
-        if d != "" {
-          defs.push(d)
-        }
-      }
-    }
-    if obj.get("foreign_keys") is Some([.. v]) {
-      for fk in v {
-        let d = oracle_fk_def(fk)
-        if d != "" {
-          defs.push(d)
-        }
-      }
-    }
-    let defs_sql = defs.join(", ")
-    let temporary = schema_get_bool(obj, "temporary", false)
-    let create_prefix = if temporary {
-      "CREATE GLOBAL TEMPORARY TABLE "
-    } else {
-      "CREATE TABLE "
-    }
-    let mut sql = "\{create_prefix}\{table_name} (\{defs_sql})"
-    let tablespace = schema_get_string(obj, "tablespace", "")
-    if tablespace != "" {
-      sql = sql + " TABLESPACE " + tablespace
-    }
-    let organization = schema_get_engine_option(obj, "oracle.organization", "")
-    if organization != "" {
-      sql = sql + " ORGANIZATION " + organization
-    }
-    let on_commit = schema_get_engine_option(obj, "oracle.on_commit", "")
-    if temporary && on_commit != "" {
-      sql = sql + " ON COMMIT " + on_commit
-    }
-    let create_suffix = schema_get_engine_option(obj, "create_suffix", "")
-    if create_suffix != "" {
-      sql = sql + " " + create_suffix
-    }
-    sql
-  } else {
-    ""
+fn oracle_create_table_sql(table_schema : @table.Table) -> String {
+  if table_schema.name == "" {
+    return ""
   }
+  let table_name = oracle_table_name(table_schema)
+  let defs : Array[String] = []
+  for column in table_schema.columns {
+    let def = oracle_column_def(column)
+    if def != "" {
+      defs.push(def)
+    }
+  }
+  for fk in table_schema.foreign_keys {
+    let def = oracle_fk_def(fk)
+    if def != "" {
+      defs.push(def)
+    }
+  }
+  let defs_sql = defs.join(", ")
+  let create_prefix = if table_schema.temporary {
+    "CREATE GLOBAL TEMPORARY TABLE "
+  } else {
+    "CREATE TABLE "
+  }
+  let mut sql = "\{create_prefix}\{table_name} (\{defs_sql})"
+  let tablespace = table_schema.tablespace.unwrap_or("")
+  if tablespace != "" {
+    sql = sql + " TABLESPACE " + tablespace
+  }
+  let organization = oracle_table_engine_option(
+    table_schema, "oracle.organization", "",
+  )
+  if organization != "" {
+    sql = sql + " ORGANIZATION " + organization
+  }
+  let on_commit = oracle_table_engine_option(
+    table_schema, "oracle.on_commit", "",
+  )
+  if table_schema.temporary && on_commit != "" {
+    sql = sql + " ON COMMIT " + on_commit
+  }
+  let create_suffix = oracle_table_engine_option(
+    table_schema, "create_suffix", "",
+  )
+  if create_suffix != "" {
+    sql = sql + " " + create_suffix
+  }
+  sql
 }
 
 ///|
-fn oracle_comment_sql(table_schema : Json) -> String {
-  if table_schema is Object(obj) {
-    let comment = schema_get_string(obj, "comment", "")
-    let base_name = schema_get_string(obj, "name", "")
-    if comment == "" || base_name == "" {
-      return ""
-    }
-    let table_name = oracle_table_name(obj, base_name)
-    "COMMENT ON TABLE \{table_name} IS '" +
-    comment.replace(old="'", new="''") +
-    "'"
-  } else {
-    ""
+fn oracle_comment_sql(table_schema : @table.Table) -> String {
+  if table_schema.comment == "" || table_schema.name == "" {
+    return ""
   }
+  let table_name = oracle_table_name(table_schema)
+  "COMMENT ON TABLE \{table_name} IS '" +
+  table_schema.comment.replace(old="'", new="''") +
+  "'"
 }
 
 ///|
-fn oracle_index_sqls(table_schema : Json) -> Array[String] {
-  if table_schema is Object(obj) {
-    let base_name = schema_get_string(obj, "name", "")
-    if base_name == "" {
-      return []
-    }
-    let table_name = oracle_table_name(obj, base_name)
-    let sqls : Array[String] = []
-    if obj.get("indexes") is Some([.. v]) {
-      for idx_json in v {
-        if idx_json is Object(idx) {
-          let idx_name = schema_get_string(idx, "name", "")
-          if idx_name is ("" | "PRIMARY") {
-            continue
-          }
-          let idx_type = schema_get_string(idx, "index_type", "Index")
-          let cols : Array[String] = []
-          if idx.get("columns") is Some([.. cols_json]) {
-            for c in cols_json {
-              if c is String(name) {
-                cols.push(name)
-              }
-            }
-          }
-          if cols.length() == 0 {
-            continue
-          }
-          let unique = if idx_type == "Unique" { "UNIQUE " } else { "" }
-          let cols_sql = cols.join(", ")
-          sqls.push(
-            "CREATE \{unique}INDEX \{idx_name} ON \{table_name} (\{cols_sql})",
-          )
-        }
-      }
-    }
-    sqls
-  } else {
-    []
+fn oracle_index_sqls(table_schema : @table.Table) -> Array[String] {
+  if table_schema.name == "" {
+    return []
   }
+  let table_name = oracle_table_name(table_schema)
+  let sqls : Array[String] = []
+  for idx in table_schema.indexes {
+    if idx.name is ("" | "PRIMARY") || idx.columns.length() == 0 {
+      continue
+    }
+    let unique = if idx.index_type == @table.Unique { "UNIQUE " } else { "" }
+    let cols_sql = idx.columns.join(", ")
+    sqls.push(
+      "CREATE \{unique}INDEX \{idx.name} ON \{table_name} (\{cols_sql})",
+    )
+  }
+  sqls
 }
 
 ///|
@@ -507,7 +424,7 @@ pub impl @engine.Engine for OracleEngine with exec_raw(
 ///|
 pub impl @engine.Engine for OracleEngine with migrate_table(
   self,
-  table_schema : Json,
+  table_schema : @table.Table,
 ) -> @engine.QueryResult {
   let create_sql = oracle_create_table_sql(table_schema)
   if create_sql == "" {

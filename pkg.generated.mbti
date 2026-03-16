@@ -4,19 +4,20 @@ package "oboard/morm"
 import {
   "moonbitlang/core/json",
   "oboard/morm/engine",
+  "oboard/morm/table",
   "oboard/morm/time",
 }
 
 // Values
-pub fn add_column(Table, Column) -> Table
+pub fn add_column(@table.Table, @table.Column) -> @table.Table
 
-pub fn add_column_engine_option(Column, String, String) -> Column
+pub fn add_column_engine_option(@table.Column, String, String) -> @table.Column
 
-pub fn add_foreign_key(Table, ForeignKey) -> Table
+pub fn add_foreign_key(@table.Table, @table.ForeignKey) -> @table.Table
 
-pub fn add_index(Table, Index) -> Table
+pub fn add_index(@table.Table, @table.Index) -> @table.Table
 
-pub fn add_table_engine_option(Table, String, String) -> Table
+pub fn add_table_engine_option(@table.Table, String, String) -> @table.Table
 
 pub fn[T] after_create(T, (T) -> T) -> T
 
@@ -26,7 +27,7 @@ pub fn[T] after_find(T, (T) -> T) -> T
 
 pub fn[T] after_update(T, (T) -> T) -> T
 
-pub async fn[E : @engine.Engine] auto_migrate(E, Array[Table]) -> Unit
+pub async fn[E : @engine.Engine] auto_migrate(E, Array[@table.Table]) -> Unit
 
 pub fn[T] before_create(T, (T) -> T) -> T
 
@@ -42,37 +43,49 @@ pub fn current_timestamp_utc() -> @time.ZonedDateTime
 
 pub fn delete_from(String) -> DeleteQuery
 
-pub fn diff_table(Table, Table) -> TableDiff
+pub fn diff_table(@table.Table, @table.Table) -> TableDiff
 
 pub fn has_many(String, String, String, String) -> Association
 
 pub fn has_one(String, String, String, String) -> Association
 
-pub fn infer_column_type(Json) -> ColumnType
+pub fn infer_column_type(Json) -> @table.ColumnType
 
 pub fn insert_into(String) -> InsertQuery
 
 pub fn many_to_many(String, String, String, String, String, String, String) -> Association
 
-pub fn mysql_table_compression(Table, String) -> Table
+pub fn mysql_table_compression(@table.Table, String) -> @table.Table
 
-pub fn mysql_table_key_block_size(Table, Int) -> Table
+pub fn mysql_table_key_block_size(@table.Table, Int) -> @table.Table
 
-pub fn mysql_table_row_format(Table, String) -> Table
+pub fn mysql_table_row_format(@table.Table, String) -> @table.Table
 
-pub fn on_delete_cascade(ForeignKey) -> ForeignKey
+pub fn new_column(String, @table.ColumnType) -> @table.Column
 
-pub fn on_update_cascade(ForeignKey) -> ForeignKey
+pub fn new_foreign_key(String, String, String, String) -> @table.ForeignKey
 
-pub fn oracle_table_on_commit(Table, String) -> Table
+pub fn new_index(String, FixedArray[String]) -> @table.Index
 
-pub fn oracle_table_organization(Table, String) -> Table
+pub fn new_primary_index(FixedArray[String]) -> @table.Index
 
-pub fn pg_table_on_commit(Table, String) -> Table
+pub fn new_table(String, columns? : FixedArray[@table.Column], engine? : String) -> @table.Table
 
-pub fn pg_table_unlogged(Table) -> Table
+pub fn new_unique_index(String, FixedArray[String]) -> @table.Index
 
-pub fn pg_table_with(Table, String) -> Table
+pub fn on_delete_cascade(@table.ForeignKey) -> @table.ForeignKey
+
+pub fn on_update_cascade(@table.ForeignKey) -> @table.ForeignKey
+
+pub fn oracle_table_on_commit(@table.Table, String) -> @table.Table
+
+pub fn oracle_table_organization(@table.Table, String) -> @table.Table
+
+pub fn pg_table_on_commit(@table.Table, String) -> @table.Table
+
+pub fn pg_table_unlogged(@table.Table) -> @table.Table
+
+pub fn pg_table_with(@table.Table, String) -> @table.Table
 
 pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(E, FixedArray[O], Association) -> PreloadResult[T]
 
@@ -98,33 +111,37 @@ pub fn select_raw(String, String) -> Query
 
 pub fn[V : @engine.ToParam] soft_delete_by_id(String, String, V, deleted_col? : String) -> UpdateQuery
 
-pub fn sqlite_table_strict(Table) -> Table
+pub fn sqlite_table_strict(@table.Table) -> @table.Table
 
-pub fn sqlite_table_without_rowid(Table) -> Table
+pub fn sqlite_table_without_rowid(@table.Table) -> @table.Table
 
-pub fn sqlserver_table_durability(Table, String) -> Table
+pub fn sqlserver_table_durability(@table.Table, String) -> @table.Table
 
-pub fn sqlserver_table_filegroup(Table, String) -> Table
+pub fn sqlserver_table_filegroup(@table.Table, String) -> @table.Table
 
-pub fn sqlserver_table_memory_optimized(Table) -> Table
+pub fn sqlserver_table_memory_optimized(@table.Table) -> @table.Table
 
-pub fn sqlserver_table_textimage_on(Table, String) -> Table
+pub fn sqlserver_table_textimage_on(@table.Table, String) -> @table.Table
 
-pub fn table_catalog(Table, String) -> Table
+pub fn table_catalog(@table.Table, String) -> @table.Table
 
-pub fn table_comment(Table, String) -> Table
+pub fn table_comment(@table.Table, String) -> @table.Table
 
-pub fn table_create_suffix(Table, String) -> Table
+pub fn table_create_suffix(@table.Table, String) -> @table.Table
 
-pub fn table_engine(Table, String) -> Table
+pub fn table_engine(@table.Table, String) -> @table.Table
 
-pub fn table_if_not_exists(Table, Bool) -> Table
+pub fn table_has_primary_key(@table.Table) -> Bool
 
-pub fn table_schema(Table, String) -> Table
+pub fn table_if_not_exists(@table.Table, Bool) -> @table.Table
 
-pub fn table_tablespace(Table, String) -> Table
+pub fn table_primary_key(@table.Table) -> String?
 
-pub fn table_temporary(Table, Bool) -> Table
+pub fn table_schema(@table.Table, String) -> @table.Table
+
+pub fn table_tablespace(@table.Table, String) -> @table.Table
+
+pub fn table_temporary(@table.Table, Bool) -> @table.Table
 
 pub fn unregister_driver_scheme(String) -> Unit
 
@@ -161,83 +178,15 @@ pub impl Show for AssociationKind
 pub impl ToJson for AssociationKind
 pub impl @json.FromJson for AssociationKind
 
-pub(all) struct Column {
-  name : String
-  column_type : ColumnType
-  size : Int
-  nullable : Bool
-  default_value : String?
-  auto_increment : Bool
-  primary_key : Bool
-  unique : Bool
-  comment : String
-  charset : String?
-  collation : String?
-  engine_options : FixedArray[ColumnEngineOption]
-}
-pub fn Column::new(String, ColumnType) -> Self
-pub impl Compare for Column
-pub impl Eq for Column
-pub impl Hash for Column
-pub impl Show for Column
-pub impl ToJson for Column
-pub impl @json.FromJson for Column
-
 pub(all) struct ColumnDiff {
-  added : FixedArray[Column]
-  removed : FixedArray[Column]
-  changed : FixedArray[(String, Column, Column)]
+  added : FixedArray[@table.Column]
+  removed : FixedArray[@table.Column]
+  changed : FixedArray[(String, @table.Column, @table.Column)]
 }
 pub impl Eq for ColumnDiff
 pub impl Show for ColumnDiff
 pub impl ToJson for ColumnDiff
 pub impl @json.FromJson for ColumnDiff
-
-pub(all) struct ColumnEngineOption {
-  key : String
-  value : String
-}
-pub impl Compare for ColumnEngineOption
-pub impl Eq for ColumnEngineOption
-pub impl Hash for ColumnEngineOption
-pub impl Show for ColumnEngineOption
-pub impl ToJson for ColumnEngineOption
-pub impl @json.FromJson for ColumnEngineOption
-
-pub(all) enum ColumnType {
-  TinyInt
-  SmallInt
-  MediumInt
-  Int
-  BigInt
-  Float
-  Double
-  Decimal(Int, Int)
-  Char(Int)
-  VarChar(Int)
-  Text
-  MediumText
-  LongText
-  Binary(Int)
-  VarBinary(Int)
-  Blob
-  MediumBlob
-  LongBlob
-  Date
-  Time
-  DateTime
-  Timestamp
-  Year
-  Json
-  JsonB
-  Boolean
-}
-pub impl Compare for ColumnType
-pub impl Eq for ColumnType
-pub impl Hash for ColumnType
-pub impl Show for ColumnType
-pub impl ToJson for ColumnType
-pub impl @json.FromJson for ColumnType
 
 pub(all) struct DbError {
   message : String
@@ -263,71 +212,25 @@ pub impl ToJson for DeleteQuery
 pub impl @json.FromJson for DeleteQuery
 pub impl @engine.QueryBuilder for DeleteQuery
 
-pub(all) struct ForeignKey {
-  name : String
-  column : String
-  referenced_table : String
-  referenced_column : String
-  on_delete : String
-  on_update : String
-}
-pub fn ForeignKey::new(String, String, String, String) -> Self
-pub impl Compare for ForeignKey
-pub impl Eq for ForeignKey
-pub impl Hash for ForeignKey
-pub impl Show for ForeignKey
-pub impl ToJson for ForeignKey
-pub impl @json.FromJson for ForeignKey
-
 pub(all) struct ForeignKeyDiff {
-  added : FixedArray[ForeignKey]
-  removed : FixedArray[ForeignKey]
-  changed : FixedArray[(String, ForeignKey, ForeignKey)]
+  added : FixedArray[@table.ForeignKey]
+  removed : FixedArray[@table.ForeignKey]
+  changed : FixedArray[(String, @table.ForeignKey, @table.ForeignKey)]
 }
 pub impl Eq for ForeignKeyDiff
 pub impl Show for ForeignKeyDiff
 pub impl ToJson for ForeignKeyDiff
 pub impl @json.FromJson for ForeignKeyDiff
 
-pub(all) struct Index {
-  name : String
-  index_type : IndexType
-  columns : FixedArray[String]
-  comment : String
-}
-pub fn Index::new(String, FixedArray[String]) -> Self
-pub fn Index::new_primary(FixedArray[String]) -> Self
-pub fn Index::new_unique(String, FixedArray[String]) -> Self
-pub impl Compare for Index
-pub impl Eq for Index
-pub impl Hash for Index
-pub impl Show for Index
-pub impl ToJson for Index
-pub impl @json.FromJson for Index
-
 pub(all) struct IndexDiff {
-  added : FixedArray[Index]
-  removed : FixedArray[Index]
-  changed : FixedArray[(String, Index, Index)]
+  added : FixedArray[@table.Index]
+  removed : FixedArray[@table.Index]
+  changed : FixedArray[(String, @table.Index, @table.Index)]
 }
 pub impl Eq for IndexDiff
 pub impl Show for IndexDiff
 pub impl ToJson for IndexDiff
 pub impl @json.FromJson for IndexDiff
-
-pub(all) enum IndexType {
-  Primary
-  Unique
-  Index
-  FullText
-  Spatial
-}
-pub impl Compare for IndexType
-pub impl Eq for IndexType
-pub impl Hash for IndexType
-pub impl Show for IndexType
-pub impl ToJson for IndexType
-pub impl @json.FromJson for IndexType
 
 pub struct InsertQuery {
   into : String
@@ -396,33 +299,6 @@ pub impl Show for Set
 pub impl ToJson for Set
 pub impl @json.FromJson for Set
 
-pub(all) struct Table {
-  name : String
-  schema : String?
-  catalog : String?
-  columns : FixedArray[Column]
-  indexes : FixedArray[Index]
-  foreign_keys : FixedArray[ForeignKey]
-  temporary : Bool
-  if_not_exists : Bool
-  engine : String?
-  charset : String?
-  collation : String?
-  tablespace : String?
-  comment : String
-  auto_increment : Int?
-  engine_options : FixedArray[TableEngineOption]
-}
-pub fn Table::has_primary_key(Self) -> Bool
-pub fn Table::new(String, columns? : FixedArray[Column], engine? : String) -> Self
-pub fn Table::primary_key(Self) -> String?
-pub impl Compare for Table
-pub impl Eq for Table
-pub impl Hash for Table
-pub impl Show for Table
-pub impl ToJson for Table
-pub impl @json.FromJson for Table
-
 pub(all) struct TableDiff {
   columns : ColumnDiff
   indexes : IndexDiff
@@ -432,17 +308,6 @@ pub impl Eq for TableDiff
 pub impl Show for TableDiff
 pub impl ToJson for TableDiff
 pub impl @json.FromJson for TableDiff
-
-pub(all) struct TableEngineOption {
-  key : String
-  value : String
-}
-pub impl Compare for TableEngineOption
-pub impl Eq for TableEngineOption
-pub impl Hash for TableEngineOption
-pub impl Show for TableEngineOption
-pub impl ToJson for TableEngineOption
-pub impl @json.FromJson for TableEngineOption
 
 pub struct UpdateQuery {
   table : String
@@ -505,7 +370,23 @@ pub impl ToJson for WhereType
 pub impl @json.FromJson for WhereType
 
 // Type aliases
+pub using @table {type Column}
+
+pub using @table {type ColumnEngineOption}
+
+pub using @table {type ColumnType}
+
 pub type DbResult[T] = Result[T, DbError]
+
+pub using @table {type ForeignKey}
+
+pub using @table {type Index}
+
+pub using @table {type IndexType}
+
+pub using @table {type Table}
+
+pub using @table {type TableEngineOption}
 
 // Traits
 pub(open) trait Driver {
@@ -517,6 +398,6 @@ pub(open) trait Driver {
 }
 
 pub(open) trait Entity : ToJson + @json.FromJson {
-  table(Self) -> Table
+  table(Self) -> @table.Table
 }
 

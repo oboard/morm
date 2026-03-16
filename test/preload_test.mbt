@@ -74,7 +74,7 @@ impl @engine.Engine for MockEngine with exec(self, query : @engine.Query) -> @en
 ///|
 impl @engine.Engine for MockEngine with migrate_table(
   _self,
-  _table_schema : Json,
+  _table_schema : @table.Table,
 ) -> @engine.QueryResult {
   { ok: true, rows_affected: 0, rows: [], error: None }
 }

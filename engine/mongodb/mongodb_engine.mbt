@@ -2128,16 +2128,19 @@ fn tx_noop() -> @engine.QueryResult {
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with migrate_table(self, table_schema) {
-  if table_schema is { "name": String(name), .. } {
-    let reply = run_command(self, { "create": name })
-    match reply {
-      Ok(_) => ok_result(0, [])
-      Err(err) if err.contains("already exists") => ok_result(0, [])
-      Err(err) => fail_result(err)
-    }
-  } else {
-    fail_result("invalid table schema")
+pub impl @engine.Engine for MongoDBEngine with migrate_table(
+  self,
+  table_schema : @table.Table,
+) {
+  let name = table_schema.name
+  if name == "" {
+    return fail_result("invalid table schema")
+  }
+  let reply = run_command(self, { "create": name })
+  match reply {
+    Ok(_) => ok_result(0, [])
+    Err(err) if err.contains("already exists") => ok_result(0, [])
+    Err(err) => fail_result(err)
   }
 }
 

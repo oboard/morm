@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/json",
   "oboard/morm",
   "oboard/morm/engine",
+  "oboard/morm/table",
   "oboard/morm/time",
 }
 
@@ -21,7 +22,7 @@ pub(all) struct Class {
   updated_at : @time.PlainDateTime
 }
 pub fn Class::from_row(Json) -> Self
-pub fn Class::table() -> @morm.Table
+pub fn Class::table() -> @table.Table
 pub impl ToJson for Class
 pub impl @json.FromJson for Class
 pub impl @morm.Entity for Class
@@ -38,7 +39,7 @@ pub(all) struct Enrollment {
   klass : Class
   note : String
 }
-pub fn Enrollment::table() -> @morm.Table
+pub fn Enrollment::table() -> @table.Table
 pub impl ToJson for Enrollment
 pub impl @json.FromJson for Enrollment
 pub impl @morm.Entity for Enrollment
@@ -54,7 +55,7 @@ pub(all) struct JsonDocument {
   payload : Json
 }
 pub fn JsonDocument::from_row(Json) -> Self
-pub fn JsonDocument::table() -> @morm.Table
+pub fn JsonDocument::table() -> @table.Table
 pub impl ToJson for JsonDocument
 pub impl @json.FromJson for JsonDocument
 pub impl @morm.Entity for JsonDocument
@@ -66,7 +67,7 @@ pub(all) struct Student {
   birth_date : @time.ZonedDateTime
 }
 pub fn Student::from_row(Json) -> Self
-pub fn Student::table() -> @morm.Table
+pub fn Student::table() -> @table.Table
 pub impl ToJson for Student
 pub impl @json.FromJson for Student
 pub impl @morm.Entity for Student
@@ -75,7 +76,7 @@ pub(all) struct StudentAggregate {
   id : Int64
   enrollments : FixedArray[Int]
 }
-pub fn StudentAggregate::table() -> @morm.Table
+pub fn StudentAggregate::table() -> @table.Table
 pub impl ToJson for StudentAggregate
 pub impl @json.FromJson for StudentAggregate
 pub impl @morm.Entity for StudentAggregate
@@ -94,7 +95,7 @@ pub(all) struct Teacher {
   birth_date : @time.ZonedDateTime?
 }
 pub fn Teacher::from_row(Json) -> Self
-pub fn Teacher::table() -> @morm.Table
+pub fn Teacher::table() -> @table.Table
 pub impl ToJson for Teacher
 pub impl @json.FromJson for Teacher
 pub impl @morm.Entity for Teacher

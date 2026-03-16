@@ -14,7 +14,7 @@ fn must_ok(res : @engine.QueryResult, step : String) -> Unit {
 async fn main {
   // This table schema comes from mormgen output: `User::table()`.
   let engine = @sqlite3.SQLiteEngine::open(":memory:")
-  must_ok(engine.migrate_table(User::table().to_json()), "migrate user table")
+  must_ok(engine.migrate_table(User::table()), "migrate user table")
 
   let seed = @morm.insert_into("user")
     .columns(["email", "active"])

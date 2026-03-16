@@ -81,7 +81,7 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
       foreign_keys.push(fk)
     }
   }
-  let mut table = @morm.Table::new(
+  let mut table = @morm.new_table(
     spec.table_name,
     columns=FixedArray::from_array(columns),
   )

@@ -1,32 +1,14 @@
 ///|
-pub(all) struct TableEngineOption {
-  key : String
-  value : String
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+pub type TableEngineOption = @table.TableEngineOption
 
 ///|
-// 数据库表定义
-pub(all) struct Table {
-  name : String
-  schema : String?
-  catalog : String?
-  columns : FixedArray[Column]
-  indexes : FixedArray[Index]
-  foreign_keys : FixedArray[ForeignKey]
-  temporary : Bool
-  if_not_exists : Bool
-  engine : String?
-  charset : String?
-  collation : String?
-  tablespace : String?
-  comment : String
-  auto_increment : Int?
-  engine_options : FixedArray[TableEngineOption]
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+pub type Table = @table.Table
 
 ///|
-// ---- 表构建器函数 ----
-pub fn Table::new(
+pub type ForeignKey = @table.ForeignKey
+
+///|
+pub fn new_table(
   name : String,
   columns? : FixedArray[Column],
   engine? : String,
@@ -51,8 +33,8 @@ pub fn Table::new(
 }
 
 ///|
-pub fn Table::primary_key(self : Table) -> String? {
-  self.columns.fold(init=None, (acc, col) => {
+pub fn table_primary_key(table : Table) -> String? {
+  table.columns.fold(init=None, (acc, col) => {
     if col.primary_key {
       Some(col.name)
     } else {
@@ -62,6 +44,6 @@ pub fn Table::primary_key(self : Table) -> String? {
 }
 
 ///|
-pub fn Table::has_primary_key(self : Table) -> Bool {
-  self.primary_key() is Some(_)
+pub fn table_has_primary_key(table : Table) -> Bool {
+  table_primary_key(table) is Some(_)
 }

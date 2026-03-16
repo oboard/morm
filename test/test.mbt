@@ -170,10 +170,10 @@ pub(all) struct UpdateFromEntity {
 
 ///|
 pub impl @morm.Entity for BsonDoc with table(_self) -> @morm.Table {
-  @morm.Table::new("bson_doc", columns=[
-    @morm.Column::new("id", @morm.BigInt),
+  @morm.new_table("bson_doc", columns=[
+    @morm.new_column("id", @morm.ColumnType::BigInt),
     {
-      ..@morm.Column::new("payload", @morm.Json),
+      ..@morm.new_column("payload", @morm.ColumnType::Json),
       engine_options: [{ key: "json.storage", value: "bson" }],
     },
   ])
@@ -181,9 +181,9 @@ pub impl @morm.Entity for BsonDoc with table(_self) -> @morm.Table {
 
 ///|
 pub impl @morm.Entity for UpdateFromEntity with table(_self) -> @morm.Table {
-  @morm.Table::new("update_from_entity", columns=[
-    @morm.Column::new("id", @morm.Int),
-    @morm.Column::new("name", @morm.VarChar(255)),
+  @morm.new_table("update_from_entity", columns=[
+    @morm.new_column("id", @morm.ColumnType::Int),
+    @morm.new_column("name", @morm.ColumnType::VarChar(255)),
   ])
 }
 

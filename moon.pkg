@@ -1,4 +1,5 @@
 import {
+  "oboard/morm/table",
   "oboard/morm/bson",
   "moonbitlang/core/buffer",
   "moonbitlang/core/encoding/utf8",

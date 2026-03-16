@@ -30,30 +30,30 @@ test "hook callback helpers" {
 
 ///|
 test "table diff helpers" {
-  let old_table = @morm.Table::new("users", columns=[
-    @morm.Column::new("id", @morm.ColumnType::Int),
-    @morm.Column::new("name", @morm.ColumnType::VarChar(255)),
+  let old_table = @morm.new_table("users", columns=[
+    @morm.new_column("id", @morm.ColumnType::Int),
+    @morm.new_column("name", @morm.ColumnType::VarChar(255)),
   ])
   let old_table = @morm.add_index(
     old_table,
-    @morm.Index::new("idx_name", ["name"]),
+    @morm.new_index("idx_name", ["name"]),
   )
   let old_table = @morm.add_foreign_key(
     old_table,
-    @morm.ForeignKey::new("fk_users_org", "org_id", "org", "id"),
+    @morm.new_foreign_key("fk_users_org", "org_id", "org", "id"),
   )
 
-  let new_table = @morm.Table::new("users", columns=[
-    @morm.Column::new("id", @morm.ColumnType::BigInt),
-    @morm.Column::new("email", @morm.ColumnType::VarChar(255)),
+  let new_table = @morm.new_table("users", columns=[
+    @morm.new_column("id", @morm.ColumnType::BigInt),
+    @morm.new_column("email", @morm.ColumnType::VarChar(255)),
   ])
   let new_table = @morm.add_index(
     new_table,
-    @morm.Index::new_unique("idx_email", ["email"]),
+    @morm.new_unique_index("idx_email", ["email"]),
   )
   let new_table = @morm.add_foreign_key(
     new_table,
-    @morm.ForeignKey::new("fk_users_dept", "dept_id", "dept", "id"),
+    @morm.new_foreign_key("fk_users_dept", "dept_id", "dept", "id"),
   )
 
   let diff = @morm.diff_table(old_table, new_table)

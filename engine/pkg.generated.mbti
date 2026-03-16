@@ -6,6 +6,7 @@ import {
   "moonbitlang/async/semaphore",
   "moonbitlang/core/bigint",
   "moonbitlang/core/json",
+  "oboard/morm/table",
   "oboard/morm/time",
 }
 
@@ -255,7 +256,7 @@ pub impl @json.FromJson for WhereType
 pub(open) trait Engine {
   async exec(Self, Query) -> QueryResult
   async exec_raw(Self, String, FixedArray[Param]) -> QueryResult
-  async migrate_table(Self, Json) -> QueryResult
+  async migrate_table(Self, @table.Table) -> QueryResult
   close(Self) -> Unit
 }
 

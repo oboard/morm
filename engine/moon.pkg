@@ -1,5 +1,6 @@
 import {
   "moonbitlang/async",
+  "oboard/morm/table",
   "oboard/morm/bson",
   "moonbitlang/core/buffer",
   "moonbitlang/core/json",

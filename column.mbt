@@ -1,67 +1,14 @@
 ///|
-// 数据库列类型枚举
-pub(all) enum ColumnType {
-  // 整数类型
-  TinyInt
-  SmallInt
-  MediumInt
-  Int
-  BigInt
-  // 浮点类型
-  Float
-  Double
-  Decimal(Int, Int) // precision, scale
-  // 字符串类型
-  Char(Int) // length
-  VarChar(Int) // length
-  Text
-  MediumText
-  LongText
-  // 二进制类型
-  Binary(Int) // length
-  VarBinary(Int) // length
-  Blob
-  MediumBlob
-  LongBlob
-  // 日期时间类型
-  Date
-  Time
-  DateTime
-  Timestamp
-  Year
-  // JSON 类型
-  Json
-  JsonB
-  // 布尔类型
-  Boolean
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+pub type ColumnType = @table.ColumnType
 
 ///|
-pub(all) struct ColumnEngineOption {
-  key : String
-  value : String
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+pub type ColumnEngineOption = @table.ColumnEngineOption
 
 ///|
-// 数据库列定义
-pub(all) struct Column {
-  name : String
-  column_type : ColumnType
-  size : Int
-  nullable : Bool
-  default_value : String?
-  auto_increment : Bool
-  primary_key : Bool
-  unique : Bool
-  comment : String
-  charset : String?
-  collation : String?
-  engine_options : FixedArray[ColumnEngineOption]
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+pub type Column = @table.Column
 
 ///|
-// ---- 列构建器函数 ----
-pub fn Column::new(name : String, column_type : ColumnType) -> Column {
+pub fn new_column(name : String, column_type : ColumnType) -> Column {
   {
     name,
     column_type,

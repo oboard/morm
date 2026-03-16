@@ -14,9 +14,9 @@ impl @engine.Engine for MySQLEngine with close(_self) -> Unit {
 ///|
 impl @engine.Engine for MySQLEngine with migrate_table(
   _self,
-  table_schema : Json,
+  table_schema : @table.Table,
 ) -> @engine.QueryResult {
-  println("migrate table: " + table_schema.stringify())
+  println("migrate table: " + table_schema.to_json().stringify())
   { ok: true, rows_affected: 0, rows: [], error: None }
 }
 

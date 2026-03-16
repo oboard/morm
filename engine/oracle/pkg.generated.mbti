@@ -3,6 +3,7 @@ package "oboard/morm/engine/oracle"
 
 import {
   "oboard/morm/engine",
+  "oboard/morm/table",
 }
 
 // Values

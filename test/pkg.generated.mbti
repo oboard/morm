@@ -4,6 +4,7 @@ package "oboard/morm/test"
 import {
   "moonbitlang/core/json",
   "oboard/morm",
+  "oboard/morm/table",
 }
 
 // Values

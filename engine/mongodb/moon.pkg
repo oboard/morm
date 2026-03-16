@@ -10,4 +10,5 @@ import {
   "moonbitlang/x/json5" @json5,
   "oboard/morm/bson",
   "oboard/morm/engine",
+  "oboard/morm/table",
 }

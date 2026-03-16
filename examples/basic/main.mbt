@@ -15,22 +15,25 @@ async fn main {
   let engine = @sqlite3.SQLiteEngine::open(":memory:")
 
   // Build table schema with morm API and migrate it through the engine.
-  let user_table = @morm.Table::new("user", columns=[
+  let user_table = @morm.new_table("user", columns=[
     {
-      ..@morm.Column::new("id", @morm.Int),
+      ..@morm.new_column("id", @morm.ColumnType::Int),
       primary_key: true,
       auto_increment: true,
       nullable: false,
     },
     {
-      ..@morm.Column::new("email", @morm.VarChar(255)),
+      ..@morm.new_column("email", @morm.ColumnType::VarChar(255)),
       nullable: false,
       unique: true,
     },
-    { ..@morm.Column::new("name", @morm.VarChar(255)), nullable: true },
-    { ..@morm.Column::new("active", @morm.Int), nullable: false },
+    {
+      ..@morm.new_column("name", @morm.ColumnType::VarChar(255)),
+      nullable: true,
+    },
+    { ..@morm.new_column("active", @morm.ColumnType::Int), nullable: false },
   ])
-  must_ok(engine.migrate_table(user_table.to_json()), "migrate user table")
+  must_ok(engine.migrate_table(user_table), "migrate user table")
 
   // Query Builder INSERT.
   let insert_alice = @morm.insert_into("user")

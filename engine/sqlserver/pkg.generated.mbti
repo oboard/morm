@@ -3,6 +3,7 @@ package "oboard/morm/engine/sqlserver"
 
 import {
   "oboard/morm/engine",
+  "oboard/morm/table",
 }
 
 // Values

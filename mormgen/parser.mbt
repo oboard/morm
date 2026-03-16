@@ -849,7 +849,7 @@ fn parse_foreign_key_for_field(
     return None
   }
   let constraint_name = "fk_" + current_table + "_" + field_label
-  let mut fk = @morm.ForeignKey::new(
+  let mut fk = @morm.new_foreign_key(
     constraint_name, fk_column_name, referenced_table, referenced_column,
   )
 

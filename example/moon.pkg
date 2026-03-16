@@ -2,6 +2,7 @@ import {
   "moonbitlang/core/json",
   "oboard/morm",
   "oboard/morm/engine",
+  "oboard/morm/table",
   "oboard/morm/time",
 }
 

@@ -7,4 +7,5 @@ import {
   "moonbitlang/core/strconv",
   "moonbitlang/x/crypto" @crypto,
   "oboard/morm/engine",
+  "oboard/morm/table",
 }
