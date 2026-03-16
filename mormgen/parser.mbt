@@ -212,10 +212,8 @@ struct MapperSpec {
 ///|
 /// 提取 attribute 括号中的内容（不含引号处理）
 fn extract_text_inside_parens(raw : String) -> String? {
-  if raw.find("(") is Some(open_idx) {
-    if raw.find(")") is Some(close_idx) {
-      return Some(raw[open_idx + 1:close_idx].to_string())
-    }
+  if raw.find("(") is Some(open_idx) && raw.find(")") is Some(close_idx) {
+    return Some(raw[open_idx + 1:close_idx].to_string())
   }
   None
 }
@@ -230,6 +228,40 @@ fn extract_quoted_string_in_parens(raw : String) -> String? {
     }
   }
   None
+}
+
+///|
+fn recover_attr_with_parens(
+  source : String,
+  attr : @moonbitlang/parser/attribute.Attribute,
+  raw : String,
+) -> String {
+  if extract_text_inside_parens(raw) is Some(_) {
+    return raw
+  }
+  let recovered = recover_attr_raw(source, attr)
+  if recovered != "" {
+    recovered
+  } else {
+    raw
+  }
+}
+
+///|
+fn recover_attr_with_quoted(
+  source : String,
+  attr : @moonbitlang/parser/attribute.Attribute,
+  raw : String,
+) -> String {
+  if extract_quoted_string_in_parens(raw) is Some(_) {
+    return raw
+  }
+  let recovered = recover_attr_raw(source, attr)
+  if recovered != "" {
+    recovered
+  } else {
+    raw
+  }
 }
 
 ///|
@@ -415,14 +447,8 @@ fn parse_mappers_from_ast(
           let mut table_name_opt : String? = None
           attrs.each(attr => {
             // println("  Attr: \{attr.raw}")
-            let mut raw_text = attr.raw
+            let raw_text = recover_attr_with_parens(source, attr, attr.raw)
             if raw_text.has_prefix("#morm.mapper") {
-              if extract_text_inside_parens(raw_text) is None {
-                let recovered = recover_attr_raw(source, attr)
-                if recovered != "" {
-                  raw_text = recovered
-                }
-              }
               if extract_text_inside_parens(raw_text) is Some(inner) {
                 if inner.contains("=") {
                   lexmatch inner {
@@ -448,21 +474,17 @@ fn parse_mappers_from_ast(
               }
             }
           })
-          if table_name_opt is None {
-            if entity_name_opt is Some(entity_name) {
-              if entity_table_map.get(entity_name) is Some(tbl) {
-                table_name_opt = Some(tbl)
-              }
-            }
+          if table_name_opt is None &&
+            entity_name_opt is Some(entity_name) &&
+            entity_table_map.get(entity_name) is Some(tbl) {
+            table_name_opt = Some(tbl)
           }
-          if entity_name_opt is None {
-            if table_name_opt is Some(table_name) {
-              entities.each(e => {
-                if e.table_name == table_name {
-                  entity_name_opt = Some(e.name)
-                }
-              })
-            }
+          if entity_name_opt is None && table_name_opt is Some(table_name) {
+            entities.each(e => {
+              if e.table_name == table_name {
+                entity_name_opt = Some(e.name)
+              }
+            })
           }
           // 收集方法
           let mmethods : Array[MapperMethodSpec] = []
@@ -474,25 +496,13 @@ fn parse_mappers_from_ast(
               let mut fetch_join_opt : String? = None
 
               attrs.each(a => {
-                let mut raw_text = a.raw
+                let raw_text = recover_attr_with_quoted(source, a, a.raw)
                 if raw_text.has_prefix("#morm.query") {
-                  if extract_quoted_string_in_parens(raw_text) is None {
-                    let recovered = recover_attr_raw(source, a)
-                    if recovered != "" {
-                      raw_text = recovered
-                    }
-                  }
                   sql_opt = extract_quoted_string_in_parens(raw_text)
                 }
                 if raw_text.has_prefix("#morm.fetch") ||
                   raw_text.has_prefix("#morm.fetch_graph") ||
                   raw_text.has_prefix("#morm.load_graph") {
-                  if extract_quoted_string_in_parens(raw_text) is None {
-                    let recovered = recover_attr_raw(source, a)
-                    if recovered != "" {
-                      raw_text = recovered
-                    }
-                  }
                   if extract_quoted_string_in_parens(raw_text) is Some(join_sql) {
                     fetch_join_opt = Some(join_sql)
                   } else if extract_text_inside_parens(raw_text) is Some(inner) {
@@ -742,22 +752,16 @@ fn parse_foreign_key_for_field(
   // 支持 references="Table.column" 或分别提供 table/column
   let mut referenced_table = ""
   let mut referenced_column = ""
-  if fkargs_refs is Some(r) {
-    if r.find(".") is Some(dot_index) {
-      let dot = dot_index
-      referenced_table = r[0:dot].to_string()
-      referenced_column = r[dot + 1:].to_string()
-    }
+  if fkargs_refs is Some(r) && r.find(".") is Some(dot_index) {
+    let dot = dot_index
+    referenced_table = r[0:dot].to_string()
+    referenced_column = r[dot + 1:].to_string()
   }
-  if referenced_table == "" {
-    if fkargs_table is Some(t) {
-      referenced_table = t
-    }
+  if referenced_table == "" && fkargs_table is Some(t) {
+    referenced_table = t
   }
-  if referenced_column == "" {
-    if fkargs_column is Some(c) {
-      referenced_column = c
-    }
+  if referenced_column == "" && fkargs_column is Some(c) {
+    referenced_column = c
   }
 
   // 兜底：仅声明 #foreign_key 时，按常见命名推断 <name>_id -> <name>.id
@@ -781,15 +785,11 @@ fn parse_foreign_key_for_field(
   )
 
   // 可选 on_delete / on_update 参数（CASCADE/SET NULL/RESTRICT/NO ACTION）
-  if fkargs_on_delete is Some(od) {
-    if od == "CASCADE" {
-      fk = @morm.on_delete_cascade(fk)
-    }
+  if fkargs_on_delete is Some("CASCADE") {
+    fk = @morm.on_delete_cascade(fk)
   }
-  if fkargs_on_update is Some(ou) {
-    if ou == "CASCADE" {
-      fk = @morm.on_update_cascade(fk)
-    }
+  if fkargs_on_update is Some("CASCADE") {
+    fk = @morm.on_update_cascade(fk)
   }
   Some(fk)
 }
@@ -985,7 +985,7 @@ fn parse_entities_from_ast(
           if a.name is ("#morm.model" | "#morm.entity") {
             has_entity = true
           }
-          if (a.name is ("#morm.model" | "#morm.entity" | "#morm.table")) &&
+          if a.name is ("#morm.model" | "#morm.entity" | "#morm.table") &&
             a.value.get("name") is Some(custom_name) {
             table_name = custom_name
           }

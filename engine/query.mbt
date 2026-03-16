@@ -112,6 +112,30 @@ pub fn preload_many_to_many_sql_dollar(
 }
 
 ///|
+fn row_object_key(row : Json, key : String) -> String? {
+  if row is Object(obj) {
+    if obj.get(key) is Some(v) {
+      return Some(v.stringify())
+    }
+  }
+  None
+}
+
+///|
+fn map_push_json_array(
+  out : Map[String, Array[Json]],
+  key : String,
+  row : Json,
+) -> Unit {
+  if out.get(key) is Some(items) {
+    items.push(row)
+    out.set(key, items)
+  } else {
+    out.set(key, [row])
+  }
+}
+
+///|
 pub async fn[E : Engine] preload_belongs_to_default(
   engine : E,
   sql : String,
@@ -127,10 +151,8 @@ pub async fn[E : Engine] preload_belongs_to_default(
     return out
   }
   for row in res.rows {
-    if row is Object(obj) {
-      if obj.get(target_key) is Some(v) {
-        out.set(v.stringify(), row)
-      }
+    if row_object_key(row, target_key) is Some(key) {
+      out.set(key, row)
     }
   }
   out
@@ -152,16 +174,8 @@ pub async fn[E : Engine] preload_has_many_default(
     return out
   }
   for row in res.rows {
-    if row is Object(obj) {
-      if obj.get(target_key) is Some(v) {
-        let key = v.stringify()
-        if out.get(key) is Some(items) {
-          items.push(row)
-          out.set(key, items)
-        } else {
-          out.set(key, [row])
-        }
-      }
+    if row_object_key(row, target_key) is Some(key) {
+      map_push_json_array(out, key, row)
     }
   }
   out
@@ -182,16 +196,8 @@ pub async fn[E : Engine] preload_many_to_many_default(
     return out
   }
   for row in res.rows {
-    if row is Object(obj) {
-      if obj.get("__morm_owner_key") is Some(owner_key_value) {
-        let owner_key = owner_key_value.stringify()
-        if out.get(owner_key) is Some(items) {
-          items.push(row)
-          out.set(owner_key, items)
-        } else {
-          out.set(owner_key, [row])
-        }
-      }
+    if row_object_key(row, "__morm_owner_key") is Some(owner_key) {
+      map_push_json_array(out, owner_key, row)
     }
   }
   out

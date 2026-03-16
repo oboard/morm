@@ -116,22 +116,19 @@ pub fn ZonedDateTime::from_string(str : String) -> ZonedDateTime raise Error {
     idx += 1
   }
   let core = if bracket_idx >= 0 { str[:bracket_idx].to_string() } else { str }
-  let zone_name = if bracket_idx >= 0 {
-    if str.length() < bracket_idx + 2 {
-      fail(invalid_date_time_err)
-    }
-    let end = str[str.length() - 1:str.length()].to_string()
-    if end != "]" {
+  let zone_name = if bracket_idx < 0 {
+    ""
+  } else {
+    if str.length() < bracket_idx + 2 ||
+      str[str.length() - 1:str.length()].to_string() != "]" {
       fail(invalid_date_time_err)
     }
     str[bracket_idx + 1:str.length() - 1].to_string()
-  } else {
-    ""
   }
   let mut offset_idx = -1
   let mut i = 0
   for c in core {
-    if i >= 10 && (c is ('Z' | '+' | '-')) {
+    if i >= 10 && c is ('Z' | '+' | '-') {
       offset_idx = i
       break
     }
@@ -144,12 +141,10 @@ pub fn ZonedDateTime::from_string(str : String) -> ZonedDateTime raise Error {
   let offset_text = core[offset_idx:].to_string()
   let datetime = PlainDateTime::from_string(datetime_text)
   let offset_seconds = parse_offset_seconds(offset_text)
-  let zone = if zone_name == "" {
-    if offset_seconds == 0 {
-      utc_zone
-    } else {
-      fixed_zone(offset_text, offset_seconds)
-    }
+  let zone = if zone_name == "" && offset_seconds == 0 {
+    utc_zone
+  } else if zone_name == "" {
+    fixed_zone(offset_text, offset_seconds)
   } else {
     fixed_zone(zone_name, offset_seconds, abbrev=zone_name)
   }

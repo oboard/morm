@@ -38,26 +38,22 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
     }
     let parsed_attrs = collect_orm_attributes_from_source(f.attrs, source)
     for attr in parsed_attrs {
-      if (attr.name is ("#morm.primary_key" | "#morm.id")) &&
+      if attr.name is ("#morm.primary_key" | "#morm.id") &&
         attr.value.get("strategy") is Some(strategy) {
         col = @morm.add_column_engine_option(col, "pk.strategy", strategy)
       }
-      if attr.name == "#morm.default" {
-        if attr.value.get("value") is Some(default_expr) {
-          if normalize_default_expr(default_expr) is Some(normalized) {
-            col = { ..col, default_value: Some(normalized) }
-          }
+      if attr.name == "#morm.default" &&
+        attr.value.get("value") is Some(default_expr) {
+        if normalize_default_expr(default_expr) is Some(normalized) {
+          col = { ..col, default_value: Some(normalized) }
         }
       }
-      if (attr.name is ("#morm.json" | "#morm.jsonb")) &&
+      if attr.name is ("#morm.json" | "#morm.jsonb") &&
         attr.value.get("storage") is Some(storage) {
         col = @morm.add_column_engine_option(col, "json.storage", storage)
       }
-      if (
-          attr.name is (
-            "#morm.date" | "#morm.time" | "#morm.datetime" | "#morm.timestamp"
-          )
-        ) &&
+      if attr.name
+        is ("#morm.date" | "#morm.time" | "#morm.datetime" | "#morm.timestamp") &&
         attr.value.get("format") is Some(format) {
         col = @morm.add_column_engine_option(col, "temporal.format", format)
       }
@@ -99,7 +95,7 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
 fn entity_table_attr_value(spec : EntitySpec, key : String) -> String? {
   let mut result : String? = None
   for attr in spec.attrs {
-    if (attr.name is ("#morm.model" | "#morm.entity" | "#morm.table")) &&
+    if attr.name is ("#morm.model" | "#morm.entity" | "#morm.table") &&
       attr.value.get(key) is Some(value) {
       result = Some(value)
     }
@@ -117,6 +113,22 @@ fn attr_bool(value : String) -> Bool {
 fn attr_int(value : String) -> Int? {
   Some(@strconv.parse_int(value)) catch {
     _ => None
+  }
+}
+
+///|
+fn entity_table_attr_int(spec : EntitySpec, key : String) -> Int? {
+  match entity_table_attr_value(spec, key) {
+    Some(raw) => attr_int(raw)
+    None => None
+  }
+}
+
+///|
+fn entity_table_attr_enabled(spec : EntitySpec, key : String) -> Bool {
+  match entity_table_attr_value(spec, key) {
+    Some(raw) => attr_bool(raw)
+    None => false
   }
 }
 
@@ -219,10 +231,8 @@ fn apply_entity_table_attributes(
   if entity_table_attr_value(spec, "comment") is Some(comment) {
     table = @morm.table_comment(table, comment)
   }
-  if entity_table_attr_value(spec, "auto_increment") is Some(auto_increment) {
-    if attr_int(auto_increment) is Some(value) {
-      table = { ..table, auto_increment: Some(value) }
-    }
+  if entity_table_attr_int(spec, "auto_increment") is Some(value) {
+    table = { ..table, auto_increment: Some(value) }
   }
   if entity_table_attr_value(spec, "create_suffix") is Some(create_suffix) {
     table = @morm.table_create_suffix(table, create_suffix)
@@ -230,18 +240,14 @@ fn apply_entity_table_attributes(
   if entity_table_attr_value(spec, "mysql_row_format") is Some(row_format) {
     table = @morm.mysql_table_row_format(table, row_format)
   }
-  if entity_table_attr_value(spec, "mysql_key_block_size") is Some(size) {
-    if attr_int(size) is Some(value) {
-      table = @morm.mysql_table_key_block_size(table, value)
-    }
+  if entity_table_attr_int(spec, "mysql_key_block_size") is Some(value) {
+    table = @morm.mysql_table_key_block_size(table, value)
   }
   if entity_table_attr_value(spec, "mysql_compression") is Some(compression) {
     table = @morm.mysql_table_compression(table, compression)
   }
-  if entity_table_attr_value(spec, "pg_unlogged") is Some(enabled) {
-    if attr_bool(enabled) {
-      table = @morm.pg_table_unlogged(table)
-    }
+  if entity_table_attr_enabled(spec, "pg_unlogged") {
+    table = @morm.pg_table_unlogged(table)
   }
   if entity_table_attr_value(spec, "pg_with") is Some(with_clause) {
     table = @morm.pg_table_with(table, with_clause)
@@ -255,11 +261,8 @@ fn apply_entity_table_attributes(
   if entity_table_attr_value(spec, "oracle_on_commit") is Some(on_commit) {
     table = @morm.oracle_table_on_commit(table, on_commit)
   }
-  if entity_table_attr_value(spec, "sqlserver_memory_optimized")
-    is Some(enabled) {
-    if attr_bool(enabled) {
-      table = @morm.sqlserver_table_memory_optimized(table)
-    }
+  if entity_table_attr_enabled(spec, "sqlserver_memory_optimized") {
+    table = @morm.sqlserver_table_memory_optimized(table)
   }
   if entity_table_attr_value(spec, "sqlserver_durability") is Some(durability) {
     table = @morm.sqlserver_table_durability(table, durability)
@@ -270,15 +273,11 @@ fn apply_entity_table_attributes(
   if entity_table_attr_value(spec, "sqlserver_textimage_on") is Some(filegroup) {
     table = @morm.sqlserver_table_textimage_on(table, filegroup)
   }
-  if entity_table_attr_value(spec, "sqlite_without_rowid") is Some(enabled) {
-    if attr_bool(enabled) {
-      table = @morm.sqlite_table_without_rowid(table)
-    }
+  if entity_table_attr_enabled(spec, "sqlite_without_rowid") {
+    table = @morm.sqlite_table_without_rowid(table)
   }
-  if entity_table_attr_value(spec, "sqlite_strict") is Some(enabled) {
-    if attr_bool(enabled) {
-      table = @morm.sqlite_table_strict(table)
-    }
+  if entity_table_attr_enabled(spec, "sqlite_strict") {
+    table = @morm.sqlite_table_strict(table)
   }
   table
 }
@@ -527,7 +526,7 @@ fn render_from_param_expr(
 ///|
 fn field_json_storage(field : FieldSpec) -> String? {
   for attr in collect_orm_attributes(field.attrs) {
-    if (attr.name is ("#morm.json" | "#morm.jsonb")) &&
+    if attr.name is ("#morm.json" | "#morm.jsonb") &&
       attr.value.get("storage") is Some(storage) {
       return Some(storage)
     }
