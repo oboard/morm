@@ -1,20 +1,12 @@
 ///|
-fn must_ok(res : @engine.QueryResult, step : String) -> Unit {
-  if !res.ok {
-    let msg = match res.error {
-      Some(err) => err
-      None => "unknown"
-    }
-    println("step=\{step}, error=\{msg}")
-    panic()
-  }
-}
-
-///|
 async fn main {
   // This table schema comes from mormgen output: `User::table()`.
   let engine = @sqlite3.SQLiteEngine::open(":memory:")
-  must_ok(engine.migrate_table(User::table()), "migrate user table")
+  let migrate_res = engine.migrate_table(User::table())
+  if !migrate_res.ok {
+    println("migrate user table failed")
+    return
+  }
 
   let seed = @morm.insert_into("user")
     .columns(["email", "active"])
@@ -25,9 +17,21 @@ async fn main {
   let seed3 = @morm.insert_into("user")
     .columns(["email", "active"])
     .values([String("carol@example.com"), Int(1)])
-  must_ok(@engine.exec_query(engine, seed), "seed user alice")
-  must_ok(@engine.exec_query(engine, seed2), "seed user bob")
-  must_ok(@engine.exec_query(engine, seed3), "seed user carol")
+  let seed_res = @engine.exec_query(engine, seed)
+  if !seed_res.ok {
+    println("seed user alice failed")
+    return
+  }
+  let seed2_res = @engine.exec_query(engine, seed2)
+  if !seed2_res.ok {
+    println("seed user bob failed")
+    return
+  }
+  let seed3_res = @engine.exec_query(engine, seed3)
+  if !seed3_res.ok {
+    println("seed user carol failed")
+    return
+  }
 
   // Runtime usage through generated mapper impl.
   let mapper = UserMapperImpl::new(engine)

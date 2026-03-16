@@ -1,78 +1,74 @@
 ///|
-fn must_ok(res : @engine.QueryResult, step : String) -> Unit {
-  if !res.ok {
-    let msg = match res.error {
-      Some(err) => err
-      None => "unknown"
-    }
-    println("step=\{step}, error=\{msg}")
-    panic()
-  }
-}
-
-///|
 async fn main {
   let engine = @sqlite3.SQLiteEngine::open(":memory:")
 
   // Schema for belongs_to / has_many / many_to_many.
-  must_ok(
-    engine.exec_raw(
-      "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
-      [],
-    ),
-    "create user",
+  let create_user = engine.exec_raw(
+    "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+    [],
   )
-  must_ok(
-    engine.exec_raw(
-      "CREATE TABLE post (id INTEGER PRIMARY KEY, author_id INTEGER NOT NULL, title TEXT NOT NULL)",
-      [],
-    ),
-    "create post",
+  if !create_user.ok {
+    println("create user failed")
+    return
+  }
+  let create_post = engine.exec_raw(
+    "CREATE TABLE post (id INTEGER PRIMARY KEY, author_id INTEGER NOT NULL, title TEXT NOT NULL)",
+    [],
   )
-  must_ok(
-    engine.exec_raw(
-      "CREATE TABLE tag (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
-      [],
-    ),
-    "create tag",
+  if !create_post.ok {
+    println("create post failed")
+    return
+  }
+  let create_tag = engine.exec_raw(
+    "CREATE TABLE tag (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+    [],
   )
-  must_ok(
-    engine.exec_raw(
-      "CREATE TABLE post_tag (post_id INTEGER NOT NULL, tag_id INTEGER NOT NULL)",
-      [],
-    ),
-    "create post_tag",
+  if !create_tag.ok {
+    println("create tag failed")
+    return
+  }
+  let create_post_tag = engine.exec_raw(
+    "CREATE TABLE post_tag (post_id INTEGER NOT NULL, tag_id INTEGER NOT NULL)",
+    [],
   )
+  if !create_post_tag.ok {
+    println("create post_tag failed")
+    return
+  }
 
   // Seed data.
-  must_ok(
-    engine.exec_raw(
-      "INSERT INTO user(id, name) VALUES (1, 'Alice'), (2, 'Bob')",
-      [],
-    ),
-    "seed user",
+  let seed_user = engine.exec_raw(
+    "INSERT INTO user(id, name) VALUES (1, 'Alice'), (2, 'Bob')",
+    [],
   )
-  must_ok(
-    engine.exec_raw(
-      "INSERT INTO post(id, author_id, title) VALUES (10, 1, 'A-1'), (11, 1, 'A-2'), (12, 2, 'B-1')",
-      [],
-    ),
-    "seed post",
+  if !seed_user.ok {
+    println("seed user failed")
+    return
+  }
+  let seed_post = engine.exec_raw(
+    "INSERT INTO post(id, author_id, title) VALUES (10, 1, 'A-1'), (11, 1, 'A-2'), (12, 2, 'B-1')",
+    [],
   )
-  must_ok(
-    engine.exec_raw(
-      "INSERT INTO tag(id, name) VALUES (100, 'rust'), (101, 'moonbit'), (102, 'orm')",
-      [],
-    ),
-    "seed tag",
+  if !seed_post.ok {
+    println("seed post failed")
+    return
+  }
+  let seed_tag = engine.exec_raw(
+    "INSERT INTO tag(id, name) VALUES (100, 'rust'), (101, 'moonbit'), (102, 'orm')",
+    [],
   )
-  must_ok(
-    engine.exec_raw(
-      "INSERT INTO post_tag(post_id, tag_id) VALUES (10, 100), (10, 102), (11, 101), (12, 100)",
-      [],
-    ),
-    "seed post_tag",
+  if !seed_tag.ok {
+    println("seed tag failed")
+    return
+  }
+  let seed_post_tag = engine.exec_raw(
+    "INSERT INTO post_tag(post_id, tag_id) VALUES (10, 100), (10, 102), (11, 101), (12, 100)",
+    [],
   )
+  if !seed_post_tag.ok {
+    println("seed post_tag failed")
+    return
+  }
 
   let owner_params : FixedArray[@engine.Param] = [Int(1), Int(2)]
 
