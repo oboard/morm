@@ -45,3 +45,19 @@ pub(all) enum Statement {
   Update(UpdateStatement)
   Delete(DeleteStatement)
 } derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub(all) enum TxOp {
+  Begin
+  Commit
+  Rollback
+  Savepoint(String)
+  RollbackToSavepoint(String)
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub(all) enum Query {
+  Statement(Statement)
+  Raw(String, FixedArray[Param])
+  Tx(TxOp)
+} derive(Eq, Show, ToJson, FromJson)

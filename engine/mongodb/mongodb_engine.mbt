@@ -2174,39 +2174,8 @@ fn decode_statement_command(cmd : Json) -> @engine.Statement? {
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with render(_self, stmt) {
-  (render_command(stmt).stringify(), [])
-}
-
-///|
-pub impl @engine.Engine for MongoDBEngine with tx_begin_sql(_self) -> String {
-  ""
-}
-
-///|
-pub impl @engine.Engine for MongoDBEngine with tx_commit_sql(_self) -> String {
-  ""
-}
-
-///|
-pub impl @engine.Engine for MongoDBEngine with tx_rollback_sql(_self) -> String {
-  ""
-}
-
-///|
-pub impl @engine.Engine for MongoDBEngine with tx_savepoint_sql(
-  _self,
-  _name : String,
-) -> String {
-  ""
-}
-
-///|
-pub impl @engine.Engine for MongoDBEngine with tx_rollback_to_savepoint_sql(
-  _self,
-  _name : String,
-) -> String {
-  ""
+fn tx_noop() -> @engine.QueryResult {
+  ok_result(0, [])
 }
 
 ///|
@@ -2224,17 +2193,19 @@ pub impl @engine.Engine for MongoDBEngine with migrate_table(self, table_schema)
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with exec_raw(
-  self,
-  sql : String,
-  _params : FixedArray[@engine.Param],
-) {
-  guard parse_command(sql) is Some(cmd) else {
-    return fail_result("mongodb_engine expects JSON commands")
-  }
-  let stmt = match decode_statement_command(cmd) {
-    Some(stmt) => stmt
-    None => return fail_result("mongodb_engine command decode failed")
+pub impl @engine.Engine for MongoDBEngine with exec(self, query : @engine.Query) {
+  let stmt = match query {
+    @engine.Statement(stmt) => stmt
+    @engine.Raw(sql, _params) => {
+      guard parse_command(sql) is Some(cmd) else {
+        return fail_result("mongodb_engine expects JSON commands")
+      }
+      match decode_statement_command(cmd) {
+        Some(stmt) => stmt
+        None => return fail_result("mongodb_engine command decode failed")
+      }
+    }
+    @engine.Tx(_) => return tx_noop()
   }
   match stmt {
     Select(select_stmt) => run_select(self, select_stmt)
@@ -2246,119 +2217,12 @@ pub impl @engine.Engine for MongoDBEngine with exec_raw(
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with preload_belongs_to_json(
+pub impl @engine.Engine for MongoDBEngine with exec_raw(
   self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Json] {
-  let filter = in_filter(target_key, key_params.map(param_to_json))
-  let out : Map[String, Json] = Map::new()
-  match find_docs(self, target_table, filter) {
-    Ok(rows) =>
-      for row in rows {
-        if row is Object(obj) && obj.get(target_key) is Some(value) {
-          out.set(value.stringify(), row)
-        }
-      }
-    Err(_) => ()
-  }
-  out
-}
-
-///|
-pub impl @engine.Engine for MongoDBEngine with preload_has_one_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Json] {
-  self.preload_belongs_to_json(target_table, target_key, key_params)
-}
-
-///|
-pub impl @engine.Engine for MongoDBEngine with preload_has_many_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Array[Json]] {
-  let filter = in_filter(target_key, key_params.map(param_to_json))
-  let out : Map[String, Array[Json]] = Map::new()
-  match find_docs(self, target_table, filter) {
-    Ok(rows) =>
-      for row in rows {
-        if row is Object(obj) && obj.get(target_key) is Some(value) {
-          let key = value.stringify()
-          if out.get(key) is Some(items) {
-            items.push(row)
-            out.set(key, items)
-          } else {
-            out.set(key, [row])
-          }
-        }
-      }
-    Err(_) => ()
-  }
-  out
-}
-
-///|
-pub impl @engine.Engine for MongoDBEngine with preload_many_to_many_json(
-  self,
-  target_table : String,
-  target_key : String,
-  join_table : String,
-  join_owner_key : String,
-  join_target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Array[Json]] {
-  let owner_values = key_params.map(param_to_json)
-  let join_filter = in_filter(join_owner_key, owner_values)
-  let join_rows = match find_docs(self, join_table, join_filter) {
-    Ok(rows) => rows
-    Err(_) => return Map::new()
-  }
-  let target_ids : Array[Json] = []
-  for row in join_rows {
-    if row is Object(obj) && obj.get(join_target_key) is Some(value) {
-      target_ids.push(value)
-    }
-  }
-  let target_filter = in_filter(target_key, FixedArray::from_array(target_ids))
-  let target_rows = match find_docs(self, target_table, target_filter) {
-    Ok(rows) => rows
-    Err(_) => return Map::new()
-  }
-  let target_index : Map[String, Json] = {}
-  for row in target_rows {
-    if row is Object(obj) && obj.get(target_key) is Some(value) {
-      target_index.set(value.stringify(), row)
-    }
-  }
-  let out : Map[String, Array[Json]] = Map::new()
-  for join_row in join_rows {
-    if join_row is Object(obj) {
-      let owner_value = obj.get(join_owner_key).unwrap_or(Json::null())
-      let target_value = obj.get(join_target_key).unwrap_or(Json::null())
-      if target_index.get(target_value.stringify()) is Some(target_row) {
-        let merged = match target_row {
-          Object(target_obj) => target_obj.copy()
-          _ => Map::new()
-        }
-        merged["__morm_owner_key"] = owner_value
-        let owner_key = owner_value.stringify()
-        let row = merged.to_json()
-        if out.get(owner_key) is Some(items) {
-          items.push(row)
-          out.set(owner_key, items)
-        } else {
-          out.set(owner_key, [row])
-        }
-      }
-    }
-  }
-  out
+  sql : String,
+  params : FixedArray[@engine.Param],
+) {
+  self.exec(@engine.Raw(sql, params))
 }
 
 ///|

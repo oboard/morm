@@ -485,6 +485,25 @@ pub fn many_to_many(
 }
 
 ///|
+async fn[E : @engine.Engine] select_by_eq(
+  engine : E,
+  table : String,
+  key : String,
+  value : @engine.Param,
+) -> FixedArray[Json] {
+  let stmt : @engine.Statement = Select({
+    select: "",
+    from: table,
+    joins: [],
+    where_: [{ col: key, value, ty: @engine.Eq }],
+    order_by: [],
+    limit: None,
+    offset: None,
+  })
+  @engine.exec(engine, @engine.Statement(stmt)).rows
+}
+
+///|
 pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs_to(
   engine : E,
   owners : FixedArray[O],
@@ -494,13 +513,13 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs
 ) -> Map[String, T] {
   let key_params = collect_owner_key_params(owners, owner_key)
   let out : Map[String, T] = Map::new()
-  for
-    entry in engine.preload_belongs_to_json(
-      target_table, target_key, key_params,
-    ) {
-    let (key, row) = entry
-    if (try? (@json.from_json(row) : T)) is Ok(entity) {
-      out.set(key, entity)
+  for key_param in key_params {
+    let key = key_param.to_json().stringify()
+    let rows = select_by_eq(engine, target_table, target_key, key_param)
+    if rows is [row, ..] {
+      if (try? (@json.from_json(row) : T)) is Ok(entity) {
+        out.set(key, entity)
+      }
     }
   }
   out
@@ -516,10 +535,13 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_one
 ) -> Map[String, T] {
   let key_params = collect_owner_key_params(owners, owner_key)
   let out : Map[String, T] = Map::new()
-  for entry in engine.preload_has_one_json(target_table, target_key, key_params) {
-    let (key, row) = entry
-    if (try? (@json.from_json(row) : T)) is Ok(entity) {
-      out.set(key, entity)
+  for key_param in key_params {
+    let key = key_param.to_json().stringify()
+    let rows = select_by_eq(engine, target_table, target_key, key_param)
+    if rows is [row, ..] {
+      if (try? (@json.from_json(row) : T)) is Ok(entity) {
+        out.set(key, entity)
+      }
     }
   }
   out
@@ -535,9 +557,9 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_man
 ) -> Map[String, Array[T]] {
   let key_params = collect_owner_key_params(owners, owner_key)
   let out : Map[String, Array[T]] = Map::new()
-  for
-    entry in engine.preload_has_many_json(target_table, target_key, key_params) {
-    let (key, rows) = entry
+  for key_param in key_params {
+    let key = key_param.to_json().stringify()
+    let rows = select_by_eq(engine, target_table, target_key, key_param)
     let items : Array[T] = []
     for row in rows {
       if (try? (@json.from_json(row) : T)) is Ok(entity) {
@@ -562,15 +584,27 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to
 ) -> Map[String, Array[T]] {
   let key_params = collect_owner_key_params(owners, owner_key)
   let out : Map[String, Array[T]] = Map::new()
-  for
-    entry in engine.preload_many_to_many_json(
-      target_table, target_key, join_table, join_owner_key, join_target_key, key_params,
-    ) {
-    let (key, rows) = entry
+  for owner_param in key_params {
+    let key = owner_param.to_json().stringify()
+    let join_rows = select_by_eq(
+      engine, join_table, join_owner_key, owner_param,
+    )
     let items : Array[T] = []
-    for row in rows {
-      if (try? (@json.from_json(row) : T)) is Ok(entity) {
-        items.push(entity)
+    for join_row in join_rows {
+      if join_row is Object(obj) {
+        if obj.get(join_target_key) is Some(target_value) {
+          let target_rows = select_by_eq(
+            engine,
+            target_table,
+            target_key,
+            @engine.param_from_json_value(target_value),
+          )
+          for target_row in target_rows {
+            if (try? (@json.from_json(target_row) : T)) is Ok(entity) {
+              items.push(entity)
+            }
+          }
+        }
       }
     }
     out.set(key, items)

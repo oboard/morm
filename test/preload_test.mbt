@@ -1,52 +1,30 @@
 ///|
 struct MockEngine {
-  expected_sql : String
-  expected_params : FixedArray[@engine.Param]
-  rows : FixedArray[Json]
+  teachers : FixedArray[Json]
+  students : FixedArray[Json]
+  teacher_students : FixedArray[Json]
 }
 
 ///|
-impl @engine.Engine for MockEngine with render(_self, stmt : @engine.Statement) -> (
-  String,
-  FixedArray[@engine.Param],
-) {
-  @engine.render_default_sql(stmt)
+fn json_matches_param(v : Json, p : @engine.Param) -> Bool {
+  v.stringify() == p.to_json().stringify()
 }
 
 ///|
-impl @engine.Engine for MockEngine with tx_begin_sql(_self) -> String {
-  "BEGIN"
-}
-
-///|
-impl @engine.Engine for MockEngine with tx_commit_sql(_self) -> String {
-  "COMMIT"
-}
-
-///|
-impl @engine.Engine for MockEngine with tx_rollback_sql(_self) -> String {
-  "ROLLBACK"
-}
-
-///|
-impl @engine.Engine for MockEngine with tx_savepoint_sql(_self, name : String) -> String {
-  "SAVEPOINT " + name
-}
-
-///|
-impl @engine.Engine for MockEngine with tx_rollback_to_savepoint_sql(
-  _self,
-  name : String,
-) -> String {
-  "ROLLBACK TO SAVEPOINT " + name
-}
-
-///|
-impl @engine.Engine for MockEngine with migrate_table(
-  _self,
-  _table_schema : Json,
-) -> @engine.QueryResult {
-  { ok: true, rows_affected: 0, rows: [], error: None }
+fn filter_rows(
+  rows : FixedArray[Json],
+  key : String,
+  param : @engine.Param,
+) -> FixedArray[Json] {
+  let out : Array[Json] = []
+  for row in rows {
+    if row is Object(obj) {
+      if obj.get(key) is Some(value) && json_matches_param(value, param) {
+        out.push(row)
+      }
+    }
+  }
+  FixedArray::from_array(out)
 }
 
 ///|
@@ -55,87 +33,50 @@ impl @engine.Engine for MockEngine with exec_raw(
   sql : String,
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
-  if sql == self.expected_sql && params == self.expected_params {
-    {
-      ok: true,
-      rows_affected: self.rows.length(),
-      rows: self.rows,
-      error: None,
-    }
-  } else {
-    {
-      ok: false,
-      rows_affected: 0,
-      rows: [],
-      error: Some("unexpected sql/params"),
-    }
+  if sql == "SELECT * FROM teachers WHERE id = ?" && params is [id] {
+    let rows = filter_rows(self.teachers, "id", id)
+    return { ok: true, rows_affected: rows.length(), rows, error: None }
+  }
+  if sql == "SELECT * FROM students WHERE teacher_id = ?" &&
+    params is [teacher_id] {
+    let rows = filter_rows(self.students, "teacher_id", teacher_id)
+    return { ok: true, rows_affected: rows.length(), rows, error: None }
+  }
+  if sql == "SELECT * FROM students WHERE id = ?" && params is [id] {
+    let rows = filter_rows(self.students, "id", id)
+    return { ok: true, rows_affected: rows.length(), rows, error: None }
+  }
+  if sql == "SELECT * FROM teacher_students WHERE teacher_id = ?" &&
+    params is [teacher_id] {
+    let rows = filter_rows(self.teacher_students, "teacher_id", teacher_id)
+    return { ok: true, rows_affected: rows.length(), rows, error: None }
+  }
+  {
+    ok: false,
+    rows_affected: 0,
+    rows: [],
+    error: Some("unexpected sql/params"),
   }
 }
 
 ///|
-impl @engine.Engine for MockEngine with preload_belongs_to_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Json] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_belongs_to_default(self, sql, target_key, key_params)
+impl @engine.Engine for MockEngine with exec(self, query : @engine.Query) -> @engine.QueryResult {
+  match query {
+    @engine.Statement(stmt) => {
+      let (sql, params) = @engine.render_default_sql(stmt)
+      self.exec_raw(sql, params)
+    }
+    @engine.Raw(sql, params) => self.exec_raw(sql, params)
+    @engine.Tx(_) => { ok: true, rows_affected: 0, rows: [], error: None }
+  }
 }
 
 ///|
-impl @engine.Engine for MockEngine with preload_has_one_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Json] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_belongs_to_default(self, sql, target_key, key_params)
-}
-
-///|
-impl @engine.Engine for MockEngine with preload_has_many_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Array[Json]] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_has_many_default(self, sql, target_key, key_params)
-}
-
-///|
-impl @engine.Engine for MockEngine with preload_many_to_many_json(
-  self,
-  target_table : String,
-  target_key : String,
-  join_table : String,
-  join_owner_key : String,
-  join_target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Array[Json]] {
-  let sql = @engine.preload_many_to_many_sql_qmark(
-    target_table,
-    target_key,
-    join_table,
-    join_owner_key,
-    join_target_key,
-    key_params.length(),
-  )
-  @engine.preload_many_to_many_default(self, sql, key_params)
+impl @engine.Engine for MockEngine with migrate_table(
+  _self,
+  _table_schema : Json,
+) -> @engine.QueryResult {
+  { ok: true, rows_affected: 0, rows: [], error: None }
 }
 
 ///|
@@ -174,9 +115,9 @@ async test "preload belongs_to map" {
     OwnerBelongsTo::{ id: 2, teacher_id: 11 },
   ]
   let engine = MockEngine::{
-    expected_sql: "SELECT * FROM teachers WHERE id IN (?, ?)",
-    expected_params: [@engine.Double(10), @engine.Double(11)],
-    rows: [{ "id": 10, "name": "Alice" }, { "id": 11, "name": "Bob" }],
+    teachers: [{ "id": 10, "name": "Alice" }, { "id": 11, "name": "Bob" }],
+    students: [],
+    teacher_students: [],
   }
   let by_key : Map[String, Teacher] = @morm.preload_belongs_to(
     engine, owners, "teacher_id", "teachers", "id",
@@ -197,13 +138,13 @@ async test "preload has_many map" {
     OwnerHasMany::{ id: 2 },
   ]
   let engine = MockEngine::{
-    expected_sql: "SELECT * FROM students WHERE teacher_id IN (?, ?)",
-    expected_params: [@engine.Double(1), @engine.Double(2)],
-    rows: [
+    teachers: [],
+    students: [
       { "id": 100, "teacher_id": 1, "name": "S1" },
       { "id": 101, "teacher_id": 1, "name": "S2" },
       { "id": 102, "teacher_id": 2, "name": "S3" },
     ],
+    teacher_students: [],
   }
   let by_key : Map[String, Array[Student]] = @morm.preload_has_many(
     engine, owners, "id", "students", "teacher_id",
@@ -224,9 +165,9 @@ async test "preload has_one map" {
     OwnerBelongsTo::{ id: 2, teacher_id: 11 },
   ]
   let engine = MockEngine::{
-    expected_sql: "SELECT * FROM teachers WHERE id IN (?, ?)",
-    expected_params: [@engine.Double(10), @engine.Double(11)],
-    rows: [{ "id": 10, "name": "Alice" }, { "id": 11, "name": "Bob" }],
+    teachers: [{ "id": 10, "name": "Alice" }, { "id": 11, "name": "Bob" }],
+    students: [],
+    teacher_students: [],
   }
   let by_key : Map[String, Teacher] = @morm.preload_has_one(
     engine, owners, "teacher_id", "teachers", "id",
@@ -242,12 +183,16 @@ async test "preload many_to_many map" {
     OwnerHasMany::{ id: 2 },
   ]
   let engine = MockEngine::{
-    expected_sql: "SELECT t.*, j.teacher_id AS __morm_owner_key FROM students t INNER JOIN teacher_students j ON j.student_id = t.id WHERE j.teacher_id IN (?, ?)",
-    expected_params: [@engine.Double(1), @engine.Double(2)],
-    rows: [
-      { "id": 100, "teacher_id": 1, "name": "S1", "__morm_owner_key": 1 },
-      { "id": 101, "teacher_id": 1, "name": "S2", "__morm_owner_key": 1 },
-      { "id": 102, "teacher_id": 2, "name": "S3", "__morm_owner_key": 2 },
+    teachers: [],
+    students: [
+      { "id": 100, "teacher_id": 1, "name": "S1" },
+      { "id": 101, "teacher_id": 1, "name": "S2" },
+      { "id": 102, "teacher_id": 2, "name": "S3" },
+    ],
+    teacher_students: [
+      { "teacher_id": 1, "student_id": 100 },
+      { "teacher_id": 1, "student_id": 101 },
+      { "teacher_id": 2, "student_id": 102 },
     ],
   }
   let by_key : Map[String, Array[Student]] = @morm.preload_many_to_many(

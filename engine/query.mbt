@@ -3,53 +3,32 @@ pub async fn[E : Engine, Q : QueryBuilder] exec_query(
   engine : E,
   query : Q,
 ) -> QueryResult {
-  let (sql, params) = engine.render(query.to_statement())
-  engine.exec_raw(sql, params)
+  engine.exec(Statement(query.to_statement()))
 }
 
 ///|
-fn tx_noop_ok() -> QueryResult {
-  { ok: true, rows_affected: 0, rows: [], error: None }
+pub async fn[E : Engine] exec(engine : E, query : Query) -> QueryResult {
+  engine.exec(query)
 }
 
 ///|
 pub async fn[E : Engine] tx_begin(engine : E) -> QueryResult {
-  let sql = engine.tx_begin_sql()
-  if sql.trim() == "" {
-    tx_noop_ok()
-  } else {
-    engine.exec_raw(sql, [])
-  }
+  engine.exec(Tx(Begin))
 }
 
 ///|
 pub async fn[E : Engine] tx_commit(engine : E) -> QueryResult {
-  let sql = engine.tx_commit_sql()
-  if sql.trim() == "" {
-    tx_noop_ok()
-  } else {
-    engine.exec_raw(sql, [])
-  }
+  engine.exec(Tx(Commit))
 }
 
 ///|
 pub async fn[E : Engine] tx_rollback(engine : E) -> QueryResult {
-  let sql = engine.tx_rollback_sql()
-  if sql.trim() == "" {
-    tx_noop_ok()
-  } else {
-    engine.exec_raw(sql, [])
-  }
+  engine.exec(Tx(Rollback))
 }
 
 ///|
 pub async fn[E : Engine] tx_savepoint(engine : E, name : String) -> QueryResult {
-  let sql = engine.tx_savepoint_sql(name)
-  if sql.trim() == "" {
-    tx_noop_ok()
-  } else {
-    engine.exec_raw(sql, [])
-  }
+  engine.exec(Tx(Savepoint(name)))
 }
 
 ///|
@@ -57,12 +36,7 @@ pub async fn[E : Engine] tx_rollback_to_savepoint(
   engine : E,
   name : String,
 ) -> QueryResult {
-  let sql = engine.tx_rollback_to_savepoint_sql(name)
-  if sql.trim() == "" {
-    tx_noop_ok()
-  } else {
-    engine.exec_raw(sql, [])
-  }
+  engine.exec(Tx(RollbackToSavepoint(name)))
 }
 
 ///|
@@ -148,7 +122,7 @@ pub async fn[E : Engine] preload_belongs_to_default(
   if key_params.is_empty() {
     return out
   }
-  let res = engine.exec_raw(sql, key_params)
+  let res = engine.exec(Raw(sql, key_params))
   if !res.ok {
     return out
   }
@@ -173,7 +147,7 @@ pub async fn[E : Engine] preload_has_many_default(
   if key_params.is_empty() {
     return out
   }
-  let res = engine.exec_raw(sql, key_params)
+  let res = engine.exec(Raw(sql, key_params))
   if !res.ok {
     return out
   }
@@ -203,7 +177,7 @@ pub async fn[E : Engine] preload_many_to_many_default(
   if key_params.is_empty() {
     return out
   }
-  let res = engine.exec_raw(sql, key_params)
+  let res = engine.exec(Raw(sql, key_params))
   if !res.ok {
     return out
   }

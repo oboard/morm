@@ -12,42 +12,6 @@ impl @engine.Engine for MySQLEngine with close(_self) -> Unit {
 }
 
 ///|
-impl @engine.Engine for MySQLEngine with render(_self, stmt : @engine.Statement) -> (
-  String,
-  FixedArray[@engine.Param],
-) {
-  @engine.render_default_sql(stmt)
-}
-
-///|
-impl @engine.Engine for MySQLEngine with tx_begin_sql(_self) -> String {
-  "START TRANSACTION"
-}
-
-///|
-impl @engine.Engine for MySQLEngine with tx_commit_sql(_self) -> String {
-  "COMMIT"
-}
-
-///|
-impl @engine.Engine for MySQLEngine with tx_rollback_sql(_self) -> String {
-  "ROLLBACK"
-}
-
-///|
-impl @engine.Engine for MySQLEngine with tx_savepoint_sql(_self, name : String) -> String {
-  "SAVEPOINT " + name
-}
-
-///|
-impl @engine.Engine for MySQLEngine with tx_rollback_to_savepoint_sql(
-  _self,
-  name : String,
-) -> String {
-  "ROLLBACK TO SAVEPOINT " + name
-}
-
-///|
 impl @engine.Engine for MySQLEngine with migrate_table(
   _self,
   table_schema : Json,
@@ -68,69 +32,25 @@ impl @engine.Engine for MySQLEngine with exec_raw(
 }
 
 ///|
-impl @engine.Engine for MySQLEngine with preload_belongs_to_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Json] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_belongs_to_default(self, sql, target_key, key_params)
-}
-
-///|
-impl @engine.Engine for MySQLEngine with preload_has_one_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Json] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_belongs_to_default(self, sql, target_key, key_params)
-}
-
-///|
-impl @engine.Engine for MySQLEngine with preload_has_many_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Array[Json]] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_has_many_default(self, sql, target_key, key_params)
-}
-
-///|
-impl @engine.Engine for MySQLEngine with preload_many_to_many_json(
-  self,
-  target_table : String,
-  target_key : String,
-  join_table : String,
-  join_owner_key : String,
-  join_target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Array[Json]] {
-  let sql = @engine.preload_many_to_many_sql_qmark(
-    target_table,
-    target_key,
-    join_table,
-    join_owner_key,
-    join_target_key,
-    key_params.length(),
-  )
-  @engine.preload_many_to_many_default(self, sql, key_params)
+impl @engine.Engine for MySQLEngine with exec(self, query : @engine.Query) -> @engine.QueryResult {
+  match query {
+    @engine.Statement(stmt) => {
+      let (sql, params) = @engine.render_default_sql(stmt)
+      self.exec_raw(sql, params)
+    }
+    @engine.Raw(sql, params) => self.exec_raw(sql, params)
+    @engine.Tx(op) =>
+      self.exec_raw(
+        match op {
+          @engine.Begin => "START TRANSACTION"
+          @engine.Commit => "COMMIT"
+          @engine.Rollback => "ROLLBACK"
+          @engine.Savepoint(name) => "SAVEPOINT " + name
+          @engine.RollbackToSavepoint(name) => "ROLLBACK TO SAVEPOINT " + name
+        },
+        [],
+      )
+  }
 }
 
 ///|

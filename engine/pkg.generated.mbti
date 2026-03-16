@@ -14,6 +14,8 @@ pub fn bytes_to_hex(Bytes) -> String
 
 pub fn decode_json_column(Json, String) -> Json raise ParamDecodeError
 
+pub async fn[E : Engine] exec(E, Query) -> QueryResult
+
 pub async fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
 
 pub fn format_plain_date(@time.PlainDate, String?) -> String
@@ -133,6 +135,16 @@ pub impl @json.FromJson for Param
 pub impl FromParam for Param
 pub impl ToParam for Param
 
+pub(all) enum Query {
+  Statement(Statement)
+  Raw(String, FixedArray[Param])
+  Tx(TxOp)
+}
+pub impl Eq for Query
+pub impl Show for Query
+pub impl ToJson for Query
+pub impl @json.FromJson for Query
+
 pub(all) struct QueryResult {
   ok : Bool
   rows_affected : Int
@@ -178,6 +190,18 @@ pub impl Eq for Statement
 pub impl Show for Statement
 pub impl ToJson for Statement
 pub impl @json.FromJson for Statement
+
+pub(all) enum TxOp {
+  Begin
+  Commit
+  Rollback
+  Savepoint(String)
+  RollbackToSavepoint(String)
+}
+pub impl Eq for TxOp
+pub impl Show for TxOp
+pub impl ToJson for TxOp
+pub impl @json.FromJson for TxOp
 
 pub(all) struct UpdateStatement {
   table : String
@@ -228,18 +252,9 @@ pub impl @json.FromJson for WhereType
 
 // Traits
 pub(open) trait Engine {
-  render(Self, Statement) -> (String, FixedArray[Param])
-  tx_begin_sql(Self) -> String
-  tx_commit_sql(Self) -> String
-  tx_rollback_sql(Self) -> String
-  tx_savepoint_sql(Self, String) -> String
-  tx_rollback_to_savepoint_sql(Self, String) -> String
-  async migrate_table(Self, Json) -> QueryResult
+  async exec(Self, Query) -> QueryResult
   async exec_raw(Self, String, FixedArray[Param]) -> QueryResult
-  async preload_belongs_to_json(Self, String, String, FixedArray[Param]) -> Map[String, Json]
-  async preload_has_one_json(Self, String, String, FixedArray[Param]) -> Map[String, Json]
-  async preload_has_many_json(Self, String, String, FixedArray[Param]) -> Map[String, Array[Json]]
-  async preload_many_to_many_json(Self, String, String, String, String, String, FixedArray[Param]) -> Map[String, Array[Json]]
+  async migrate_table(Self, Json) -> QueryResult
   close(Self) -> Unit
 }
 

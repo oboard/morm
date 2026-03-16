@@ -454,43 +454,43 @@ fn oracle_index_sqls(table_schema : Json) -> Array[String] {
 }
 
 ///|
-pub impl @engine.Engine for OracleEngine with render(
-  _self,
-  stmt : @engine.Statement,
-) -> (String, FixedArray[@engine.Param]) {
-  @engine.render_default_sql(stmt)
+fn oracle_tx_sql(op : @engine.TxOp) -> String {
+  match op {
+    // Oracle starts transaction implicitly on first DML.
+    @engine.Begin => ""
+    @engine.Commit => "COMMIT"
+    @engine.Rollback => "ROLLBACK"
+    @engine.Savepoint(name) => "SAVEPOINT " + name
+    @engine.RollbackToSavepoint(name) => "ROLLBACK TO " + name
+  }
 }
 
 ///|
-pub impl @engine.Engine for OracleEngine with tx_begin_sql(_self) -> String {
-  // Oracle starts transaction implicitly on first DML.
-  ""
+pub impl @engine.Engine for OracleEngine with exec(self, query : @engine.Query) -> @engine.QueryResult {
+  let (sql, params) = match query {
+    @engine.Statement(stmt) => @engine.render_default_sql(stmt)
+    @engine.Raw(sql, params) => (sql, params)
+    @engine.Tx(op) => (oracle_tx_sql(op), [])
+  }
+  if sql.trim() == "" {
+    return { ok: true, rows_affected: 0, rows: [], error: None }
+  }
+  let _query = inline_sql(sql, params)
+  if !oracle_tns_handshake(self) {
+    return fail("oracle connect failed")
+  }
+  fail(
+    "oracle native SQL execution is in progress; docker/sqlplus path removed",
+  )
 }
 
 ///|
-pub impl @engine.Engine for OracleEngine with tx_commit_sql(_self) -> String {
-  "COMMIT"
-}
-
-///|
-pub impl @engine.Engine for OracleEngine with tx_rollback_sql(_self) -> String {
-  "ROLLBACK"
-}
-
-///|
-pub impl @engine.Engine for OracleEngine with tx_savepoint_sql(
-  _self,
-  name : String,
-) -> String {
-  "SAVEPOINT " + name
-}
-
-///|
-pub impl @engine.Engine for OracleEngine with tx_rollback_to_savepoint_sql(
-  _self,
-  name : String,
-) -> String {
-  "ROLLBACK TO " + name
+pub impl @engine.Engine for OracleEngine with exec_raw(
+  self,
+  sql : String,
+  params : FixedArray[@engine.Param],
+) -> @engine.QueryResult {
+  self.exec(@engine.Raw(sql, params))
 }
 
 ///|
@@ -502,105 +502,24 @@ pub impl @engine.Engine for OracleEngine with migrate_table(
   if create_sql == "" {
     return fail("invalid table schema")
   }
-  let create_res = self.exec_raw(create_sql, [])
+  let create_res = self.exec(@engine.Raw(create_sql, []))
   if !create_res.ok {
     return create_res
   }
   let comment_sql = oracle_comment_sql(table_schema)
   if comment_sql != "" {
-    let comment_res = self.exec_raw(comment_sql, [])
+    let comment_res = self.exec(@engine.Raw(comment_sql, []))
     if !comment_res.ok {
       return comment_res
     }
   }
   for sql in oracle_index_sqls(table_schema) {
-    let res = self.exec_raw(sql, [])
+    let res = self.exec(@engine.Raw(sql, []))
     if !res.ok {
       return res
     }
   }
   { ok: true, rows_affected: 0, rows: [], error: None }
-}
-
-///|
-pub impl @engine.Engine for OracleEngine with exec_raw(
-  self,
-  sql : String,
-  params : FixedArray[@engine.Param],
-) -> @engine.QueryResult {
-  let _query = inline_sql(sql, params)
-  if !oracle_tns_handshake(self) {
-    return fail("oracle connect failed")
-  }
-  fail(
-    "oracle native SQL execution is in progress; docker/sqlplus path removed",
-  )
-}
-
-///|
-pub impl @engine.Engine for OracleEngine with preload_belongs_to_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Json] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_belongs_to_default(self, sql, target_key, key_params)
-}
-
-///|
-pub impl @engine.Engine for OracleEngine with preload_has_one_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Json] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_belongs_to_default(self, sql, target_key, key_params)
-}
-
-///|
-pub impl @engine.Engine for OracleEngine with preload_has_many_json(
-  self,
-  target_table : String,
-  target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Array[Json]] {
-  let sql = @engine.preload_in_sql_qmark(
-    target_table,
-    target_key,
-    key_params.length(),
-  )
-  @engine.preload_has_many_default(self, sql, target_key, key_params)
-}
-
-///|
-pub impl @engine.Engine for OracleEngine with preload_many_to_many_json(
-  self,
-  target_table : String,
-  target_key : String,
-  join_table : String,
-  join_owner_key : String,
-  join_target_key : String,
-  key_params : FixedArray[@engine.Param],
-) -> Map[String, Array[Json]] {
-  let sql = @engine.preload_many_to_many_sql_qmark(
-    target_table,
-    target_key,
-    join_table,
-    join_owner_key,
-    join_target_key,
-    key_params.length(),
-  )
-  @engine.preload_many_to_many_default(self, sql, key_params)
 }
 
 ///|
