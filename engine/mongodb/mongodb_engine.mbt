@@ -1809,15 +1809,6 @@ fn upsert_filter(stmt : @engine.UpsertStatement, doc : Json) -> Json {
 }
 
 ///|
-fn in_filter(field_name : String, values : FixedArray[Json]) -> Json {
-  let inner : Map[String, Json] = {}
-  inner["$in"] = values.to_json()
-  let outer : Map[String, Json] = {}
-  outer[field_name] = inner.to_json()
-  outer.to_json()
-}
-
-///|
 async fn run_upsert(
   engine : MongoDBEngine,
   stmt : @engine.UpsertStatement,
@@ -1986,86 +1977,6 @@ fn decode_json_int_opt(value : Json) -> (Bool, Int?) {
         (false, None)
       }
     _ => (false, None)
-  }
-}
-
-///|
-fn encode_set_json(set_ : @engine.Set) -> Json {
-  { "col": set_.col, "value": param_to_json(set_.value) }
-}
-
-///|
-fn encode_where_type(ty : @engine.WhereType) -> String {
-  match ty {
-    Eq => "eq"
-    Ne => "ne"
-    Gt => "gt"
-    Lt => "lt"
-    Gte => "gte"
-    Lte => "lte"
-    Like => "like"
-  }
-}
-
-///|
-fn encode_where_json(where_ : @engine.Where) -> Json {
-  {
-    "col": where_.col,
-    "value": param_to_json(where_.value),
-    "ty": encode_where_type(where_.ty),
-  }
-}
-
-///|
-fn encode_order_json(order : @engine.OrderBy) -> Json {
-  match order {
-    Asc(col) => { "col": col, "desc": false }
-    Desc(col) => { "col": col, "desc": true }
-  }
-}
-
-///|
-fn render_command(stmt : @engine.Statement) -> Json {
-  match stmt {
-    Select(select_stmt) =>
-      {
-        "op": "select",
-        "select": select_stmt.select,
-        "from": select_stmt.from,
-        "joins": select_stmt.joins,
-        "where": select_stmt.where_.map(encode_where_json),
-        "order_by": select_stmt.order_by.map(encode_order_json),
-        "limit": select_stmt.limit.to_json(),
-        "offset": select_stmt.offset.to_json(),
-      }
-    Insert(insert_stmt) =>
-      {
-        "op": "insert",
-        "into": insert_stmt.into,
-        "columns": insert_stmt.columns,
-        "values": insert_stmt.values.map(param_to_json),
-      }
-    Upsert(upsert_stmt) =>
-      {
-        "op": "upsert",
-        "table": upsert_stmt.table,
-        "sets": upsert_stmt.sets.map(encode_set_json),
-        "conflict_target": upsert_stmt.conflict_target,
-        "update_sets": upsert_stmt.update_sets.map(encode_set_json),
-      }
-    Update(update_stmt) =>
-      {
-        "op": "update",
-        "table": update_stmt.table,
-        "sets": update_stmt.sets.map(encode_set_json),
-        "where": update_stmt.where_.map(encode_where_json),
-      }
-    Delete(delete_stmt) =>
-      {
-        "op": "delete",
-        "from": delete_stmt.from,
-        "where": delete_stmt.where_.map(encode_where_json),
-      }
   }
 }
 
