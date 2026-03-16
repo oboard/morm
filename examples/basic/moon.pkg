@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/async",
+  "oboard/morm",
+  "oboard/morm/engine",
+  "oboard/morm/engine/sqlite3",
+}
+
+options(
+  "bin-name": "morm-example-basic",
+  "is-main": true,
+  "supported-targets": "+native",
+)
