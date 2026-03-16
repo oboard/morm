@@ -283,7 +283,7 @@ fn render_index_sqls(table_schema : Json) -> Array[String] {
           if idx_json is Object(idx) {
             let idx_name = get_string(idx, "name", "")
             let idx_type = get_string(idx, "index_type", "")
-            if idx_name == "" || idx_name == "PRIMARY" {
+            if idx_name is ("" | "PRIMARY") {
               continue
             }
             let cols : Array[String] = []

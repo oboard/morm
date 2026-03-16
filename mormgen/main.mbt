@@ -38,7 +38,7 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
     }
     let parsed_attrs = collect_orm_attributes_from_source(f.attrs, source)
     for attr in parsed_attrs {
-      if (attr.name == "#morm.primary_key" || attr.name == "#morm.id") &&
+      if (attr.name is ("#morm.primary_key" | "#morm.id")) &&
         attr.value.get("strategy") is Some(strategy) {
         col = @morm.add_column_engine_option(col, "pk.strategy", strategy)
       }
@@ -49,15 +49,14 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
           }
         }
       }
-      if (attr.name == "#morm.json" || attr.name == "#morm.jsonb") &&
+      if (attr.name is ("#morm.json" | "#morm.jsonb")) &&
         attr.value.get("storage") is Some(storage) {
         col = @morm.add_column_engine_option(col, "json.storage", storage)
       }
       if (
-          attr.name == "#morm.date" ||
-          attr.name == "#morm.time" ||
-          attr.name == "#morm.datetime" ||
-          attr.name == "#morm.timestamp"
+          attr.name is (
+            "#morm.date" | "#morm.time" | "#morm.datetime" | "#morm.timestamp"
+          )
         ) &&
         attr.value.get("format") is Some(format) {
         col = @morm.add_column_engine_option(col, "temporal.format", format)
@@ -100,11 +99,7 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
 fn entity_table_attr_value(spec : EntitySpec, key : String) -> String? {
   let mut result : String? = None
   for attr in spec.attrs {
-    if (
-        attr.name == "#morm.model" ||
-        attr.name == "#morm.entity" ||
-        attr.name == "#morm.table"
-      ) &&
+    if (attr.name is ("#morm.model" | "#morm.entity" | "#morm.table")) &&
       attr.value.get(key) is Some(value) {
       result = Some(value)
     }
@@ -115,7 +110,7 @@ fn entity_table_attr_value(spec : EntitySpec, key : String) -> String? {
 ///|
 fn attr_bool(value : String) -> Bool {
   let text = value.to_lower()
-  text == "true" || text == "1" || text == "yes" || text == "on"
+  text is ("true" | "1" | "yes" | "on")
 }
 
 ///|
@@ -167,7 +162,7 @@ fn normalize_default_expr(raw_expr : String) -> String? {
     return None
   }
   let compact_lower = expr.replace_all(old=" ", new="").to_lower()
-  if compact_lower == "autoincrement()" || compact_lower == "autoincrement" {
+  if compact_lower is ("autoincrement()" | "autoincrement") {
     return None
   }
   if compact_lower == "true" {
@@ -500,7 +495,7 @@ fn entity_supports_row_decoder(spec : EntitySpec) -> Bool {
   for field in spec.fields {
     let attrs = collect_orm_attributes(field.attrs)
     for attr in attrs {
-      if attr.name == "#morm.one_to_many" || attr.name == "#morm.many_to_one" {
+      if attr.name is ("#morm.one_to_many" | "#morm.many_to_one") {
         return false
       }
     }
@@ -532,7 +527,7 @@ fn render_from_param_expr(
 ///|
 fn field_json_storage(field : FieldSpec) -> String? {
   for attr in collect_orm_attributes(field.attrs) {
-    if (attr.name == "#morm.json" || attr.name == "#morm.jsonb") &&
+    if (attr.name is ("#morm.json" | "#morm.jsonb")) &&
       attr.value.get("storage") is Some(storage) {
       return Some(storage)
     }
@@ -732,7 +727,7 @@ fn path_dirname(path : String) -> String {
 
 ///|
 fn path_join(dir : String, name : String) -> String {
-  if dir == "." || dir == "" {
+  if dir is ("." | "") {
     name
   } else if dir == "/" {
     "/" + name

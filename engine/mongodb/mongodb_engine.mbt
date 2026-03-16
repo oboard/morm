@@ -808,7 +808,7 @@ fn encode_getmore_command(
 ///|
 fn parse_projection(select : String) -> FixedArray[String]? {
   let text = select.trim()
-  if text == "" || text == "*" {
+  if text is ("" | "*") {
     None
   } else {
     Some(

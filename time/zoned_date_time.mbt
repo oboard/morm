@@ -131,7 +131,7 @@ pub fn ZonedDateTime::from_string(str : String) -> ZonedDateTime raise Error {
   let mut offset_idx = -1
   let mut i = 0
   for c in core {
-    if i >= 10 && (c == 'Z' || c == '+' || c == '-') {
+    if i >= 10 && (c is ('Z' | '+' | '-')) {
       offset_idx = i
       break
     }

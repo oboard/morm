@@ -322,7 +322,7 @@ fn infer_mapper_param_names(method_name : String, count : Int) -> Array[String] 
     return inferred
   }
 
-  if method_name == "save" || method_name == "delete" {
+  if method_name is ("save" | "delete") {
     inferred.push("entity")
   } else {
     for field in derive_method_condition_fields(method_name) {
@@ -349,7 +349,7 @@ fn resolve_mapper_param_name(
   inferred_names : Array[String],
   index : Int,
 ) -> String {
-  if parsed_name == "" || parsed_name == "_" || parsed_name == "?binder" {
+  if parsed_name is ("" | "_" | "?binder") {
     return inferred_names[index]
   }
   parsed_name
@@ -369,7 +369,7 @@ fn derive_builder_code(
   let is_count = method_name.has_prefix("count_")
 
   // 识别动作并提取 by 条件片段（与 entity 解耦）
-  if method_name == "find_all" || method_name == "all" {
+  if method_name is ("find_all" | "all") {
     return Some("@morm.select_from(\{table_expr})")
   }
 
@@ -920,9 +920,7 @@ fn collect_field_flags(
       "#morm.default" =>
         if attr.value.get("value") is Some(value) {
           let v = value.to_lower()
-          if v == "autoincrement" ||
-            v == "autoincrement()" ||
-            v == "autoincrement( )" {
+          if v is ("autoincrement" | "autoincrement()" | "autoincrement( )") {
             is_auto_increment = true
             if !is_primary_key {
               is_primary_key = true
@@ -984,14 +982,10 @@ fn parse_entities_from_ast(
         let mut has_entity = false
         let mut table_name = name.to_lower()
         orm_attrs.each(a => {
-          if a.name == "#morm.model" || a.name == "#morm.entity" {
+          if a.name is ("#morm.model" | "#morm.entity") {
             has_entity = true
           }
-          if (
-              a.name == "#morm.model" ||
-              a.name == "#morm.entity" ||
-              a.name == "#morm.table"
-            ) &&
+          if (a.name is ("#morm.model" | "#morm.entity" | "#morm.table")) &&
             a.value.get("name") is Some(custom_name) {
             table_name = custom_name
           }

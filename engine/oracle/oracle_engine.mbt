@@ -435,7 +435,7 @@ fn oracle_index_sqls(table_schema : Json) -> Array[String] {
       for idx_json in v {
         if idx_json is Object(idx) {
           let idx_name = schema_get_string(idx, "name", "")
-          if idx_name == "" || idx_name == "PRIMARY" {
+          if idx_name is ("" | "PRIMARY") {
             continue
           }
           let idx_type = schema_get_string(idx, "index_type", "Index")
