@@ -920,7 +920,15 @@ fn generate_mapper_code(
       } else {
         ""
       }
-      if m.returns_option {
+      if ret_type == "Bool" {
+        (
+          $|\{auto_stamp_code}
+          $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
+          $|   @engine.exec_query(self.engine, q).ok
+          $| }
+          $|
+        )
+      } else if m.returns_option {
         (
           $|\{auto_stamp_code}
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
@@ -940,6 +948,77 @@ fn generate_mapper_code(
           $|   let res = @engine.exec_query(self.engine, q)
           $|   if res.rows is [result, ..] {
           $|     return \{render_value_decode_expr(entity_ty, "result", entity_specs)}
+          $|   }
+          $|   panic()
+          $| }
+          $|
+        )
+      }
+    } else if m.name == "update" && m.params.length() == 1 {
+      let update_entity_spec = match entity_spec {
+        Some(spec) => Some(spec)
+        None =>
+          match find_entity_spec(entity_specs, m.params[0].1) {
+            Some(spec) => Some(spec)
+            None =>
+              match spec.table_name {
+                Some(table_name) =>
+                  find_entity_spec_by_table(entity_specs, table_name)
+                None => None
+              }
+          }
+      }
+      let auto_assigns : Array[String] = []
+      match update_entity_spec {
+        Some(update_spec) =>
+          for field in update_spec.fields {
+            if field_auto_update_time(field) {
+              match auto_time_value_expr(field) {
+                Some(expr) => auto_assigns.push(field.label + ": " + expr)
+                None => ()
+              }
+            }
+          }
+        None => ()
+      }
+      let auto_stamp_code = if auto_assigns.length() > 0 {
+        let assigns = auto_assigns.join(", ")
+        (
+          $|   let entity = {
+          $|     ..entity,
+          $|     \{assigns},
+          $|   }
+        )
+      } else {
+        ""
+      }
+      if ret_type == "Bool" {
+        (
+          $|\{auto_stamp_code}
+          $|   let q = @morm.update(\{table_expr}).from(entity)
+          $|   @engine.exec_query(self.engine, q).ok
+          $| }
+          $|
+        )
+      } else if m.returns_option {
+        (
+          $|\{auto_stamp_code}
+          $|   let q = @morm.update(\{table_expr}).from(entity)
+          $|   let res = @engine.exec_query(self.engine, q)
+          $|   if res.rows is [result, ..] {
+          $|     return Some(\{option_decode_expr})
+          $|   }
+          $|   None
+          $| }
+          $|
+        )
+      } else {
+        (
+          $|\{auto_stamp_code}
+          $|   let q = @morm.update(\{table_expr}).from(entity)
+          $|   let res = @engine.exec_query(self.engine, q)
+          $|   if res.rows is [result, ..] {
+          $|     return \{value_decode_expr}
           $|   }
           $|   panic()
           $| }
