@@ -43,7 +43,7 @@ options(
 
 - `impl @morm.Entity` 与 `table()` 元数据
 - 各数据库方言下的建表 / 迁移 SQL
-- 基于 `#morm.query` 的类型安全 Mapper 方法（含 `save` / `delete`）
+- 基于 `#query` 的类型安全 Mapper 方法（含 `save` / `delete`）
 - 统一返回 `(String, FixedArray[@engine.Param])` 的参数化 SQL 构造器
 
 核心设计取舍：
@@ -69,18 +69,18 @@ options(
 
 ```moonbit nocheck
 ///|
-#morm.entity(name="teacher")
+#entity(name="teacher")
 pub(all) struct Teacher {
-  #morm.primary_key
-  #morm.auto_increment
-  #morm.bigint
+  #id
+  #default(autoincrement())
+  #bigint
   id : Int
-  #morm.varchar(length="255")
+  #varchar(length="255")
   name : String
-  #morm.varchar(length="255")
+  #varchar(length="255")
   major : String
   age : Int
-  #morm.datetime
+  #datetime
   birth_date : String?
 } derive(ToJson, FromJson)
 ```
@@ -91,7 +91,7 @@ pub(all) struct Teacher {
 - 字段类型为 `T?`（Option[T]）时：列默认 **NULLABLE**
 - 主键永远视为非空，即便你写成 `id : Int?`，也会被当成 NOT NULL 主键
 
-属性 `#morm.not_null` 目前不再参与可空性判断，仅作为保留标签；真实行为完全由类型决定。
+属性 `#not_null` 目前不再参与可空性判断，仅作为保留标签；真实行为完全由类型决定。
 
 ## Attributes 使用指南
 
@@ -99,38 +99,38 @@ pub(all) struct Teacher {
 
 | 属性 | 示例 | 说明 |
 |---|---|---|
-| `#morm.entity` | 置于 `struct` 顶部 | 声明该结构体为 ORM 实体，生成 `impl @morm.Entity` |
-| `#morm.primary_key` | 放在某字段上一行 | 将该列标记为主键；主键总是非空 |
-| `#morm.auto_increment` | 放在主键字段上一行 | 将该列设置为自增，同时 `primary_key=true`、`nullable=false` |
-| `#morm.primary_key(strategy="...")` | `#morm.primary_key(strategy="uuid")` | 声明主键生成策略，当前会写入列 engine option：`pk.strategy=<value>`；支持 `manual` / `auto_increment` / `uuid` |
-| `#morm.not_null` | 放在字段上一行 | 当前版本仅作标记，实际可空性仍由类型 `T` / `T?` 决定 |
-| `#morm.varchar` | `#morm.varchar(length="255")` | 将该列类型设为 `VarChar(255)`；若未提供参数，默认 255 |
-| `#morm.char` | `#morm.char(length="1")` | 将该列类型设为 `Char(1)`；若未提供参数，默认 1 |
-| `#morm.text` | 纯标签 | 将该列类型设为 `Text` |
-| `#morm.mediumtext` | 纯标签 | 将该列类型设为 `MediumText` |
-| `#morm.longtext` | 纯标签 | 将该列类型设为 `LongText` |
-| `#morm.binary` | `#morm.binary(length="1")` | 将该列类型设为 `Binary(1)`；若未提供参数，默认 1 |
-| `#morm.varbinary` | `#morm.varbinary(length="255")` | 将该列类型设为 `VarBinary(255)`；若未提供参数，默认 255 |
-| `#morm.blob` | 纯标签 | 将该列类型设为 `Blob` |
-| `#morm.tinyint` | 纯标签 | 将该列类型设为 `TinyInt` |
-| `#morm.smallint` | 纯标签 | 将该列类型设为 `SmallInt` |
-| `#morm.int` | 纯标签 | 将该列类型设为 `Int` |
-| `#morm.bigint` | 纯标签 | 将该列类型设为 `BigInt` |
-| `#morm.float` | 纯标签 | 将该列类型设为 `Float` |
-| `#morm.double` | 纯标签 | 将该列类型设为 `Double` |
-| `#morm.decimal` | `#morm.decimal(precision="10", scale="2")` | 将该列类型设为 `Decimal(10,2)`；若未提供参数，默认 `10,2` |
-| `#morm.boolean` | 纯标签 | 将该列类型设为 `Boolean` |
-| `#morm.json` | 纯标签 | 将该列类型设为 `Json` |
-| `#morm.jsonb` | 纯标签 | 将该列类型设为 `JsonB` |
-| `#morm.uuid` | 纯标签 | 将该列类型设为 `VarChar(36)` |
-| `#morm.datetime` | 纯标签 | 将该列类型设为 `DateTime` |
-| `#morm.date` | `#morm.date(format="yyyy/MM/dd")` | 将该列类型设为 `Date`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
-| `#morm.time` | `#morm.time(format="HH-mm-ss")` | 将该列类型设为 `Time`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
-| `#morm.timestamp` | `#morm.timestamp(format="yyyy-MM-dd HH:mm:ss Z")` | 将该列类型设为 `Timestamp`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
-| `#morm.foreign_key` | 放在外键字段上一行 | 将该字段解析为外键，约束名：`fk_<表名>_<列名>`，引用列默认 `id`；引用表按列名约定或类型名推断 |
-| `#morm.on_delete_cascade` | 与 `#morm.foreign_key` 同用 | 外键 `on_delete` 设为 `CASCADE` |
-| `#morm.on_update_cascade` | 与 `#morm.foreign_key` 同用 | 外键 `on_update` 设为 `CASCADE` |
-| `#morm.transient` | 纯标签 | 字段仅保留在实体中，不会生成数据库列，也不会参与 `insert/update/upsert ... from(entity)` |
+| `#entity` | 置于 `struct` 顶部 | 声明该结构体为 ORM 实体，生成 `impl @morm.Entity` |
+| `#id` | 放在某字段上一行 | 将该列标记为主键；主键总是非空 |
+| `#default(autoincrement())` | 放在主键字段上一行 | 将该列设置为自增，同时 `primary_key=true`、`nullable=false` |
+| `#id(strategy="...")` | `#id(strategy="uuid")` | 声明主键生成策略，当前会写入列 engine option：`pk.strategy=<value>`；支持 `manual` / `auto_increment` / `uuid` |
+| `#not_null` | 放在字段上一行 | 当前版本仅作标记，实际可空性仍由类型 `T` / `T?` 决定 |
+| `#varchar` | `#varchar(length="255")` | 将该列类型设为 `VarChar(255)`；若未提供参数，默认 255 |
+| `#char` | `#char(length="1")` | 将该列类型设为 `Char(1)`；若未提供参数，默认 1 |
+| `#text` | 纯标签 | 将该列类型设为 `Text` |
+| `#mediumtext` | 纯标签 | 将该列类型设为 `MediumText` |
+| `#longtext` | 纯标签 | 将该列类型设为 `LongText` |
+| `#binary` | `#binary(length="1")` | 将该列类型设为 `Binary(1)`；若未提供参数，默认 1 |
+| `#varbinary` | `#varbinary(length="255")` | 将该列类型设为 `VarBinary(255)`；若未提供参数，默认 255 |
+| `#blob` | 纯标签 | 将该列类型设为 `Blob` |
+| `#tinyint` | 纯标签 | 将该列类型设为 `TinyInt` |
+| `#smallint` | 纯标签 | 将该列类型设为 `SmallInt` |
+| `#int` | 纯标签 | 将该列类型设为 `Int` |
+| `#bigint` | 纯标签 | 将该列类型设为 `BigInt` |
+| `#float` | 纯标签 | 将该列类型设为 `Float` |
+| `#double` | 纯标签 | 将该列类型设为 `Double` |
+| `#decimal` | `#decimal(precision="10", scale="2")` | 将该列类型设为 `Decimal(10,2)`；若未提供参数，默认 `10,2` |
+| `#boolean` | 纯标签 | 将该列类型设为 `Boolean` |
+| `#json` | 纯标签 | 将该列类型设为 `Json` |
+| `#jsonb` | 纯标签 | 将该列类型设为 `JsonB` |
+| `#uuid` | 纯标签 | 将该列类型设为 `VarChar(36)` |
+| `#datetime` | 纯标签 | 将该列类型设为 `DateTime` |
+| `#date` | `#date(format="yyyy/MM/dd")` | 将该列类型设为 `Date`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
+| `#time` | `#time(format="HH-mm-ss")` | 将该列类型设为 `Time`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
+| `#timestamp` | `#timestamp(format="yyyy-MM-dd HH:mm:ss Z")` | 将该列类型设为 `Timestamp`；可选 `format` 影响该字段参数的 `to_json`/字符串输出 |
+| `#foreign_key` | 放在外键字段上一行 | 将该字段解析为外键，约束名：`fk_<表名>_<列名>`，引用列默认 `id`；引用表按列名约定或类型名推断 |
+| `#on_delete_cascade` | 与 `#foreign_key` 同用 | 外键 `on_delete` 设为 `CASCADE` |
+| `#on_update_cascade` | 与 `#foreign_key` 同用 | 外键 `on_update` 设为 `CASCADE` |
+| `#transient` | 纯标签 | 字段仅保留在实体中，不会生成数据库列，也不会参与 `insert/update/upsert ... from(entity)` |
 
 说明：目前生成器尚未读取编译器暴露的参数字典，长度/精度等参数采用保守默认与示例形式；未来会增强为真正读取参数值并完全可配置。
 
@@ -152,19 +152,19 @@ mormgen example/entities.mbt -o example/entities.g.mbt
 mormgen example/mapper.mbt -o example/mapper.g.mbt
 ```
 
-`entities.g.mbt` 会包含每个实体的 `impl @morm.Entity` 和 `table()`，`mapper.g.mbt` 会包含 mapper struct、`Struct::new` 工厂函数以及基于 `#morm.query` 的方法实现。
+`entities.g.mbt` 会包含每个实体的 `impl @morm.Entity` 和 `table()`，`mapper.g.mbt` 会包含 mapper struct、`Struct::new` 工厂函数以及基于 `#query` 的方法实现。
 
 ## Mapper 与查询
 
-在实体定义之外，你可以用 `#morm.mapper` 声明一个 mapper 接口（见 `example/mapper.mbt`）：
+在实体定义之外，你可以用 `#mapper` 声明一个 mapper 接口（见 `example/mapper.mbt`）：
 
 ```moonbit nocheck
-#morm.mapper(entity="Student")
+#mapper(entity="Student")
 pub trait StudentMapper {
-  #morm.query("SELECT * FROM students WHERE id = ?")
+  #query("SELECT * FROM students WHERE id = ?")
   pub fn find_student_by_id(Self, id : Int) -> Student?
 
-  #morm.query("SELECT count(*) FROM students WHERE age = ?")
+  #query("SELECT count(*) FROM students WHERE age = ?")
   pub fn count_students_by_age(Self, age : Int) -> Int?
 }
 ```

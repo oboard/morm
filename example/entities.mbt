@@ -4,8 +4,8 @@ using @time {type ZonedDateTime, type PlainDateTime}
 ///|
 #morm.entity
 pub(all) struct Class {
-  #morm.primary_key
-  #morm.auto_increment
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
   #morm.varchar(length="255")
   name : String
@@ -20,8 +20,8 @@ pub(all) struct Class {
 ///|
 #morm.entity
 pub(all) struct Student {
-  #morm.primary_key
-  #morm.auto_increment
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
   #morm.varchar(length="255")
   name : String
@@ -32,8 +32,8 @@ pub(all) struct Student {
 ///|
 #morm.entity
 pub(all) struct Teacher {
-  #morm.primary_key
-  #morm.auto_increment
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
   #morm.varchar(length="255")
   name : String
@@ -46,8 +46,8 @@ pub(all) struct Teacher {
 ///|
 #morm.entity
 pub(all) struct Enrollment {
-  #morm.primary_key
-  #morm.auto_increment
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
   #morm.many_to_one(references="student.id", fk="student_id", on_delete="CASCADE")
   student : Student
@@ -60,7 +60,7 @@ pub(all) struct Enrollment {
 ///|
 #morm.entity
 pub(all) struct StudentAggregate {
-  #morm.primary_key
+  #morm.id
   id : Int64
   #morm.one_to_many(mapped_by="student")
   enrollments : FixedArray[Int]
@@ -69,7 +69,7 @@ pub(all) struct StudentAggregate {
 ///|
 #morm.entity
 pub(all) struct JsonDocument {
-  #morm.primary_key
+  #morm.id
   id : Int64
   #morm.json(storage="blob")
   payload : Json

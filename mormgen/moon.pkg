@@ -3,6 +3,8 @@ import {
   "moonbitlang/core/list",
   "moonbitlang/core/ref",
   "moonbitlang/parser",
+  "moonbitlang/parser/lexer",
+  "moonbitlang/parser/handrolled_parser",
   "moonbitlang/parser/syntax",
   "moonbitlang/parser/attribute",
   "moonbitlang/core/strconv",

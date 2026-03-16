@@ -697,6 +697,7 @@ fn pg_column_def(col_json : Json) -> String {
     let auto_increment = schema_get_bool(obj, "auto_increment", false)
     let nullable = schema_get_bool(obj, "nullable", true)
     let unique = schema_get_bool(obj, "unique", false)
+    let default_value = schema_get_string(obj, "default_value", "")
     if auto_increment {
       if col_type == "BIGINT" {
         col_type = "BIGSERIAL"
@@ -713,6 +714,9 @@ fn pg_column_def(col_json : Json) -> String {
     }
     if unique {
       sql = sql + " UNIQUE"
+    }
+    if default_value != "" {
+      sql = sql + " DEFAULT " + default_value
     }
     sql
   } else {

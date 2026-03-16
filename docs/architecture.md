@@ -32,7 +32,7 @@ Nothing in the runtime layer tries to rediscover your types from metadata at exe
 
 ## Entity Layer
 
-Entities are plain MoonBit structs annotated with `#morm.entity`.
+Entities are plain MoonBit structs annotated with `#entity`.
 
 Example responsibilities of the entity layer:
 
@@ -59,7 +59,7 @@ The generator reads:
 
 - the mapper annotation
 - method names
-- explicit `#morm.query(...)` attributes
+- explicit `#query(...)` attributes
 - optional fetch/load join attributes
 
 It then emits:
@@ -187,8 +187,8 @@ Detection rules:
 
 - field name `created_at` implies auto create time
 - field name `updated_at` implies auto update time
-- `#morm.auto_create_time` explicitly opts in
-- `#morm.auto_update_time` explicitly opts in
+- `#auto_create_time` explicitly opts in
+- `#auto_update_time` explicitly opts in
 
 Generation rules:
 
@@ -234,11 +234,11 @@ Examples:
 - `find_all`
 - `all`
 
-This derivation is intentionally conservative. The moment your query shape is less obvious, use `#morm.query`.
+This derivation is intentionally conservative. The moment your query shape is less obvious, use `#query`.
 
 ## Explicit SQL Escape Hatch
 
-When you attach `#morm.query("...")`, the generated method uses the SQL you wrote.
+When you attach `#query("...")`, the generated method uses the SQL you wrote.
 
 This is an architectural feature, not a fallback hack:
 
@@ -252,9 +252,9 @@ You get exact SQL with less repetitive boilerplate.
 
 The project supports relation-oriented annotations such as:
 
-- `#morm.foreign_key`
-- `#morm.many_to_one`
-- `#morm.one_to_many`
+- `#foreign_key`
+- `#many_to_one`
+- `#one_to_many`
 
 Current scope:
 

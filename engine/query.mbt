@@ -267,7 +267,7 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
       (buf.to_string(), where_.map(w => w.value))
     }
     Insert(insert_stmt) => {
-      let { into, columns, values } = insert_stmt
+      let { into, columns, values, rows } = insert_stmt
       let buf = @buffer.new()
       buf.write_string("INSERT INTO ")
       buf.write_string(into)
@@ -276,10 +276,19 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
         buf.write_string(columns.join(", "))
         buf.write_string(")")
       }
-      buf.write_string(" VALUES (")
-      buf.write_string(placeholders(values.length()))
-      buf.write_string(")")
-      (buf.to_string(), values)
+      let effective_rows = if !rows.is_empty() { rows } else { [values] }
+      let row_sql = effective_rows.map(row => {
+        "(" + placeholders(row.length()) + ")"
+      })
+      buf.write_string(" VALUES ")
+      buf.write_string(row_sql.join(", "))
+      let out_params : Array[Param] = []
+      for row in effective_rows {
+        for value in row {
+          out_params.push(value)
+        }
+      }
+      (buf.to_string(), FixedArray::from_array(out_params))
     }
     Upsert(upsert_stmt) => {
       let { table, sets, conflict_target: _, update_sets } = upsert_stmt

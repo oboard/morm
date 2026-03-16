@@ -25,16 +25,16 @@ The exact package aliases are up to you, but these names make examples easy to r
 using @time {type PlainDateTime, type ZonedDateTime}
 
 ///|
-#morm.entity
+#entity
 pub(all) struct Class {
-  #morm.primary_key
-  #morm.auto_increment
+  #id
+  #default(autoincrement())
   id : Int64
 
-  #morm.varchar(length="255")
+  #varchar(length="255")
   name : String
 
-  #morm.foreign_key(references="teacher.id", on_delete="CASCADE")
+  #foreign_key(references="teacher.id", on_delete="CASCADE")
   teacher_id : Int
 
   created_at : PlainDateTime
@@ -42,10 +42,10 @@ pub(all) struct Class {
 } derive(ToJson, FromJson)
 
 ///|
-#morm.entity
+#entity
 pub(all) struct Teacher {
-  #morm.primary_key
-  #morm.auto_increment
+  #id
+  #default(autoincrement())
   id : Int64
   name : String
   major : String
@@ -250,9 +250,9 @@ This is useful when your entity derives `ToJson` and `FromJson` and includes tim
 
 ```moonbit
 ///|
-#morm.entity
+#entity
 pub(all) struct AuditRow {
-  #morm.primary_key
+  #id
   id : Int64
   created_at : @time.PlainDateTime
   updated_at : @time.PlainDateTime
@@ -271,15 +271,15 @@ then `mormgen` injects timestamp assignment code before the `upsert`.
 
 ```moonbit
 ///|
-#morm.entity
+#entity
 pub(all) struct AuditRow {
-  #morm.primary_key
+  #id
   id : Int64
 
-  #morm.auto_create_time
+  #auto_create_time
   inserted_on : @time.PlainDateTime
 
-  #morm.auto_update_time
+  #auto_update_time
   touched_on : @time.ZonedDateTime
 } derive(ToJson, FromJson)
 ```
@@ -295,7 +295,7 @@ Generated values depend on the field type:
 
 ```moonbit
 ///|
-#morm.mapper(table="student")
+#mapper(table="student")
 pub trait StudentMapper {
   async find_student_by_id(Self, id : Int) -> Student?
   async find_students_by_age(Self, age : Int) -> FixedArray[Student]
@@ -310,9 +310,9 @@ These are generated from method names without explicit SQL strings.
 
 ```moonbit
 ///|
-#morm.mapper(table="enrollment")
+#mapper(table="enrollment")
 pub trait EnrollmentMapper {
-  #morm.query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
+  #query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
   async find_by_class_raw(Self, class_id : Int) -> FixedArray[Enrollment]
 }
 ```
@@ -321,9 +321,9 @@ pub trait EnrollmentMapper {
 
 ```moonbit
 ///|
-#morm.mapper(table="enrollment")
+#mapper(table="enrollment")
 pub trait EnrollmentMapper {
-  #morm.fetch_graph(join="LEFT JOIN student ON student.id = enrollment.student_id")
+  #fetch_graph(join="LEFT JOIN student ON student.id = enrollment.student_id")
   async find_with_student_by_id(Self, id : Int) -> Enrollment?
 }
 ```
@@ -334,7 +334,7 @@ This extends the generated query builder with `.join(...)`.
 
 ```moonbit
 ///|
-#morm.mapper(table="class")
+#mapper(table="class")
 pub trait ClassMapper {
   async save(Self, entity : Class) -> Class
 }
@@ -346,7 +346,7 @@ This method is generated as an upsert-backed save path and can apply auto timest
 
 ```moonbit
 ///|
-#morm.mapper(table="class")
+#mapper(table="class")
 pub trait ClassMapper {
   async delete(Self, entity : Class) -> Bool
 }
@@ -413,7 +413,7 @@ This is a good way to keep schema expectations explicit.
 Prefer these patterns:
 
 - use generated mappers for simple app-facing CRUD
-- use explicit `#morm.query` when SQL matters
+- use explicit `#query` when SQL matters
 - use `PlainDateTime` for `created_at` / `updated_at` unless offset is a real domain requirement
 - inspect `.g.mbt` output when behavior becomes non-trivial
 - keep engine-specific behavior in the engine package, not in entity code

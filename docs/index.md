@@ -16,7 +16,7 @@ hero:
 
 features:
   - title: Entity-First Modeling
-    details: Define MoonBit structs with `#morm.entity` annotations and generate table metadata directly from your types.
+    details: Define MoonBit structs with `#entity` annotations and generate table metadata directly from your types.
   - title: Typed Query Builders
     details: Build `select`, `insert`, `update`, `delete`, and `upsert` statements with typed params instead of hand-written SQL strings.
   - title: Multi-Engine Support

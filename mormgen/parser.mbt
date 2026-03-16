@@ -53,43 +53,53 @@ fn collect_orm_attributes(
       let mut params_part = ""
       if raw.find("(") is Some(open_idx) {
         name = raw[0:open_idx].to_string()
-        if raw.find(")") is Some(close_idx) {
+        if raw.has_suffix(")") && raw.length() > open_idx + 1 {
+          params_part = raw[open_idx + 1:raw.length() - 1].to_string()
+        } else if raw.find(")") is Some(close_idx) {
           params_part = raw[open_idx + 1:close_idx].to_string()
         }
       }
       // 解析 params_part 为 key="value" 的字典
       let m : Map[String, String] = Map::new()
-      let mut i = 0
-      let n = params_part.length()
-      while i < n {
-        let rest = params_part[i:].to_string()
-        if rest.find(",") is Some(comma_rel) {
-          let comma_abs = i + comma_rel
-          let pair = params_part[i:comma_abs].to_string()
-          i = comma_abs + 1
-          if pair.find("=") is Some(eq_idx) {
-            let k = trim_key(pair[0:eq_idx].to_string())
-            let vrest = pair[eq_idx + 1:].to_string()
-            if vrest.has_prefix("\"") {
-              let vrest_tail = vrest[1:].to_string()
-              if vrest_tail.find("\"") is Some(end_rel) {
-                let v = vrest[1:1 + end_rel].to_string()
-                m.set(k, v)
+      if name == "#morm.default" && trim_key(params_part) != "" {
+        m.set("value", trim_key(params_part))
+      } else if !params_part.contains("=") && trim_key(params_part) != "" {
+        m.set("value", trim_key(params_part))
+      } else {
+        let mut i = 0
+        let n = params_part.length()
+        while i < n {
+          let rest = params_part[i:].to_string()
+          if rest.find(",") is Some(comma_rel) {
+            let comma_abs = i + comma_rel
+            let pair = params_part[i:comma_abs].to_string()
+            i = comma_abs + 1
+            if pair.find("=") is Some(eq_idx) {
+              let k = trim_key(pair[0:eq_idx].to_string())
+              let vrest = pair[eq_idx + 1:].to_string()
+              if vrest.has_prefix("\"") {
+                let vrest_tail = vrest[1:].to_string()
+                if vrest_tail.find("\"") is Some(end_rel) {
+                  let v = vrest[1:1 + end_rel].to_string()
+                  m.set(k, v)
+                }
               }
             }
-          }
-        } else {
-          let pair = params_part[i:].to_string()
-          i = n
-          if pair.find("=") is Some(eq_idx) {
-            let k = trim_key(pair[0:eq_idx].to_string())
-            let vrest = pair[eq_idx + 1:].to_string()
-            if vrest.has_prefix("\"") {
-              let vrest_tail = vrest[1:].to_string()
-              if vrest_tail.find("\"") is Some(end_rel) {
-                let v = vrest[1:1 + end_rel].to_string()
-                m.set(k, v)
+          } else {
+            let pair = params_part[i:].to_string()
+            i = n
+            if pair.find("=") is Some(eq_idx) {
+              let k = trim_key(pair[0:eq_idx].to_string())
+              let vrest = pair[eq_idx + 1:].to_string()
+              if vrest.has_prefix("\"") {
+                let vrest_tail = vrest[1:].to_string()
+                if vrest_tail.find("\"") is Some(end_rel) {
+                  let v = vrest[1:1 + end_rel].to_string()
+                  m.set(k, v)
+                }
               }
+            } else if trim_key(pair) != "" {
+              m.set("value", trim_key(pair))
             }
           }
         }
@@ -120,42 +130,52 @@ fn collect_orm_attributes_from_source(
       let mut params_part = ""
       if raw.find("(") is Some(open_idx) {
         name = raw[0:open_idx].to_string()
-        if raw.find(")") is Some(close_idx) {
+        if raw.has_suffix(")") && raw.length() > open_idx + 1 {
+          params_part = raw[open_idx + 1:raw.length() - 1].to_string()
+        } else if raw.find(")") is Some(close_idx) {
           params_part = raw[open_idx + 1:close_idx].to_string()
         }
       }
       let m : Map[String, String] = Map::new()
-      let mut i = 0
-      let n = params_part.length()
-      while i < n {
-        let rest = params_part[i:].to_string()
-        if rest.find(",") is Some(comma_rel) {
-          let comma_abs = i + comma_rel
-          let pair = params_part[i:comma_abs].to_string()
-          i = comma_abs + 1
-          if pair.find("=") is Some(eq_idx) {
-            let k = trim_key(pair[0:eq_idx].to_string())
-            let vrest = pair[eq_idx + 1:].to_string()
-            if vrest.has_prefix("\"") {
-              let vrest_tail = vrest[1:].to_string()
-              if vrest_tail.find("\"") is Some(end_rel) {
-                let v = vrest[1:1 + end_rel].to_string()
-                m.set(k, v)
+      if name == "#morm.default" && trim_key(params_part) != "" {
+        m.set("value", trim_key(params_part))
+      } else if !params_part.contains("=") && trim_key(params_part) != "" {
+        m.set("value", trim_key(params_part))
+      } else {
+        let mut i = 0
+        let n = params_part.length()
+        while i < n {
+          let rest = params_part[i:].to_string()
+          if rest.find(",") is Some(comma_rel) {
+            let comma_abs = i + comma_rel
+            let pair = params_part[i:comma_abs].to_string()
+            i = comma_abs + 1
+            if pair.find("=") is Some(eq_idx) {
+              let k = trim_key(pair[0:eq_idx].to_string())
+              let vrest = pair[eq_idx + 1:].to_string()
+              if vrest.has_prefix("\"") {
+                let vrest_tail = vrest[1:].to_string()
+                if vrest_tail.find("\"") is Some(end_rel) {
+                  let v = vrest[1:1 + end_rel].to_string()
+                  m.set(k, v)
+                }
               }
             }
-          }
-        } else {
-          let pair = params_part[i:].to_string()
-          i = n
-          if pair.find("=") is Some(eq_idx) {
-            let k = trim_key(pair[0:eq_idx].to_string())
-            let vrest = pair[eq_idx + 1:].to_string()
-            if vrest.has_prefix("\"") {
-              let vrest_tail = vrest[1:].to_string()
-              if vrest_tail.find("\"") is Some(end_rel) {
-                let v = vrest[1:1 + end_rel].to_string()
-                m.set(k, v)
+          } else {
+            let pair = params_part[i:].to_string()
+            i = n
+            if pair.find("=") is Some(eq_idx) {
+              let k = trim_key(pair[0:eq_idx].to_string())
+              let vrest = pair[eq_idx + 1:].to_string()
+              if vrest.has_prefix("\"") {
+                let vrest_tail = vrest[1:].to_string()
+                if vrest_tail.find("\"") is Some(end_rel) {
+                  let v = vrest[1:1 + end_rel].to_string()
+                  m.set(k, v)
+                }
               }
+            } else if trim_key(pair) != "" {
+              m.set("value", trim_key(pair))
             }
           }
         }
@@ -417,7 +437,7 @@ fn parse_mappers_from_ast(
                   }
                 } else {
                   let plain = trim_key(inner)
-                  // 兼容旧写法 #morm.mapper(Student)
+                  // 兼容旧写法 #mapper(Student)
                   if entity_table_map.get(plain) is Some(tbl) {
                     entity_name_opt = Some(plain)
                     table_name_opt = Some(tbl)
@@ -740,7 +760,7 @@ fn parse_foreign_key_for_field(
     }
   }
 
-  // 兜底：仅声明 #morm.foreign_key 时，按常见命名推断 <name>_id -> <name>.id
+  // 兜底：仅声明 #foreign_key 时，按常见命名推断 <name>_id -> <name>.id
   if referenced_table == "" && referenced_column == "" {
     if field_label.has_suffix("_id") && field_label.length() > 3 {
       referenced_table = field_label[0:field_label.length() - 3].to_string()
@@ -897,6 +917,21 @@ fn collect_field_flags(
         }
       }
       "#morm.auto_increment" => is_auto_increment = true
+      "#morm.default" =>
+        if attr.value.get("value") is Some(value) {
+          let v = value.to_lower()
+          if v == "autoincrement" ||
+            v == "autoincrement()" ||
+            v == "autoincrement( )" {
+            is_auto_increment = true
+            if !is_primary_key {
+              is_primary_key = true
+            }
+            if primary_key_strategy is None {
+              primary_key_strategy = Some("auto_increment")
+            }
+          }
+        }
       "#morm.not_null" => has_not_null = true
       _ => ()
     }
@@ -949,10 +984,14 @@ fn parse_entities_from_ast(
         let mut has_entity = false
         let mut table_name = name.to_lower()
         orm_attrs.each(a => {
-          if a.name == "#morm.entity" {
+          if a.name == "#morm.model" || a.name == "#morm.entity" {
             has_entity = true
           }
-          if (a.name == "#morm.entity" || a.name == "#morm.table") &&
+          if (
+              a.name == "#morm.model" ||
+              a.name == "#morm.entity" ||
+              a.name == "#morm.table"
+            ) &&
             a.value.get("name") is Some(custom_name) {
             table_name = custom_name
           }

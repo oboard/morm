@@ -14,6 +14,7 @@ pub(all) struct InsertStatement {
   into : String
   columns : FixedArray[String]
   values : FixedArray[Param]
+  rows : FixedArray[FixedArray[Param]]
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|

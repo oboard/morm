@@ -152,6 +152,7 @@ fn render_column_def(col_json : Json) -> String {
     let auto_increment = get_bool(obj, "auto_increment", false)
     let nullable = get_bool(obj, "nullable", true)
     let unique = get_bool(obj, "unique", false)
+    let default_value = get_string(obj, "default_value", "")
     let col_type = match obj.get("column_type") {
       Some(String("Json")) | Some(String("JsonB")) =>
         sqlite_json_storage_type(obj)
@@ -173,6 +174,10 @@ fn render_column_def(col_json : Json) -> String {
       }
       if unique {
         parts.push("UNIQUE")
+      }
+      if default_value != "" {
+        parts.push("DEFAULT")
+        parts.push(default_value)
       }
     }
     parts.join(" ")
@@ -358,7 +363,7 @@ fn render_sqlite(
       (buf.to_string(), where_.map(w => w.value))
     }
     Insert(insert_stmt) => {
-      let { into, columns, values } = insert_stmt
+      let { into, columns, values, rows } = insert_stmt
       let buf = @buffer.new()
       buf.write_string("INSERT INTO ")
       buf.write_string(into)
@@ -367,10 +372,19 @@ fn render_sqlite(
         buf.write_string(columns.join(", "))
         buf.write_string(")")
       }
-      buf.write_string(" VALUES (")
-      buf.write_string(placeholders(values.length()))
-      buf.write_string(")")
-      (buf.to_string(), values)
+      let effective_rows = if !rows.is_empty() { rows } else { [values] }
+      let row_sql = effective_rows.map(row => {
+        "(" + placeholders(row.length()) + ")"
+      })
+      buf.write_string(" VALUES ")
+      buf.write_string(row_sql.join(", "))
+      let out_params : Array[@engine.Param] = []
+      for row in effective_rows {
+        for value in row {
+          out_params.push(value)
+        }
+      }
+      (buf.to_string(), FixedArray::from_array(out_params))
     }
     Upsert(upsert_stmt) => {
       let { table, sets, conflict_target, update_sets } = upsert_stmt

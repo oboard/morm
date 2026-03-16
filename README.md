@@ -15,13 +15,13 @@ The project deliberately avoids runtime reflection and hidden ORM state.
 
 `morm` provides:
 
-- entity-to-table metadata generation with `#morm.entity`
+- entity-to-table metadata generation with `#entity`
 - mapper generation from annotated traits
 - typed query builders for `select`, `insert`, `upsert`, `update`, and `delete`
 - multi-engine support through a shared `Engine` contract
 - local time-type support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime`
 - generated auto timestamp handling for `created_at` / `updated_at` and explicit timestamp annotations
-- transient entity fields via `#morm.transient` (kept in model, excluded from physical columns and `from(entity)` writes)
+- transient entity fields via `#transient` (kept in model, excluded from physical columns and `from(entity)` writes)
 
 ## Install
 
@@ -63,13 +63,13 @@ options(
 using @time {type PlainDateTime}
 
 ///|
-#morm.entity
+#entity
 pub(all) struct Class {
-  #morm.primary_key
-  #morm.auto_increment
+  #id
+  #default(autoincrement())
   id : Int64
 
-  #morm.varchar(length="255")
+  #varchar(length="255")
   name : String
 
   created_at : PlainDateTime
@@ -81,7 +81,7 @@ pub(all) struct Class {
 
 ```moonbit
 ///|
-#morm.mapper(table="class")
+#mapper(table="class")
 pub trait ClassMapper {
   async save(Self, entity : Class) -> Class
 }
@@ -91,8 +91,8 @@ Generated `save` methods can assign:
 
 - `created_at`
 - `updated_at`
-- fields marked with `#morm.auto_create_time`
-- fields marked with `#morm.auto_update_time`
+- fields marked with `#auto_create_time`
+- fields marked with `#auto_update_time`
 
 `PlainDateTime` fields use `@morm.current_plain_date_time_utc()`, and `ZonedDateTime` fields use `@morm.current_timestamp_utc()`.
 

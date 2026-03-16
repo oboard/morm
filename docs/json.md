@@ -20,12 +20,12 @@ storage.
 You can override the default storage strategy with annotations:
 
 ```moonbit
-#morm.entity
+#entity
 pub(all) struct JsonDocument {
-  #morm.primary_key
+  #id
   id : Int64
 
-  #morm.json(storage="blob")
+  #json(storage="blob")
   payload : Json
 } derive(ToJson, FromJson)
 ```

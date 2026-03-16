@@ -12,7 +12,7 @@ They exist to reduce repetitive query code without hiding what actually runs.
 
 ```moonbit
 ///|
-#morm.mapper(table="student")
+#mapper(table="student")
 pub trait StudentMapper {
   async find_student_by_id(Self, id : Int) -> Student?
   async find_students_by_age(Self, age : Int) -> FixedArray[Student]
@@ -37,7 +37,7 @@ Using `table=` is often the most direct option, and the generator can infer the 
 
 ## Method Derivation
 
-Without `#morm.query`, the generator derives common query shapes from method names.
+Without `#query`, the generator derives common query shapes from method names.
 
 Examples:
 
@@ -52,13 +52,13 @@ This is intentionally conservative. It covers routine read patterns and stops th
 
 ## Explicit SQL
 
-For exact control, use `#morm.query`.
+For exact control, use `#query`.
 
 ```moonbit
 ///|
-#morm.mapper(table="enrollment")
+#mapper(table="enrollment")
 pub trait EnrollmentMapper {
-  #morm.query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
+  #query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
   async find_by_class_raw(Self, class_id : Int) -> FixedArray[Enrollment]
 }
 ```
@@ -73,8 +73,8 @@ This keeps:
 
 `mormgen` also recognizes:
 
-- `#morm.fetch_graph(join="...")`
-- `#morm.load_graph(join="...")`
+- `#fetch_graph(join="...")`
+- `#load_graph(join="...")`
 
 These append `.join(...)` to the derived builder path.
 
@@ -86,7 +86,7 @@ They are SQL composition helpers, not a full lazy-loading graph runtime.
 
 ```moonbit
 ///|
-#morm.mapper(table="class")
+#mapper(table="class")
 pub trait ClassMapper {
   async save(Self, entity : Class) -> Class
 }
@@ -105,7 +105,7 @@ Generated behavior:
 
 ```moonbit
 ///|
-#morm.mapper(table="class")
+#mapper(table="class")
 pub trait ClassMapper {
   async delete(Self, entity : Class) -> Bool
 }
@@ -121,8 +121,8 @@ Trigger rules:
 
 - `created_at`
 - `updated_at`
-- `#morm.auto_create_time`
-- `#morm.auto_update_time`
+- `#auto_create_time`
+- `#auto_update_time`
 
 Value rules:
 

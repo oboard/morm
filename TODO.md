@@ -1,8 +1,27 @@
 # Todo List
 
 ## Scope
-- Compare GORM capability baseline and JDBC ecosystem expectations with current morm.
-- Implement a realistic first batch that is already shippable.
+- Compare Prisma capability baseline with current morm.
+- Implement high-impact missing features with performance-first constraints.
+
+## Prisma Gap (Prisma Has, morm Missing)
+- [ ] `createMany` with `skipDuplicates` semantics on SQL engines.
+- [ ] `updateMany` / `deleteMany` first-class builder APIs (not only per-row).
+- [ ] Nested writes (`create`/`update` with relational graph mutations in one API call).
+- [ ] Interactive transaction API (callback-style transaction scope).
+- [ ] Relation aggregate ordering/filtering (`_count` driven relation sort/filter).
+- [ ] `groupBy`/`having` query builder support.
+- [ ] Cursor-based pagination helpers equivalent to Prisma cursor flows.
+- [ ] Client extension/middleware pipeline comparable to Prisma Client extensions/middleware.
+- [ ] Schema introspection workflow (Prisma `db pull` equivalent).
+- [ ] Migration history/baselining workflow (Prisma Migrate-style history table + drift checks).
+
+## In Progress (Performance First)
+- [ ] Batch insert SQL path (`createMany`-style): one statement with multi-row VALUES to reduce round trips.
+  - [x] Insert statement/query model supports multi-row payload.
+  - [x] SQL renderers generate `VALUES (...), (...)` and flatten params.
+  - [x] MongoDB insert execution accepts multi-document inserts from statement rows.
+  - [ ] Add public helper API and tests for `skipDuplicates` strategy without regressing hot path.
 
 ## Completed
 - [x] Added transaction SQL abstraction to `@engine.Engine`:

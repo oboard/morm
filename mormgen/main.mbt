@@ -42,6 +42,13 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
         attr.value.get("strategy") is Some(strategy) {
         col = @morm.add_column_engine_option(col, "pk.strategy", strategy)
       }
+      if attr.name == "#morm.default" {
+        if attr.value.get("value") is Some(default_expr) {
+          if normalize_default_expr(default_expr) is Some(normalized) {
+            col = { ..col, default_value: Some(normalized) }
+          }
+        }
+      }
       if (attr.name == "#morm.json" || attr.name == "#morm.jsonb") &&
         attr.value.get("storage") is Some(storage) {
         col = @morm.add_column_engine_option(col, "json.storage", storage)
@@ -93,7 +100,11 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
 fn entity_table_attr_value(spec : EntitySpec, key : String) -> String? {
   let mut result : String? = None
   for attr in spec.attrs {
-    if (attr.name == "#morm.entity" || attr.name == "#morm.table") &&
+    if (
+        attr.name == "#morm.model" ||
+        attr.name == "#morm.entity" ||
+        attr.name == "#morm.table"
+      ) &&
       attr.value.get(key) is Some(value) {
       result = Some(value)
     }
@@ -112,6 +123,69 @@ fn attr_int(value : String) -> Int? {
   Some(@strconv.parse_int(value)) catch {
     _ => None
   }
+}
+
+///|
+fn trim_space_text(s : String) -> String {
+  let mut t = s
+  while t.has_prefix(" ") || t.has_prefix("\t") {
+    t = t[1:].to_string()
+  }
+  while t.has_suffix(" ") || t.has_suffix("\t") {
+    let n = t.length()
+    if n == 0 {
+      break
+    }
+    t = t[0:n - 1].to_string()
+  }
+  t
+}
+
+///|
+fn unquote_string_literal(text : String) -> String {
+  if text.length() >= 2 && text.has_prefix("\"") && text.has_suffix("\"") {
+    text[1:text.length() - 1].to_string()
+  } else {
+    text
+  }
+}
+
+///|
+fn single_quote_sql_string(text : String) -> String {
+  "'" + text.replace(old="'", new="''") + "'"
+}
+
+///|
+fn normalize_default_expr(raw_expr : String) -> String? {
+  let expr = trim_space_text(raw_expr)
+  if expr == "" {
+    return None
+  }
+  let tokens = @lexer.tokens_from_string(expr, comment=true).tokens
+  let (_, reports) = @handrolled_parser.parse_expr(tokens)
+  if !reports.is_empty() {
+    return None
+  }
+  let compact_lower = expr.replace_all(old=" ", new="").to_lower()
+  if compact_lower == "autoincrement()" || compact_lower == "autoincrement" {
+    return None
+  }
+  if compact_lower == "true" {
+    return Some("true")
+  }
+  if compact_lower == "false" {
+    return Some("false")
+  }
+  if attr_int(expr) is Some(_) {
+    return Some(expr)
+  }
+  if expr.has_prefix("[") || expr.has_prefix("{") {
+    return Some(single_quote_sql_string(expr))
+  }
+  if expr.has_prefix("\"") && expr.has_suffix("\"") {
+    return Some(single_quote_sql_string(unquote_string_literal(expr)))
+  }
+  Some(expr)
 }
 
 ///|

@@ -333,10 +333,13 @@ pub struct InsertQuery {
   into : String
   columns : FixedArray[String]
   values : FixedArray[@engine.Param]
+  rows : FixedArray[FixedArray[@engine.Param]]
 }
 pub fn InsertQuery::columns(Self, FixedArray[String]) -> Self
 pub fn[E : Entity] InsertQuery::from(Self, E) -> Self
+pub fn[E : Entity] InsertQuery::from_many(Self, FixedArray[E]) -> Self
 pub fn InsertQuery::values(Self, FixedArray[@engine.Param]) -> Self
+pub fn InsertQuery::values_many(Self, FixedArray[FixedArray[@engine.Param]]) -> Self
 pub impl Eq for InsertQuery
 pub impl Show for InsertQuery
 pub impl ToJson for InsertQuery

@@ -86,4 +86,4 @@ Generated mapper `save` methods use time helpers based on field type:
 - `PlainDateTime -> current_plain_date_time_utc()`
 - `ZonedDateTime -> current_timestamp_utc()`
 
-This is how `created_at`, `updated_at`, `#morm.auto_create_time`, and `#morm.auto_update_time` are implemented in generated code.
+This is how `created_at`, `updated_at`, `#auto_create_time`, and `#auto_update_time` are implemented in generated code.

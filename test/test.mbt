@@ -236,3 +236,16 @@ test "insert from entity encodes bson column as bytes" {
     _ => fail("expected BSON bytes")
   }
 }
+
+///|
+test "insert values_many renders single multi-row sql" {
+  let q = @morm.insert_into("students")
+    .columns(["id", "name"])
+    .values_many([
+      [@engine.Int(1), @engine.String("Alice")],
+      [@engine.Int(2), @engine.String("Bob")],
+    ])
+  let (sql, params) = @engine.render_default_sql(q.to_statement())
+  inspect(sql, content="INSERT INTO students (id, name) VALUES (?, ?), (?, ?)")
+  inspect(params.to_json().stringify(), content="[1,\"Alice\",2,\"Bob\"]")
+}

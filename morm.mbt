@@ -829,11 +829,12 @@ pub struct InsertQuery {
   into : String
   columns : FixedArray[String]
   values : FixedArray[@engine.Param]
+  rows : FixedArray[FixedArray[@engine.Param]]
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
 pub fn insert_into(table : String) -> InsertQuery {
-  { into: table, columns: [], values: [] }
+  { into: table, columns: [], values: [], rows: [] }
 }
 
 ///|
@@ -856,7 +857,37 @@ pub fn[E : Entity] InsertQuery::from(
   } else {
     []
   }
-  { ..self, columns, values }
+  { ..self, columns, values, rows: [] }
+}
+
+///|
+pub fn[E : Entity] InsertQuery::from_many(
+  self : InsertQuery,
+  entities : FixedArray[E],
+) -> InsertQuery {
+  if entities.is_empty() {
+    return self
+  }
+  let first = entities[0]
+  let table = first.table()
+  let columns = table.columns.map(c => c.name)
+  let rows : Array[FixedArray[@engine.Param]] = []
+  for entity in entities {
+    let json = entity.to_json()
+    if json is Object(obj) {
+      let encoded : Array[@engine.Param] = []
+      for col in table.columns {
+        match obj.get(col.name) {
+          Some(v) => encoded.push(json_to_param_for_column(v, col))
+          None => encoded.push(@engine.Null)
+        }
+      }
+      rows.push(FixedArray::from_array(encoded))
+    } else {
+      rows.push([])
+    }
+  }
+  { ..self, columns, values: [], rows: FixedArray::from_array(rows) }
 }
 
 ///|
@@ -872,12 +903,25 @@ pub fn InsertQuery::values(
   self : InsertQuery,
   values : FixedArray[@engine.Param],
 ) -> InsertQuery {
-  { ..self, values, }
+  { ..self, values, rows: [] }
+}
+
+///|
+pub fn InsertQuery::values_many(
+  self : InsertQuery,
+  rows : FixedArray[FixedArray[@engine.Param]],
+) -> InsertQuery {
+  { ..self, rows, values: [] }
 }
 
 ///|
 pub impl @engine.QueryBuilder for InsertQuery with to_statement(self) -> @engine.Statement {
-  @engine.Insert({ into: self.into, columns: self.columns, values: self.values })
+  @engine.Insert({
+    into: self.into,
+    columns: self.columns,
+    values: self.values,
+    rows: self.rows,
+  })
 }
 
 ///|
@@ -995,14 +1039,19 @@ pub fn[E : Entity] UpdateQuery::from(
   entity : E,
 ) -> UpdateQuery {
   let json = entity.to_json()
-  let values = FixedArray::from_iter(
-    if json is Object(obj) {
-      obj.map((k, v) => Set::{ col: k, value: json_to_param(v) }).values()
-    } else {
-      [].iter()
-    },
-  )
-  { ..self, sets: values }
+  let table = entity.table()
+  let sets = if json is Object(obj) {
+    let out : Array[Set] = []
+    for col in table.columns {
+      if obj.get(col.name) is Some(value) {
+        out.push({ col: col.name, value: json_to_param_for_column(value, col) })
+      }
+    }
+    FixedArray::from_array(out)
+  } else {
+    []
+  }
+  { ..self, sets, }
 }
 
 ///|

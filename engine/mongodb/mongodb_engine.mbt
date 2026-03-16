@@ -927,6 +927,19 @@ fn document_from_insert(
 }
 
 ///|
+fn documents_from_insert(
+  columns : FixedArray[String],
+  values : FixedArray[@engine.Param],
+  rows : FixedArray[FixedArray[@engine.Param]],
+) -> FixedArray[Json] {
+  if !rows.is_empty() {
+    rows.map(row => document_from_insert(columns, row))
+  } else {
+    [document_from_insert(columns, values)]
+  }
+}
+
+///|
 fn document_from_sets(sets : FixedArray[@engine.Set]) -> Json {
   let obj : Map[String, Json] = {}
   for set_ in sets {
@@ -1767,10 +1780,10 @@ async fn run_insert(
   engine : MongoDBEngine,
   stmt : @engine.InsertStatement,
 ) -> @engine.QueryResult {
-  let doc = document_from_insert(stmt.columns, stmt.values)
+  let docs = documents_from_insert(stmt.columns, stmt.values, stmt.rows)
   let reply = run_command(engine, {
     "insert": stmt.into,
-    "documents": [doc],
+    "documents": docs,
     "ordered": true,
   })
   match reply {
@@ -1912,6 +1925,23 @@ fn decode_json_param_array(value : Json) -> FixedArray[@engine.Param]? {
 }
 
 ///|
+fn decode_json_param_matrix(
+  value : Json,
+) -> FixedArray[FixedArray[@engine.Param]]? {
+  guard value is Array(items) else { return None }
+  let out : Array[FixedArray[@engine.Param]] = []
+  for item in items {
+    guard item is Array(row_items) else { return None }
+    let row : Array[@engine.Param] = []
+    for value in row_items {
+      row.push(json_to_param(value))
+    }
+    out.push(FixedArray::from_array(row))
+  }
+  Some(FixedArray::from_array(out))
+}
+
+///|
 fn decode_json_set_array(value : Json) -> FixedArray[@engine.Set]? {
   guard value is Array(items) else { return None }
   let out : Array[@engine.Set] = []
@@ -2033,7 +2063,15 @@ fn decode_statement_command(cmd : Json) -> @engine.Statement? {
       guard decode_json_param_array(values_json) is Some(values) else {
         return None
       }
-      Some(Insert({ into, columns, values }))
+      let rows = match cmd {
+        { "rows": rows_json, .. } =>
+          match decode_json_param_matrix(rows_json) {
+            Some(rows) => rows
+            None => return None
+          }
+        _ => []
+      }
+      Some(Insert({ into, columns, values, rows }))
     }
     "upsert" => {
       guard cmd

@@ -87,6 +87,17 @@ let q = @morm.insert_into("student").from(student)
 
 The entity-based path uses `ToJson` plus table metadata column order.
 
+Batch insert (single SQL with multi-row values):
+
+```moonbit
+let q = @morm.insert_into("student")
+  .columns(["id", "name"])
+  .values_many([
+    [@engine.Int(1), @engine.String("Alice")],
+    [@engine.Int(2), @engine.String("Bob")],
+  ])
+```
+
 ## Upsert
 
 Start with:

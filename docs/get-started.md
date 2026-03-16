@@ -69,16 +69,16 @@ Create `entities.mbt` and describe your models as normal structs.
 using @time {type PlainDateTime, type ZonedDateTime}
 
 ///|
-#morm.entity
+#entity
 pub(all) struct Class {
-  #morm.primary_key
-  #morm.auto_increment
+  #id
+  #default(autoincrement())
   id : Int64
 
-  #morm.varchar(length="255")
+  #varchar(length="255")
   name : String
 
-  #morm.foreign_key(references="teacher.id", on_delete="CASCADE")
+  #foreign_key(references="teacher.id", on_delete="CASCADE")
   teacher_id : Int
 
   created_at : PlainDateTime
@@ -86,13 +86,13 @@ pub(all) struct Class {
 } derive(ToJson, FromJson)
 
 ///|
-#morm.entity
+#entity
 pub(all) struct Student {
-  #morm.primary_key
-  #morm.auto_increment
+  #id
+  #default(autoincrement())
   id : Int64
 
-  #morm.varchar(length="255")
+  #varchar(length="255")
   name : String
 
   age : Int
@@ -119,10 +119,10 @@ Example:
 
 ```moonbit
 ///|
-#morm.entity
+#entity
 pub(all) struct Teacher {
-  #morm.primary_key
-  #morm.auto_increment
+  #id
+  #default(autoincrement())
   id : Int64
   name : String
   birth_date : @time.ZonedDateTime?
@@ -155,22 +155,22 @@ These are the attributes you will use most often:
 
 | Attribute | Purpose |
 | --- | --- |
-| `#morm.entity` | Marks a struct as a managed entity |
-| `#morm.primary_key` | Marks a field as the primary key |
-| `#morm.auto_increment` | Marks a field as auto-increment |
-| `#morm.varchar(length="255")` | Sets a varchar column |
-| `#morm.char(length="1")` | Sets a fixed char column |
-| `#morm.text` / `#morm.mediumtext` / `#morm.longtext` | Sets text-like columns |
-| `#morm.decimal(precision="10", scale="2")` | Sets a decimal column |
-| `#morm.boolean` | Forces boolean column type |
-| `#morm.json` / `#morm.jsonb` | Uses JSON-capable columns |
-| `#morm.date` / `#morm.time` / `#morm.datetime` / `#morm.timestamp` | Forces temporal column type |
-| `#morm.foreign_key(...)` | Adds a foreign key constraint |
-| `#morm.many_to_one(...)` | Models a relation that materializes as a foreign key column |
-| `#morm.one_to_many(...)` | Models a collection side that is not emitted as a physical column |
-| `#morm.transient` | Keeps a field on the entity only (no physical column, excluded from `from(entity)` writes) |
-| `#morm.auto_create_time` | Opts a field into generated create timestamp behavior |
-| `#morm.auto_update_time` | Opts a field into generated update timestamp behavior |
+| `#entity` | Marks a struct as a managed entity |
+| `#id` | Marks a field as the primary key |
+| `#default(autoincrement())` | Marks a field as auto-increment |
+| `#varchar(length="255")` | Sets a varchar column |
+| `#char(length="1")` | Sets a fixed char column |
+| `#text` / `#mediumtext` / `#longtext` | Sets text-like columns |
+| `#decimal(precision="10", scale="2")` | Sets a decimal column |
+| `#boolean` | Forces boolean column type |
+| `#json` / `#jsonb` | Uses JSON-capable columns |
+| `#date` / `#time` / `#datetime` / `#timestamp` | Forces temporal column type |
+| `#foreign_key(...)` | Adds a foreign key constraint |
+| `#many_to_one(...)` | Models a relation that materializes as a foreign key column |
+| `#one_to_many(...)` | Models a collection side that is not emitted as a physical column |
+| `#transient` | Keeps a field on the entity only (no physical column, excluded from `from(entity)` writes) |
+| `#auto_create_time` | Opts a field into generated create timestamp behavior |
+| `#auto_update_time` | Opts a field into generated update timestamp behavior |
 
 ## Generate Entity Code
 
@@ -190,7 +190,7 @@ Create `mapper.mbt` and describe mapper traits:
 
 ```moonbit
 ///|
-#morm.mapper(table="student")
+#mapper(table="student")
 pub trait StudentMapper {
   async find_student_by_id(Self, id : Int) -> Student?
   async find_student_by_name(Self, name : String) -> Student?
@@ -198,7 +198,7 @@ pub trait StudentMapper {
 }
 
 ///|
-#morm.mapper(table="class")
+#mapper(table="class")
 pub trait ClassMapper {
   async save(Self, entity : Class) -> Class
 }
@@ -218,7 +218,7 @@ You can bind a mapper by:
 
 ## Method Name Derivation
 
-If you omit `#morm.query`, `mormgen` derives queries from method names for common patterns:
+If you omit `#query`, `mormgen` derives queries from method names for common patterns:
 
 - `find_student_by_id`
 - `find_student_by_name`
@@ -231,13 +231,13 @@ This keeps simple read methods concise while staying explicit in generated code.
 
 ## Explicit SQL Methods
 
-When naming rules are not enough, use `#morm.query`:
+When naming rules are not enough, use `#query`:
 
 ```moonbit
 ///|
-#morm.mapper(table="enrollment")
+#mapper(table="enrollment")
 pub trait EnrollmentMapper {
-  #morm.query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
+  #query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
   async find_by_class_raw(Self, class_id : Int) -> FixedArray[Enrollment]
 }
 ```
@@ -248,8 +248,8 @@ This gives you exact SQL control while still keeping typed params and typed resu
 
 Mapper methods can also attach joins with:
 
-- `#morm.fetch_graph(join="...")`
-- `#morm.load_graph(join="...")`
+- `#fetch_graph(join="...")`
+- `#load_graph(join="...")`
 
 These are currently implemented as query builder `.join(...)` appends. They do not add a separate object graph identity map; they simply extend the SQL used for the generated method.
 
@@ -279,8 +279,8 @@ By default:
 
 If you want custom field names, add:
 
-- `#morm.auto_create_time`
-- `#morm.auto_update_time`
+- `#auto_create_time`
+- `#auto_update_time`
 
 Supported generated values:
 
@@ -291,15 +291,15 @@ Example:
 
 ```moonbit
 ///|
-#morm.entity
+#entity
 pub(all) struct AuditLog {
-  #morm.primary_key
+  #id
   id : Int64
 
-  #morm.auto_create_time
+  #auto_create_time
   inserted_on : @time.PlainDateTime
 
-  #morm.auto_update_time
+  #auto_update_time
   touched_on : @time.PlainDateTime
 } derive(ToJson, FromJson)
 ```
