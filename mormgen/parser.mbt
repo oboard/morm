@@ -316,6 +316,16 @@ fn recover_attr_raw(
 ///|
 /// 从方法名提取 `_by_` 后面的条件字段
 fn derive_method_condition_fields(method_name : String) -> Array[String] {
+  let split_fields = fn(part : String) -> Array[String] {
+    let fields : Array[String] = []
+    for field in part.split("_and_") {
+      if field != "" {
+        fields.push(field.to_string())
+      }
+    }
+    fields
+  }
+
   let mut condition_part = ""
 
   if method_name.strip_prefix("find_") is Some(rest) {
@@ -332,17 +342,43 @@ fn derive_method_condition_fields(method_name : String) -> Array[String] {
     } else if rest.strip_prefix("by_") is Some(by_rest) {
       condition_part = by_rest.to_string()
     }
+  } else if method_name.strip_prefix("delete_by_") is Some(rest) {
+    condition_part = rest.to_string()
+  } else if method_name.strip_prefix("update_") is Some(rest) {
+    let parts = rest.split("_by_").collect()
+    if parts.length() >= 2 {
+      condition_part = parts[1].to_string()
+    }
   }
 
   if condition_part == "" {
     return []
   }
+  split_fields(condition_part)
+}
 
-  let fields : Array[String] = []
-  for field in condition_part.split("_and_") {
-    fields.push(field.to_string())
+///|
+fn derive_update_method_fields(
+  method_name : String,
+) -> (Array[String], Array[String]) {
+  let split_fields = fn(part : String) -> Array[String] {
+    let fields : Array[String] = []
+    for field in part.split("_and_") {
+      if field != "" {
+        fields.push(field.to_string())
+      }
+    }
+    fields
   }
-  fields
+  if method_name.strip_prefix("update_") is Some(rest) {
+    let parts = rest.split("_by_").collect()
+    if parts.length() >= 2 {
+      let set_fields = split_fields(parts[0].to_string())
+      let where_fields = split_fields(parts[1].to_string())
+      return (set_fields, where_fields)
+    }
+  }
+  ([], [])
 }
 
 ///|
@@ -356,6 +392,14 @@ fn infer_mapper_param_names(method_name : String, count : Int) -> Array[String] 
 
   if method_name is ("save" | "update" | "delete") {
     inferred.push("entity")
+  } else if method_name.has_prefix("update_") {
+    let (set_fields, where_fields) = derive_update_method_fields(method_name)
+    for field in set_fields {
+      inferred.push(field)
+    }
+    for field in where_fields {
+      inferred.push(field)
+    }
   } else {
     for field in derive_method_condition_fields(method_name) {
       inferred.push(field.to_string())
@@ -403,6 +447,30 @@ fn derive_builder_code(
   // 识别动作并提取 by 条件片段（与 entity 解耦）
   if method_name is ("find_all" | "all") {
     return Some("@morm.select_from(\{table_expr})")
+  }
+
+  if method_name.strip_prefix("delete_by_") is Some(_) {
+    let fields = derive_method_condition_fields(method_name)
+    if fields.length() == 0 {
+      return None
+    }
+    let wheres_arr : Array[String] = []
+    fields.each(f => wheres_arr.push(".where_eq(\"\{f}\", \{f})"))
+    return Some("@morm.delete_from(\{table_expr})" + wheres_arr.join(""))
+  }
+
+  if method_name.has_prefix("update_") {
+    let (set_fields, where_fields) = derive_update_method_fields(method_name)
+    if set_fields.length() == 0 || where_fields.length() == 0 {
+      return None
+    }
+    let sets_arr : Array[String] = []
+    set_fields.each(f => sets_arr.push(".set(\"\{f}\", \{f})"))
+    let wheres_arr : Array[String] = []
+    where_fields.each(f => wheres_arr.push(".where_eq(\"\{f}\", \{f})"))
+    return Some(
+      "@morm.update(\{table_expr})" + sets_arr.join("") + wheres_arr.join(""),
+    )
   }
 
   let fields = derive_method_condition_fields(method_name)

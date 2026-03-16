@@ -632,6 +632,61 @@ fn find_entity_spec_by_table(
 }
 
 ///|
+fn field_has_orm_attr_name(field : FieldSpec, attr_name : String) -> Bool {
+  for attr in collect_orm_attributes(field.attrs) {
+    if attr.name == attr_name {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn field_is_primary_key_for_codegen(field : FieldSpec) -> Bool {
+  field.label == "id" ||
+  field_has_orm_attr_name(field, "#morm.id") ||
+  field_has_orm_attr_name(field, "#morm.primary_key")
+}
+
+///|
+fn field_is_relation_or_virtual_for_codegen(field : FieldSpec) -> Bool {
+  field_has_orm_attr_name(field, "#morm.one_to_many") ||
+  field_has_orm_attr_name(field, "#morm.many_to_one") ||
+  field_has_orm_attr_name(field, "#morm.transient")
+}
+
+///|
+fn render_partial_update_expr(
+  table_expr : String,
+  entity_spec : EntitySpec,
+) -> String? {
+  let set_fields : Array[String] = []
+  let where_fields : Array[String] = []
+  for field in entity_spec.fields {
+    if field_is_relation_or_virtual_for_codegen(field) {
+      continue
+    }
+    if field_is_primary_key_for_codegen(field) {
+      where_fields.push(field.label)
+    } else {
+      set_fields.push(field.label)
+    }
+  }
+  if set_fields.length() == 0 || where_fields.length() == 0 {
+    return None
+  }
+  let parts : Array[String] = []
+  parts.push("@morm.update(\{table_expr})")
+  for label in set_fields {
+    parts.push(".set(\"\{label}\", entity.\{label})")
+  }
+  for label in where_fields {
+    parts.push(".where_eq(\"\{label}\", entity.\{label})")
+  }
+  Some(parts.join(""))
+}
+
+///|
 fn fixed_array_inner_type(type_name : String) -> String? {
   if type_name.strip_prefix("FixedArray[") is Some(rest) && rest.has_suffix("]") {
     let n = rest.length()
@@ -992,10 +1047,18 @@ fn generate_mapper_code(
       } else {
         ""
       }
+      let partial_update_code = match update_entity_spec {
+        Some(update_spec) => render_partial_update_expr(table_expr, update_spec)
+        None => None
+      }
+      let update_query_expr = match partial_update_code {
+        Some(code) => code
+        None => "@morm.update(\{table_expr}).from(entity)"
+      }
       if ret_type == "Bool" {
         (
           $|\{auto_stamp_code}
-          $|   let q = @morm.update(\{table_expr}).from(entity)
+          $|   let q = \{update_query_expr}
           $|   @engine.exec_query(self.engine, q).ok
           $| }
           $|
@@ -1003,7 +1066,7 @@ fn generate_mapper_code(
       } else if m.returns_option {
         (
           $|\{auto_stamp_code}
-          $|   let q = @morm.update(\{table_expr}).from(entity)
+          $|   let q = \{update_query_expr}
           $|   let res = @engine.exec_query(self.engine, q)
           $|   if res.rows is [result, ..] {
           $|     return Some(\{option_decode_expr})
@@ -1015,7 +1078,7 @@ fn generate_mapper_code(
       } else {
         (
           $|\{auto_stamp_code}
-          $|   let q = @morm.update(\{table_expr}).from(entity)
+          $|   let q = \{update_query_expr}
           $|   let res = @engine.exec_query(self.engine, q)
           $|   if res.rows is [result, ..] {
           $|     return \{value_decode_expr}
@@ -1047,7 +1110,20 @@ fn generate_mapper_code(
         Some(_) =>
           match builder_code_with_fetch {
             Some(code) =>
-              if m.returns_array {
+              if ret_type == "Bool" &&
+                (
+                  code.has_prefix("@morm.update(") ||
+                  code.has_prefix("@morm.delete_from(") ||
+                  code.has_prefix("@morm.insert_into(") ||
+                  code.has_prefix("@morm.upsert_into(")
+                ) {
+                (
+                  $|   let q = \{code}
+                  $|   @engine.exec_query(self.engine, q).ok
+                  $| }
+                  $|
+                )
+              } else if m.returns_array {
                 (
                   $|   let q = \{code}
                   $|   @engine.exec_query(self.engine, q).rows.map(row => \{array_decode_expr})
@@ -1081,7 +1157,13 @@ fn generate_mapper_code(
           }
         None => {
           let sql = m.sql.unwrap()
-          if m.returns_array {
+          if ret_type == "Bool" {
+            (
+              $|   self.engine.exec_raw("\{sql}", \{query_args}).ok
+              $| }
+              $|
+            )
+          } else if m.returns_array {
             (
               $|   self.engine.exec_raw("\{sql}", \{query_args}).rows.map(row => \{array_decode_expr})
               $| }

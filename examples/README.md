@@ -10,7 +10,7 @@ moon run examples/basic
 moon run examples/exec_raw
 moon run examples/preload
 moon run examples/mapper
-moon run examples/crud_codegen
+moon run examples/curd
 ```
 
 ## Packages
@@ -20,11 +20,12 @@ moon run examples/crud_codegen
 - `exec_raw`: use `exec_raw` with bound params and print query output.
 - `preload`: preload `belongs_to`, `has_many`, and `many_to_many` maps.
 - `mapper`: mormgen-based mapper flow (`schema.mbt` -> `generated.mbt` -> runtime call).
-- `crud_codegen`: complete CRUD with generated `save/find/update/delete` mapper methods.
+- `curd`: complete CRUD with generated `save/find/update/delete` mapper methods.
 
 To regenerate mapper code:
 
 ```bash
 moon run mormgen -- examples/mapper/schema.mbt -o examples/mapper/generated.mbt
-moon run mormgen -- examples/crud_codegen/schema.mbt -o examples/crud_codegen/generated.mbt
+moon run mormgen -- examples/curd/user.mbt -o examples/curd/user.g.mbt
+moon run mormgen -- examples/curd/user_mapper.mbt -o examples/curd/user_mapper.g.mbt
 ```
