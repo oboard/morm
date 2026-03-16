@@ -225,25 +225,17 @@ fn lenenc_int(data : Bytes, pos : Int) -> (Int, Int)? {
   let first = data[pos].to_int()
   if first < 0xfb {
     Some((first, pos + 1))
-  } else if first == 0xfc {
-    if pos + 2 >= data.length() {
-      None
-    } else {
-      Some((data[pos + 1].to_int() | (data[pos + 2].to_int() << 8), pos + 3))
-    }
-  } else if first == 0xfd {
-    if pos + 3 >= data.length() {
-      None
-    } else {
-      Some(
-        (
-          data[pos + 1].to_int() |
-          (data[pos + 2].to_int() << 8) |
-          (data[pos + 3].to_int() << 16),
-          pos + 4,
-        ),
-      )
-    }
+  } else if first == 0xfc && pos + 2 < data.length() {
+    Some((data[pos + 1].to_int() | (data[pos + 2].to_int() << 8), pos + 3))
+  } else if first == 0xfd && pos + 3 < data.length() {
+    Some(
+      (
+        data[pos + 1].to_int() |
+        (data[pos + 2].to_int() << 8) |
+        (data[pos + 3].to_int() << 16),
+        pos + 4,
+      ),
+    )
   } else {
     None
   }
@@ -788,10 +780,10 @@ async fn mysql_exec_sql(
   engine : MySQLEngine,
   sql : String,
 ) -> @engine.QueryResult {
+  if mysql_is_tx_begin(sql) && engine.tx_conn is Some(_) {
+    return fail("mysql transaction already active")
+  }
   if mysql_is_tx_begin(sql) {
-    if engine.tx_conn is Some(_) {
-      return fail("mysql transaction already active")
-    }
     let conn = match engine.pool.borrow(() => mysql_query_async(engine)) {
       Ok(conn) => conn
       Err(err) => return fail(err)

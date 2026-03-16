@@ -517,10 +517,10 @@ fn pg_is_tx_rollback(sql : String) -> Bool {
 
 ///|
 async fn pg_exec_sql(engine : PgSQLEngine, sql : String) -> @engine.QueryResult {
+  if pg_is_tx_begin(sql) && engine.tx_conn is Some(_) {
+    return fail("pgsql transaction already active")
+  }
   if pg_is_tx_begin(sql) {
-    if engine.tx_conn is Some(_) {
-      return fail("pgsql transaction already active")
-    }
     let conn = match engine.pool.borrow(() => open_pg_connection(engine)) {
       Ok(conn) => conn
       Err(err) => return fail(err)
@@ -699,11 +699,7 @@ fn pg_column_def(col_json : Json) -> String {
     let unique = schema_get_bool(obj, "unique", false)
     let default_value = schema_get_string(obj, "default_value", "")
     if auto_increment {
-      if col_type == "BIGINT" {
-        col_type = "BIGSERIAL"
-      } else {
-        col_type = "SERIAL"
-      }
+      col_type = if col_type == "BIGINT" { "BIGSERIAL" } else { "SERIAL" }
     }
     let mut sql = "\{name} \{col_type}"
     if !nullable && !auto_increment {

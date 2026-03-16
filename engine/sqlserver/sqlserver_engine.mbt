@@ -737,23 +737,18 @@ fn schema_has_engine_option_true(obj : Map[String, Json], key : String) -> Bool 
 ///|
 fn sqlserver_table_name(obj : Map[String, Json], name : String) -> String {
   if schema_get_bool(obj, "temporary", false) {
-    if name.strip_prefix("#") is Some(_) {
-      name
-    } else {
-      "#" + name
-    }
+    return if name.strip_prefix("#") is Some(_) { name } else { "#" + name }
+  }
+  let schema = schema_get_string(obj, "schema", "")
+  let catalog = schema_get_string(obj, "catalog", "")
+  if catalog != "" && schema != "" {
+    "\{catalog}.\{schema}.\{name}"
+  } else if schema != "" {
+    "\{schema}.\{name}"
+  } else if catalog != "" {
+    "\{catalog}.\{name}"
   } else {
-    let schema = schema_get_string(obj, "schema", "")
-    let catalog = schema_get_string(obj, "catalog", "")
-    if catalog != "" && schema != "" {
-      "\{catalog}.\{schema}.\{name}"
-    } else if schema != "" {
-      "\{schema}.\{name}"
-    } else if catalog != "" {
-      "\{catalog}.\{name}"
-    } else {
-      name
-    }
+    name
   }
 }
 
