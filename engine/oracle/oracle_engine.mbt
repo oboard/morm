@@ -242,6 +242,25 @@ fn oracle_json_storage_type(column : @table.Column) -> String {
 }
 
 ///|
+fn oracle_pk_strategy_default(column : @table.Column) -> String? {
+  if !column.primary_key || column.auto_increment {
+    return None
+  }
+  match oracle_column_engine_option(column, "pk.strategy", "") {
+    "uuid" => Some("SYS_GUID()")
+    _ => None
+  }
+}
+
+///|
+fn oracle_column_default_expr(column : @table.Column) -> String? {
+  if column.default_value is Some(v) {
+    return Some(v)
+  }
+  oracle_pk_strategy_default(column)
+}
+
+///|
 fn oracle_column_def(column : @table.Column) -> String {
   if column.name == "" {
     return ""
@@ -250,7 +269,7 @@ fn oracle_column_def(column : @table.Column) -> String {
     @table.Json | @table.JsonB => oracle_json_storage_type(column)
     _ => oracle_type_from_column_type(column.column_type)
   }
-  let default_value = column.default_value.unwrap_or("")
+  let default_value = oracle_column_default_expr(column).unwrap_or("")
   let bool_default = if default_value.to_lower() == "true" {
     "1"
   } else if default_value.to_lower() == "false" {

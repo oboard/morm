@@ -118,11 +118,30 @@ fn sqlite_json_storage_type(column : @table.Column) -> String {
 }
 
 ///|
+fn sqlite_pk_strategy_default(column : @table.Column) -> String? {
+  if !column.primary_key || column.auto_increment {
+    return None
+  }
+  match sqlite_column_engine_option(column, "pk.strategy", "") {
+    "uuid" => Some("lower(hex(randomblob(16)))")
+    _ => None
+  }
+}
+
+///|
+fn sqlite_column_default_expr(column : @table.Column) -> String? {
+  if column.default_value is Some(v) {
+    return Some(v)
+  }
+  sqlite_pk_strategy_default(column)
+}
+
+///|
 fn render_column_def(column : @table.Column) -> String {
   if column.name == "" {
     return ""
   }
-  let default_value = column.default_value.unwrap_or("")
+  let default_value = sqlite_column_default_expr(column).unwrap_or("")
   let col_type = match column.column_type {
     @table.Json | @table.JsonB => sqlite_json_storage_type(column)
     _ => sqlite_col_type(column.column_type)

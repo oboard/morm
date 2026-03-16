@@ -904,6 +904,25 @@ fn mysql_json_storage_type(column : @table.Column) -> String {
 }
 
 ///|
+fn mysql_pk_strategy_default(column : @table.Column) -> String? {
+  if !column.primary_key || column.auto_increment {
+    return None
+  }
+  match mysql_column_engine_option(column, "pk.strategy", "") {
+    "uuid" => Some("UUID()")
+    _ => None
+  }
+}
+
+///|
+fn mysql_column_default_expr(column : @table.Column) -> String? {
+  if column.default_value is Some(v) {
+    return Some(v)
+  }
+  mysql_pk_strategy_default(column)
+}
+
+///|
 fn mysql_column_def(column : @table.Column) -> String {
   if column.name == "" {
     return ""
@@ -912,7 +931,7 @@ fn mysql_column_def(column : @table.Column) -> String {
     @table.Json | @table.JsonB => mysql_json_storage_type(column)
     _ => mysql_type_from_column_type(column.column_type)
   }
-  let default_value = column.default_value.unwrap_or("")
+  let default_value = mysql_column_default_expr(column).unwrap_or("")
   let buf = @buffer.new()
   buf.write_string(column.name)
   buf.write_string(" ")

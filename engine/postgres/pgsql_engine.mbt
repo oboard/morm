@@ -643,6 +643,25 @@ fn pg_json_storage_type(column : @table.Column, default_jsonb : Bool) -> String 
 }
 
 ///|
+fn pg_pk_strategy_default(column : @table.Column) -> String? {
+  if !column.primary_key || column.auto_increment {
+    return None
+  }
+  match pg_column_engine_option(column, "pk.strategy", "") {
+    "uuid" => Some("gen_random_uuid()")
+    _ => None
+  }
+}
+
+///|
+fn pg_column_default_expr(column : @table.Column) -> String? {
+  if column.default_value is Some(v) {
+    return Some(v)
+  }
+  pg_pk_strategy_default(column)
+}
+
+///|
 fn pg_column_def(column : @table.Column) -> String {
   if column.name == "" {
     return ""
@@ -652,7 +671,7 @@ fn pg_column_def(column : @table.Column) -> String {
     @table.JsonB => pg_json_storage_type(column, true)
     _ => pg_type_from_column_type(column.column_type)
   }
-  let default_value = column.default_value.unwrap_or("")
+  let default_value = pg_column_default_expr(column).unwrap_or("")
   if column.auto_increment {
     col_type = if col_type == "BIGINT" { "BIGSERIAL" } else { "SERIAL" }
   }

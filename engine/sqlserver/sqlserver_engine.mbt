@@ -769,6 +769,25 @@ fn sqlserver_json_storage_type(column : @table.Column) -> String {
 }
 
 ///|
+fn sqlserver_pk_strategy_default(column : @table.Column) -> String? {
+  if !column.primary_key || column.auto_increment {
+    return None
+  }
+  match sqlserver_column_engine_option(column, "pk.strategy", "") {
+    "uuid" => Some("NEWID()")
+    _ => None
+  }
+}
+
+///|
+fn sqlserver_column_default_expr(column : @table.Column) -> String? {
+  if column.default_value is Some(v) {
+    return Some(v)
+  }
+  sqlserver_pk_strategy_default(column)
+}
+
+///|
 fn sqlserver_column_def(column : @table.Column) -> String {
   if column.name == "" {
     return ""
@@ -777,7 +796,7 @@ fn sqlserver_column_def(column : @table.Column) -> String {
     @table.Json | @table.JsonB => sqlserver_json_storage_type(column)
     _ => sqlserver_type_from_column_type(column.column_type)
   }
-  let default_value = column.default_value.unwrap_or("")
+  let default_value = sqlserver_column_default_expr(column).unwrap_or("")
   let bool_default = if default_value.to_lower() == "true" {
     "1"
   } else if default_value.to_lower() == "false" {
