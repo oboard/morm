@@ -1,6 +1,5 @@
 ///|
 test "transient field is not emitted as table column" {
-  let path = "/tmp/mormgen_transient_" + @env.now().to_string() + ".mbt"
   let source =
     #|///|
     #|#morm.entity
@@ -11,8 +10,7 @@ test "transient field is not emitted as table column" {
     #|  #morm.transient
     #|  display_name : String?
     #|} derive(ToJson, FromJson)
-  @fs.write_string_to_file(path, source, encoding="utf8")
-  let (ast, _) = @parser.parse_file(path)
+  let (ast, _) = @parser.parse_string(source)
   let specs = parse_entities_from_ast(ast)
   let table = transform_entity_to_table(specs[0], source)
   inspect(table.columns.length(), content="2")
@@ -32,7 +30,6 @@ fn column_option_value(col : @morm.Column, key : String) -> String? {
 
 ///|
 test "primary key strategy annotation is emitted to engine options" {
-  let path = "/tmp/mormgen_pk_strategy_" + @env.now().to_string() + ".mbt"
   let source =
     #|///|
     #|#morm.entity
@@ -41,8 +38,7 @@ test "primary key strategy annotation is emitted to engine options" {
     #|  id : String
     #|  name : String
     #|} derive(ToJson, FromJson)
-  @fs.write_string_to_file(path, source, encoding="utf8")
-  let (ast, _) = @parser.parse_file(path)
+  let (ast, _) = @parser.parse_string(source)
   let specs = parse_entities_from_ast(ast)
   let table = transform_entity_to_table(specs[0], source)
   inspect(table.columns[0].primary_key, content="true")
@@ -55,7 +51,6 @@ test "primary key strategy annotation is emitted to engine options" {
 
 ///|
 test "auto_increment strategy keeps auto increment behavior" {
-  let path = "/tmp/mormgen_pk_strategy_ai_" + @env.now().to_string() + ".mbt"
   let source =
     #|///|
     #|#morm.entity
@@ -63,8 +58,7 @@ test "auto_increment strategy keeps auto increment behavior" {
     #|  #morm.id(strategy="auto_increment")
     #|  id : Int64
     #|} derive(ToJson, FromJson)
-  @fs.write_string_to_file(path, source, encoding="utf8")
-  let (ast, _) = @parser.parse_file(path)
+  let (ast, _) = @parser.parse_string(source)
   let specs = parse_entities_from_ast(ast)
   let table = transform_entity_to_table(specs[0], source)
   inspect(table.columns[0].primary_key, content="true")
@@ -77,7 +71,6 @@ test "auto_increment strategy keeps auto increment behavior" {
 
 ///|
 test "default expression literals are preserved by field type" {
-  let path = "/tmp/mormgen_default_expr_" + @env.now().to_string() + ".mbt"
   let source =
     #|///|
     #|#morm.entity
@@ -94,8 +87,7 @@ test "default expression literals are preserved by field type" {
     #|  #morm.default(false)
     #|  published : Bool
     #|} derive(ToJson, FromJson)
-  @fs.write_string_to_file(path, source, encoding="utf8")
-  let (ast, _) = @parser.parse_file(path)
+  let (ast, _) = @parser.parse_string(source)
   let specs = parse_entities_from_ast(ast)
   let table = transform_entity_to_table(specs[0], source)
   inspect(table.columns[0].auto_increment, content="true")
