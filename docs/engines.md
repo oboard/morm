@@ -41,6 +41,17 @@ Each engine adapts:
 For network engines, connection reuse is also engine-owned but built on top of a shared pool core.
 See [Connection Pooling](./connection-pooling.md).
 
+## Engine Guides
+
+Read the dedicated pages for implementation details and operational guidance:
+
+- [SQLite Engine](./engine-sqlite.md)
+- [MySQL Engine](./engine-mysql.md)
+- [PostgreSQL Engine](./engine-postgresql.md)
+- [SQL Server Engine](./engine-sqlserver.md)
+- [Oracle Engine](./engine-oracle.md)
+- [MongoDB Engine](./engine-mongodb.md)
+
 ## Shared Execution Path
 
 The common execution helper is:
