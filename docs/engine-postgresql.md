@@ -4,15 +4,15 @@ outline: deep
 
 # PostgreSQL Engine
 
-PostgreSQL 引擎适合对标准一致性、扩展能力和复杂查询有要求的场景。
+PostgreSQL is ideal when you need strong consistency, rich SQL features, and advanced data modeling capabilities.
 
-## Package
+## Package Import
 
 ```moonbit
 using @oboard/morm/engine/postgres as @pgsql
 ```
 
-## DSN 与连接
+## DSN and Connection
 
 ```moonbit
 let engine = match
@@ -22,23 +22,46 @@ let engine = match
 }
 ```
 
-## 占位符与参数
+For production, use dedicated users and explicit SSL settings that match your environment.
 
-- 使用 `$1`, `$2`, `$3` 风格占位符
-- 参数类型保持 `@engine.Param` 的语义化绑定
+## Placeholders and Parameters
 
-## 事务行为
+- Uses `$1`, `$2`, `$3` positional placeholders
+- Parameter values are represented via `@engine.Param`
+- Safe parameter binding avoids SQL injection from dynamic values
 
-- 支持事务、保存点与回滚到保存点
-- 适合复杂业务事务拆分与组合
+## Transactions and Savepoints
 
-## 迁移特性
+- Supports full transaction lifecycle
+- Supports savepoints and rollback-to-savepoint
+- Well suited for complex multi-step business operations
 
-- 支持 `migrate_table` 自动处理常见 DDL
-- JSON / JSONB、时间列等能力可在 schema 中明确声明
+## Migration Behavior
 
-## 使用建议
+- `migrate_table` handles common schema management operations
+- `@morm.auto_migrate` can apply table metadata-driven updates
+- Engine-specific advanced DDL should remain explicit migration SQL
 
-- 对 JSON 查询较多时优先使用 JSONB 列
-- 对审计或时间线查询，建议配合 `timestamp` 与索引设计
-- 复杂 SQL 可以通过 `exec_raw` 与查询构建混合使用
+## JSON and Time Recommendations
+
+- Prefer JSONB for high-frequency JSON querying
+- Make timezone handling explicit for timestamp-heavy domains
+- Index filtering and join columns early for predictable plans
+
+## Performance Notes
+
+- Excellent for analytical joins and transactional services
+- Validate query plans with `EXPLAIN` before shipping heavy queries
+- Keep lock scope small in high-contention write paths
+
+## Security Practices
+
+- use least-privilege users and schema separation
+- enforce TLS for remote network paths
+- bind all runtime values as parameters
+
+## Troubleshooting
+
+- slow JSON filters: add GIN/BTREE indexes based on access pattern
+- lock contention: reduce long transactions and tune statement order
+- migration mismatch: diff metadata and live schema before production migration

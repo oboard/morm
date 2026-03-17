@@ -4,15 +4,15 @@ outline: deep
 
 # MongoDB Engine
 
-MongoDB 引擎既支持通过统一 `Engine` 接口执行语句，也支持原生文档客户端能力。
+MongoDB in `morm` supports both the unified `Engine` abstraction and document-native workflows for teams that need schema flexibility and JSON-first data operations.
 
-## Package
+## Package Import
 
 ```moonbit
 using @oboard/morm/engine/mongodb as @mongodb
 ```
 
-## DSN 与连接
+## DSN and Connection
 
 ```moonbit
 let engine = match
@@ -22,32 +22,59 @@ let engine = match
 }
 ```
 
-## 执行模型
+Common DSN pattern:
 
-- `exec_raw` 接收语句或命令并返回统一 `QueryResult`
-- 文档结果以 JSON 结构返回，便于直接映射到业务结构
-- 对 BSON 字段可与 `@oboard/morm/bson` 配合处理
+```text
+mongodb://<host>:<port>/<database>
+```
 
-## 事务与一致性
+## Execution Model
 
-- 事务相关语义通过引擎统一接口暴露
-- 实际可用能力取决于 MongoDB 部署模式与版本配置
+- `exec_raw` provides a unified execution entrypoint with `QueryResult`
+- Document query results are returned in JSON-friendly shapes
+- BSON values can be processed with `@oboard/morm/bson`
 
-## 迁移特性
+## Engine and Native Capability Boundary
 
-- 支持表结构元数据接入统一迁移流程
-- 文档数据库下的演进通常结合应用层版本化策略进行
+Use the shared engine contract when you want consistent behavior across SQL and MongoDB backends.  
+Use MongoDB-native APIs for advanced document operations such as pipeline-heavy aggregations or command-specific control.
 
-## 原生客户端能力
+## Transactions and Consistency
 
-除了统一 ORM 接口外，还可以使用 MongoDB 专属能力，详见：
+- Transaction semantics are exposed through the shared engine interface
+- Availability depends on deployment mode and MongoDB server capabilities
+- Keep consistency assumptions explicit in application-layer workflows
 
-- [MongoDB Client](./mongodb-client.md)
+## Schema Evolution
 
-该页面覆盖聚合、distinct、计数、findOneAndUpdate 等文档场景常用能力。
+- `morm` can route metadata-driven migration flow through the common API
+- In document stores, evolution is usually versioned in application logic
+- Prefer additive, backward-compatible field evolution in live systems
 
-## 使用建议
+## Data Modeling Recommendations
 
-- 文档结构变更建议使用渐进兼容策略
-- 对高频查询字段建立索引并持续观察执行计划
-- 明确 `_id` 与业务唯一键的职责边界
+- define clear ownership between `_id` and business unique keys
+- index frequently filtered and sorted fields
+- avoid deeply unbounded nested documents for hot paths
+
+## Performance Notes
+
+- aggregate pipelines should be tested with realistic production-like data volume
+- large document updates can become write-amplified; keep update scope focused
+- monitor query plans and index usage continuously
+
+## Security Practices
+
+- use dedicated least-privilege users
+- enforce authentication and network isolation
+- avoid passing unchecked user expressions directly to raw query commands
+
+## Troubleshooting
+
+- missing index symptoms: high latency on filter-heavy queries
+- transaction limitations: verify deployment topology and server feature support
+- migration mismatch: treat document schema changes as staged app-level transitions
+
+## Related Documentation
+
+- MongoDB native client usage: [MongoDB Client](./mongodb-client.md)

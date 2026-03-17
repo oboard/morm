@@ -4,48 +4,85 @@ outline: deep
 
 # SQLite Engine
 
-SQLite 引擎适合本地开发、单机工具和测试场景，部署简单、依赖最少。
+SQLite is the simplest engine in `morm`: zero network setup, instant startup, and excellent ergonomics for local development, CI, and small single-node deployments.
 
-## Package
+## Package Import
 
 ```moonbit
 using @oboard/morm/engine/sqlite3 as @sqlite3
 ```
 
-## DSN 与连接
+## Connection Modes
 
-- 内存数据库：`:memory:`
-- 文件数据库：`/absolute/path/to/app.db`
+- In-memory database: `:memory:`
+- File-backed database: `/absolute/path/to/app.db`
 
 ```moonbit
 let engine = @sqlite3.SQLiteEngine::open(":memory:")
 ```
 
-## 占位符与参数
+Use file-backed mode for persistent local apps and tests that need state between process runs.
 
-- 使用 `?` 占位符
-- 参数按顺序绑定
+## Parameter Binding and Placeholders
+
+- Uses `?` placeholders
+- Binds parameters in positional order
+- Works with the shared `@engine.Param` value model
 
 ```moonbit
-let res = engine.exec_raw(
+let create_res = engine.exec_raw(
+  "CREATE TABLE user (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+  [],
+)
+let query_res = engine.exec_raw(
   "SELECT * FROM user WHERE id = ?",
   [@engine.Int(1)],
 )
 ```
 
-## 事务行为
+## Transactions
 
-- 支持标准事务与保存点
-- 事务语义由 SQLite 原生能力决定
-- 测试与本地调试时推荐优先使用 SQLite 验证查询逻辑
+SQLite engine supports standard transaction helpers through the common engine interface:
 
-## 迁移特性
+- `tx_begin`
+- `tx_commit`
+- `tx_rollback`
+- savepoints for nested transactional workflows
 
-- 支持 `migrate_table` 与 `@morm.auto_migrate`
-- 对列变更与索引更新的处理遵循 SQLite DDL 能力边界
+For high write concurrency, remember SQLite locking behavior is file-based and differs from server databases.
 
-## 使用建议
+## Migration Behavior
 
-- 单进程应用可直接使用
-- 多进程并发写场景建议评估锁竞争
-- 生产环境如需高并发写入，优先考虑 MySQL 或 PostgreSQL
+SQLite supports `migrate_table` and `@morm.auto_migrate`, but DDL capabilities are still constrained by SQLite itself.
+
+Practical guidance:
+
+- Table creation and additive schema changes are straightforward
+- Complex column rewrites may require manual migration SQL
+- Keep migration steps explicit in production rollouts
+
+## Performance Notes
+
+- Very fast for local and embedded workloads
+- Minimal operational overhead
+- Not ideal for heavy multi-process write traffic
+
+## Recommended Use Cases
+
+- Local development and test suites
+- CLI and desktop applications
+- Lightweight internal tools
+
+## When to Choose Another Engine
+
+Consider MySQL or PostgreSQL if you need:
+
+- sustained concurrent writes across many workers
+- stronger server-side operational controls
+- larger-scale production replication strategies
+
+## Troubleshooting
+
+- `database is locked`: reduce long write transactions and retry safely
+- data not persisted: switch from `:memory:` to file-backed path
+- migration mismatch: inspect generated table metadata and run controlled manual SQL for edge cases

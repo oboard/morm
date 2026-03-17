@@ -4,15 +4,15 @@ outline: deep
 
 # MySQL Engine
 
-MySQL 引擎面向典型 OLTP 场景，兼顾性能与运维生态。
+MySQL is a strong default for transactional web services, with broad tooling support and predictable operational behavior.
 
-## Package
+## Package Import
 
 ```moonbit
 using @oboard/morm/engine/mysql as @mysql
 ```
 
-## DSN 与连接
+## DSN and Connection
 
 ```moonbit
 let engine = match
@@ -22,23 +22,46 @@ let engine = match
 }
 ```
 
-## 占位符与参数
+Use dedicated application credentials instead of root in production.
 
-- 使用 `?` 占位符
-- 参数顺序必须与 SQL 中占位符顺序一致
+## Placeholders and Parameters
 
-## 事务行为
+- Uses `?` placeholders
+- Parameter order must match placeholder position
+- Parameter values flow through `@engine.Param`
 
-- 支持 `BEGIN` / `COMMIT` / `ROLLBACK`
-- 事务期间连接会保持绑定，避免跨连接状态不一致
+## Transactions
 
-## 迁移特性
+- Supports `BEGIN` / `COMMIT` / `ROLLBACK`
+- Connection pinning during transaction helps preserve state consistency
+- Suitable for mixed reads/writes in service-style workloads
 
-- `migrate_table` 支持自动建表与常见列定义同步
-- 复杂索引与引擎级参数建议在迁移后追加定制 SQL
+## Migration Behavior
 
-## 使用建议
+- `migrate_table` handles common schema creation and sync flows
+- `@morm.auto_migrate` can bootstrap service startup schema steps
+- Keep complex online schema changes as explicit migration SQL
 
-- 字符集建议统一 UTF-8（utf8mb4）
-- 时间类型建议结合 `@morm/time` 明确应用层时区语义
-- 线上连接数建议配合连接池参数按并发规模配置
+## Operational Recommendations
+
+- Prefer `utf8mb4` and a consistent collation strategy
+- Keep timezone semantics explicit at application boundaries
+- Tune pool size based on worker count and DB capacity
+
+## Performance and Scaling Notes
+
+- Works well for high-throughput OLTP with proper indexing
+- Validate query plans for large joins and frequent filters
+- Keep transactions short to reduce lock contention
+
+## Security Practices
+
+- Use least-privilege DB users
+- Enforce TLS where network boundaries require it
+- Avoid string-concatenated SQL, always bind params
+
+## Troubleshooting
+
+- deadlocks under load: add retries and reduce transaction scope
+- encoding issues: verify database/table/connection charset alignment
+- migration drift: compare generated table metadata with actual schema before rollout

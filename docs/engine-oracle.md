@@ -4,15 +4,15 @@ outline: deep
 
 # Oracle Engine
 
-Oracle 引擎适合已有 Oracle 数据资产、对企业级稳定性和生态依赖较强的场景。
+Oracle is designed for environments with established enterprise-grade Oracle operations, strict governance, and long-lived mission-critical systems.
 
-## Package
+## Package Import
 
 ```moonbit
 using @oboard/morm/engine/oracle as @oracle
 ```
 
-## DSN 与连接
+## DSN and Connection
 
 ```moonbit
 let engine = match
@@ -22,23 +22,40 @@ let engine = match
 }
 ```
 
-## 占位符与参数
+Use dedicated application users and avoid administrative accounts in normal runtime paths.
 
-- 使用 Oracle 兼容的参数渲染策略
-- 参数统一走 `@engine.Param`，避免字符串拼接注入风险
+## Parameter Handling
 
-## 事务行为
+- Oracle-compatible rendering strategy is handled by the engine
+- All values use typed `@engine.Param` binding
+- Runtime values should never be inlined into SQL strings
 
-- 支持事务提交与回滚
-- 对多语句过程可通过 `exec_raw` 明确控制执行顺序
+## Transactions
 
-## 迁移特性
+- Supports commit and rollback through the shared engine contract
+- Multi-step workflows can be executed with explicit sequencing via `exec_raw`
+- Keep transaction boundaries short in high-throughput services
 
-- 支持 `migrate_table` 的核心建表能力
-- Oracle 特定对象（如序列、触发器）建议单独维护迁移脚本
+## Migration Behavior
 
-## 使用建议
+- `migrate_table` supports core table creation and schema alignment
+- Oracle-specific objects such as sequences and triggers should be maintained with explicit migration scripts
+- Prefer controlled migration batches for production rollouts
 
-- 命名长度与大小写策略尽量统一
-- 对数字与时间列类型提前约定，减少跨系统映射歧义
-- 结合 DBA 规范管理权限、索引与执行计划
+## Modeling and Operational Recommendations
+
+- Keep naming conventions consistent across schema and generated code
+- Define numeric precision and time semantics explicitly
+- Align DBA standards, indexing policy, and execution plan reviews
+
+## Security Practices
+
+- use least-privilege users
+- restrict schema-level permissions by service boundary
+- enforce secure transport where required
+
+## Troubleshooting
+
+- identifier mismatch: verify quoted/unquoted naming conventions
+- migration ordering issues: separate sequence/trigger/table changes explicitly
+- type conversion surprises: standardize precision/scale and timestamp conventions early

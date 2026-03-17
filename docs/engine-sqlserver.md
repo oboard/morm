@@ -4,15 +4,15 @@ outline: deep
 
 # SQL Server Engine
 
-SQL Server 引擎适用于企业内网、微软技术栈或已有 SQL Server 基础设施的系统。
+SQL Server is a strong fit for Microsoft-centric enterprise environments and existing SQL Server operational ecosystems.
 
-## Package
+## Package Import
 
 ```moonbit
 using @oboard/morm/engine/sqlserver as @sqlserver
 ```
 
-## DSN 与连接
+## DSN and Connection
 
 ```moonbit
 let engine = match
@@ -22,23 +22,46 @@ let engine = match
 }
 ```
 
-## 占位符与参数
+Use dedicated service credentials and avoid `sa` for normal application traffic.
 
-- 使用 `?` 占位符
-- 由引擎在底层协议层完成参数传递与类型映射
+## Placeholders and Parameters
 
-## 事务行为
+- Uses `?` placeholders
+- Parameters are transmitted through engine-level typed binding
+- Keep values in `@engine.Param` instead of string interpolation
 
-- 支持标准事务语义
-- 批量 SQL 与事务组合场景可通过 `exec_raw` 执行
+## Transactions
 
-## 迁移特性
+- Supports standard transaction control semantics
+- Suitable for batched SQL operations via `exec_raw`
+- Works with the shared transaction helper flow in `morm`
 
-- 支持 `migrate_table` 处理主流表结构演进
-- 对 SQL Server 特有 DDL 建议使用补充 SQL 做精细化控制
+## Migration Behavior
 
-## 使用建议
+- `migrate_table` supports common schema evolution tasks
+- `@morm.auto_migrate` can bootstrap baseline schema updates
+- Use explicit migration scripts for SQL Server-specific advanced DDL
 
-- 明确 NVARCHAR/VARCHAR 语义，避免字符集差异
-- 注意 SQL Server 版本差异带来的函数和语法兼容性
-- 生产环境优先使用最小权限账户连接
+## Operational Recommendations
+
+- Choose NVARCHAR vs VARCHAR intentionally for multilingual data
+- Validate compatibility across SQL Server versions in your deployment target
+- Keep least-privilege DB accounts and role boundaries clear
+
+## Performance Notes
+
+- Index highly filtered columns and join keys
+- Avoid oversized transactions in hot tables
+- Profile heavy reports separately from OLTP workloads
+
+## Security Practices
+
+- enforce encrypted network channels where required
+- avoid dynamic SQL concatenation
+- review granted roles regularly
+
+## Troubleshooting
+
+- collation mismatch: align collation at DB, table, and query boundaries
+- lock escalation: reduce batch sizes and transaction duration
+- migration failures: split complex DDL into ordered, explicit migration steps
