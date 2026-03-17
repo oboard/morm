@@ -410,5 +410,5 @@ That is part of the design, not a failure mode.
 
 ## Next Reading
 
-- [Architecture](/architecture) explains the runtime boundaries
-- [API Examples](/api-examples) shows concrete builders, params, entities, mappers, and migration usage
+- [Architecture](./architecture.md) explains the runtime boundaries
+- [API Examples](./api-examples.md) shows concrete builders, params, entities, mappers, and migration usage

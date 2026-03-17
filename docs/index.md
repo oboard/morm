@@ -16,19 +16,19 @@ hero:
 
 features:
   - title: Entity-First Modeling
-    details: Define MoonBit structs with `#entity` annotations and generate table metadata directly from your types.
+    details: "Define MoonBit structs with `#entity` annotations and generate table metadata directly from your types."
   - title: Typed Query Builders
-    details: Build `select`, `insert`, `update`, `delete`, and `upsert` statements with typed params instead of hand-written SQL strings.
+    details: "Build `select`, `insert`, `update`, `delete`, and `upsert` statements with typed params instead of hand-written SQL strings."
   - title: Multi-Engine Support
-    details: Target MySQL, PostgreSQL, SQLite, SQL Server, and Oracle through a common query and parameter model.
+    details: "Target MySQL, PostgreSQL, SQLite, SQL Server, and Oracle through a common query and parameter model."
   - title: Mapper Generation
-    details: Use `mormgen` to generate mapper implementations from annotated traits and keep boilerplate out of your codebase.
+    details: "Use `mormgen` to generate mapper implementations from annotated traits and keep boilerplate out of your codebase."
   - title: JSON-Friendly Models
-    details: Integrates with `ToJson` and `FromJson` flows so entities can move cleanly between DB rows and application data.
+    details: "Integrates with `ToJson` and `FromJson` flows so entities can move cleanly between DB rows and application data."
   - title: Time Type Support
-    details: Built-in support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime` in params and JSON serialization.
+    details: "Built-in support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime` in params and JSON serialization."
   - title: Auto Timestamps
-    details: `created_at` and `updated_at` can be filled automatically in generated save methods, with opt-in annotations for custom field names.
+    details: "`created_at` and `updated_at` can be filled automatically in generated save methods, with opt-in annotations for custom field names."
   - title: Explicit Architecture
-    details: ORM concerns, engine-specific execution, and code generation stay separated so behavior is easier to reason about and extend.
+    details: "ORM concerns, engine-specific execution, and code generation stay separated so behavior is easier to reason about and extend."
 ---
