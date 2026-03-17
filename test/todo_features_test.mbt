@@ -31,8 +31,8 @@ test "hook callback helpers" {
 ///|
 test "table diff helpers" {
   let old_table = @morm.new_table("users", columns=[
-    @morm.new_column("id", @morm.ColumnType::Int),
-    @morm.new_column("name", @morm.ColumnType::VarChar(255)),
+    @morm.new_column("id", Int),
+    @morm.new_column("name", VarChar(255)),
   ])
   let old_table = @morm.add_index(
     old_table,
@@ -44,8 +44,8 @@ test "table diff helpers" {
   )
 
   let new_table = @morm.new_table("users", columns=[
-    @morm.new_column("id", @morm.ColumnType::BigInt),
-    @morm.new_column("email", @morm.ColumnType::VarChar(255)),
+    @morm.new_column("id", BigInt),
+    @morm.new_column("email", VarChar(255)),
   ])
   let new_table = @morm.add_index(
     new_table,

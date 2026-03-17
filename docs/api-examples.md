@@ -403,7 +403,7 @@ let table = Class::table()
 assert_eq(table.name, "class")
 assert_eq(table.columns.length(), 5)
 assert_eq(table.columns[3].name, "created_at")
-assert_eq(table.columns[3].column_type, @morm.ColumnType::DateTime)
+assert_eq(table.columns[3].column_type, DateTime)
 ```
 
 This is a good way to keep schema expectations explicit.

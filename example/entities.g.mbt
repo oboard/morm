@@ -12,7 +12,7 @@ pub fn Class::table() -> @morm.Table {
     columns: [
       {
         name: "id",
-        column_type: @morm.ColumnType::BigInt,
+        column_type: BigInt,
         size: 0,
         nullable: false,
         auto_increment: true,
@@ -26,7 +26,7 @@ pub fn Class::table() -> @morm.Table {
       },
       {
         name: "name",
-        column_type: @morm.ColumnType::VarChar(255),
+        column_type: VarChar(255),
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -40,7 +40,7 @@ pub fn Class::table() -> @morm.Table {
       },
       {
         name: "teacher_id",
-        column_type: @morm.ColumnType::Int,
+        column_type: Int,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -54,7 +54,7 @@ pub fn Class::table() -> @morm.Table {
       },
       {
         name: "created_at",
-        column_type: @morm.ColumnType::DateTime,
+        column_type: DateTime,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -68,7 +68,7 @@ pub fn Class::table() -> @morm.Table {
       },
       {
         name: "updated_at",
-        column_type: @morm.ColumnType::DateTime,
+        column_type: DateTime,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -159,7 +159,7 @@ pub fn Student::table() -> @morm.Table {
     columns: [
       {
         name: "id",
-        column_type: @morm.ColumnType::BigInt,
+        column_type: BigInt,
         size: 0,
         nullable: false,
         auto_increment: true,
@@ -173,7 +173,7 @@ pub fn Student::table() -> @morm.Table {
       },
       {
         name: "name",
-        column_type: @morm.ColumnType::VarChar(255),
+        column_type: VarChar(255),
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -187,7 +187,7 @@ pub fn Student::table() -> @morm.Table {
       },
       {
         name: "age",
-        column_type: @morm.ColumnType::Int,
+        column_type: Int,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -201,7 +201,7 @@ pub fn Student::table() -> @morm.Table {
       },
       {
         name: "birth_date",
-        column_type: @morm.ColumnType::Timestamp,
+        column_type: Timestamp,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -275,7 +275,7 @@ pub fn Teacher::table() -> @morm.Table {
     columns: [
       {
         name: "id",
-        column_type: @morm.ColumnType::BigInt,
+        column_type: BigInt,
         size: 0,
         nullable: false,
         auto_increment: true,
@@ -289,7 +289,7 @@ pub fn Teacher::table() -> @morm.Table {
       },
       {
         name: "name",
-        column_type: @morm.ColumnType::VarChar(255),
+        column_type: VarChar(255),
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -303,7 +303,7 @@ pub fn Teacher::table() -> @morm.Table {
       },
       {
         name: "major",
-        column_type: @morm.ColumnType::VarChar(255),
+        column_type: VarChar(255),
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -317,7 +317,7 @@ pub fn Teacher::table() -> @morm.Table {
       },
       {
         name: "age",
-        column_type: @morm.ColumnType::Int,
+        column_type: Int,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -331,7 +331,7 @@ pub fn Teacher::table() -> @morm.Table {
       },
       {
         name: "birth_date",
-        column_type: @morm.ColumnType::Timestamp,
+        column_type: Timestamp,
         size: 0,
         nullable: true,
         auto_increment: false,
@@ -419,7 +419,7 @@ pub fn Enrollment::table() -> @morm.Table {
     columns: [
       {
         name: "id",
-        column_type: @morm.ColumnType::BigInt,
+        column_type: BigInt,
         size: 0,
         nullable: false,
         auto_increment: true,
@@ -433,7 +433,7 @@ pub fn Enrollment::table() -> @morm.Table {
       },
       {
         name: "student_id",
-        column_type: @morm.ColumnType::Int,
+        column_type: Int,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -447,7 +447,7 @@ pub fn Enrollment::table() -> @morm.Table {
       },
       {
         name: "class_id",
-        column_type: @morm.ColumnType::Int,
+        column_type: Int,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -461,7 +461,7 @@ pub fn Enrollment::table() -> @morm.Table {
       },
       {
         name: "note",
-        column_type: @morm.ColumnType::VarChar(255),
+        column_type: VarChar(255),
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -519,7 +519,7 @@ pub fn StudentAggregate::table() -> @morm.Table {
     columns: [
       {
         name: "id",
-        column_type: @morm.ColumnType::BigInt,
+        column_type: BigInt,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -560,7 +560,7 @@ pub fn JsonDocument::table() -> @morm.Table {
     columns: [
       {
         name: "id",
-        column_type: @morm.ColumnType::BigInt,
+        column_type: BigInt,
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -574,7 +574,7 @@ pub fn JsonDocument::table() -> @morm.Table {
       },
       {
         name: "payload",
-        column_type: @morm.ColumnType::Json,
+        column_type: Json,
         size: 0,
         nullable: false,
         auto_increment: false,

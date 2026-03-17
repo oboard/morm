@@ -916,51 +916,51 @@ fn find_morm_type_attribute(
   attrs.each(attr => {
     let raw = attr.raw
     if raw.has_prefix("#morm.datetime") {
-      result = Some(@morm.ColumnType::DateTime)
+      result = Some(DateTime)
     } else if raw.has_prefix("#morm.date") {
-      result = Some(@morm.ColumnType::Date)
+      result = Some(Date)
     } else if raw.has_prefix("#morm.time") {
-      result = Some(@morm.ColumnType::Time)
+      result = Some(Time)
     } else if raw.has_prefix("#morm.timestamp") {
-      result = Some(@morm.ColumnType::Timestamp)
+      result = Some(Timestamp)
     } else if raw.has_prefix("#morm.varchar") {
-      result = Some(@morm.ColumnType::VarChar(255))
+      result = Some(VarChar(255))
     } else if raw.has_prefix("#morm.char") {
-      result = Some(@morm.ColumnType::Char(1))
+      result = Some(Char(1))
     } else if raw.has_prefix("#morm.text") {
-      result = Some(@morm.ColumnType::Text)
+      result = Some(Text)
     } else if raw.has_prefix("#morm.mediumtext") {
-      result = Some(@morm.ColumnType::MediumText)
+      result = Some(MediumText)
     } else if raw.has_prefix("#morm.longtext") {
-      result = Some(@morm.ColumnType::LongText)
+      result = Some(LongText)
     } else if raw.has_prefix("#morm.binary") {
-      result = Some(@morm.ColumnType::Binary(1))
+      result = Some(Binary(1))
     } else if raw.has_prefix("#morm.varbinary") {
-      result = Some(@morm.ColumnType::VarBinary(255))
+      result = Some(VarBinary(255))
     } else if raw.has_prefix("#morm.blob") {
-      result = Some(@morm.ColumnType::Blob)
+      result = Some(Blob)
     } else if raw.has_prefix("#morm.tinyint") {
-      result = Some(@morm.ColumnType::TinyInt)
+      result = Some(TinyInt)
     } else if raw.has_prefix("#morm.smallint") {
-      result = Some(@morm.ColumnType::SmallInt)
+      result = Some(SmallInt)
     } else if raw.has_prefix("#morm.int") {
-      result = Some(@morm.ColumnType::Int)
+      result = Some(Int)
     } else if raw.has_prefix("#morm.bigint") {
-      result = Some(@morm.ColumnType::BigInt)
+      result = Some(BigInt)
     } else if raw.has_prefix("#morm.float") {
-      result = Some(@morm.ColumnType::Float)
+      result = Some(Float)
     } else if raw.has_prefix("#morm.double") {
-      result = Some(@morm.ColumnType::Double)
+      result = Some(Double)
     } else if raw.has_prefix("#morm.decimal") {
-      result = Some(@morm.ColumnType::Decimal(10, 2))
+      result = Some(Decimal(10, 2))
     } else if raw.has_prefix("#morm.boolean") {
-      result = Some(@morm.ColumnType::Boolean)
+      result = Some(Boolean)
     } else if raw.has_prefix("#morm.json") {
-      result = Some(@morm.ColumnType::Json)
+      result = Some(Json)
     } else if raw.has_prefix("#morm.jsonb") {
-      result = Some(@morm.ColumnType::JsonB)
+      result = Some(JsonB)
     } else if raw.has_prefix("#morm.uuid") {
-      result = Some(@morm.ColumnType::VarChar(36))
+      result = Some(VarChar(36))
     }
   })
   result
@@ -1090,33 +1090,33 @@ fn map_type_to_db_by_name(
   // 默认类型映射表，类似 GORM 的 DataTypeMap
   match field_type {
     // 基本类型
-    "Int" => @morm.ColumnType::Int
-    "Int8" => @morm.ColumnType::TinyInt
-    "Int16" => @morm.ColumnType::SmallInt
-    "Int32" => @morm.ColumnType::Int
-    "Int64" => @morm.ColumnType::BigInt
-    "UInt" => @morm.ColumnType::Int
-    "UInt8" => @morm.ColumnType::Int
-    "UInt16" => @morm.ColumnType::Int
-    "UInt32" => @morm.ColumnType::Int
-    "UInt64" => @morm.ColumnType::Int
-    "Float" => @morm.ColumnType::Float
-    "Float32" => @morm.ColumnType::Float
-    "Float64" => @morm.ColumnType::Double
-    "Bool" => @morm.ColumnType::Boolean
-    "String" => @morm.ColumnType::VarChar(255)
-    "Char" => @morm.ColumnType::Char(1)
+    "Int" => Int
+    "Int8" => TinyInt
+    "Int16" => SmallInt
+    "Int32" => Int
+    "Int64" => BigInt
+    "UInt" => Int
+    "UInt8" => Int
+    "UInt16" => Int
+    "UInt32" => Int
+    "UInt64" => Int
+    "Float" => Float
+    "Float32" => Float
+    "Float64" => Double
+    "Bool" => Boolean
+    "String" => VarChar(255)
+    "Char" => Char(1)
     // 复杂类型
-    "Date" => @morm.ColumnType::Date
-    "DateTime" => @morm.ColumnType::DateTime
-    "PlainDateTime" => @morm.ColumnType::DateTime
-    "Time" => @morm.ColumnType::Time
-    "Timestamp" => @morm.ColumnType::Timestamp
-    "ZonedDateTime" => @morm.ColumnType::Timestamp
-    "Json" => @morm.ColumnType::Json
-    "Bytes" => @morm.ColumnType::Blob
-    "UUID" => @morm.ColumnType::VarChar(36)
+    "Date" => Date
+    "DateTime" => DateTime
+    "PlainDateTime" => DateTime
+    "Time" => Time
+    "Timestamp" => Timestamp
+    "ZonedDateTime" => Timestamp
+    "Json" => Json
+    "Bytes" => Blob
+    "UUID" => VarChar(36)
     // 默认情况
-    _ => @morm.ColumnType::VarChar(255)
+    _ => VarChar(255)
   }
 }

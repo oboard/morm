@@ -72,7 +72,7 @@ Even if you do not run real migrations in unit tests, you can still assert on ge
 ```moonbit
 let table = Class::table()
 assert_eq(table.columns[3].name, "created_at")
-assert_eq(table.columns[3].column_type, @morm.ColumnType::DateTime)
+assert_eq(table.columns[3].column_type, DateTime)
 ```
 
 This is often enough to catch unintended schema changes before runtime.

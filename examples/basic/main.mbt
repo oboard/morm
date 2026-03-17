@@ -5,21 +5,14 @@ async fn main {
   // Build table schema with morm API and migrate it through the engine.
   let user_table = @morm.new_table("user", columns=[
     {
-      ..@morm.new_column("id", @morm.ColumnType::Int),
+      ..@morm.new_column("id", Int),
       primary_key: true,
       auto_increment: true,
       nullable: false,
     },
-    {
-      ..@morm.new_column("email", @morm.ColumnType::VarChar(255)),
-      nullable: false,
-      unique: true,
-    },
-    {
-      ..@morm.new_column("name", @morm.ColumnType::VarChar(255)),
-      nullable: true,
-    },
-    { ..@morm.new_column("active", @morm.ColumnType::Int), nullable: false },
+    { ..@morm.new_column("email", VarChar(255)), nullable: false, unique: true },
+    { ..@morm.new_column("name", VarChar(255)), nullable: true },
+    { ..@morm.new_column("active", Int), nullable: false },
   ])
   let migrate_res = engine.migrate_table(user_table)
   if !migrate_res.ok {

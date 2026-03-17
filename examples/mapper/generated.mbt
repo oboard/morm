@@ -12,7 +12,7 @@ pub fn User::table() -> @morm.Table {
     columns: [
       {
         name: "id",
-        column_type: @morm.ColumnType::Int,
+        column_type: Int,
         size: 0,
         nullable: false,
         auto_increment: true,
@@ -26,7 +26,7 @@ pub fn User::table() -> @morm.Table {
       },
       {
         name: "email",
-        column_type: @morm.ColumnType::VarChar(255),
+        column_type: VarChar(255),
         size: 0,
         nullable: false,
         auto_increment: false,
@@ -40,7 +40,7 @@ pub fn User::table() -> @morm.Table {
       },
       {
         name: "active",
-        column_type: @morm.ColumnType::Int,
+        column_type: Int,
         size: 0,
         nullable: false,
         auto_increment: false,
