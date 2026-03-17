@@ -4,6 +4,13 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "morm",
   description: "MoonBit ORM toolkit with schema generation, query builders, and multi-engine database support",
+  markdown: {
+    languages: ['moonbit'],
+    languageAlias: {
+      mbt: 'moonbit',
+      mbti: 'moonbit'
+    }
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
