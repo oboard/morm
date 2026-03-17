@@ -67,8 +67,8 @@ It returns the raw command document from MongoDB.
 let docs = match engine.find(
   "events",
   { "kind": "signup" },
-  sort=Some({ "created_at": -1 }),
-  limit=Some(20),
+  sort={ "created_at": -1 },
+  limit=20,
 ) {
   Ok(rows) => rows
   Err(_) => panic()
@@ -162,7 +162,7 @@ ignore(
   engine.create_index(
     "events",
     { "user_id": 1 },
-    name=Some("idx_events_user_id"),
+    name="idx_events_user_id",
   ),
 )
 ```
