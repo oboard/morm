@@ -15,13 +15,13 @@ The project deliberately avoids runtime reflection and hidden ORM state.
 
 `morm` provides:
 
-- entity-to-table metadata generation with `#entity`
+- entity-to-table metadata generation with `#morm.entity`
 - mapper generation from annotated traits
 - typed query builders for `select`, `insert`, `upsert`, `update`, and `delete`
 - multi-engine support through a shared `Engine` contract
 - local time-type support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime`
 - generated auto timestamp handling for `created_at` / `updated_at` and explicit timestamp annotations
-- transient entity fields via `#transient` (kept in model, excluded from physical columns and `from(entity)` writes)
+- transient entity fields via `#morm.transient` (kept in model, excluded from physical columns and `from(entity)` writes)
 
 ## Install
 
@@ -63,13 +63,13 @@ options(
 using @time {type PlainDateTime}
 
 ///|
-#entity
+#morm.entity
 pub(all) struct Class {
-  #id
-  #default(autoincrement())
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
 
-  #varchar(length="255")
+  #morm.varchar(length="255")
   name : String
 
   created_at : PlainDateTime
@@ -81,9 +81,17 @@ pub(all) struct Class {
 
 ```moonbit
 ///|
-#mapper(table="class")
+#morm.mapper(table="class")
 pub trait ClassMapper {
   async save(Self, entity : Class) -> Class
+}
+
+///|
+#morm.mapper(table="student")
+pub trait StudentMapper {
+  async find_student_by_id(Self, id : Int) -> Student?
+  async find_student_by_name(Self, name : String) -> Student?
+  async find_students_by_age(Self, age : Int) -> FixedArray[Student]
 }
 ```
 
@@ -91,8 +99,8 @@ Generated `save` methods can assign:
 
 - `created_at`
 - `updated_at`
-- fields marked with `#auto_create_time`
-- fields marked with `#auto_update_time`
+- fields marked with `#morm.auto_create_time`
+- fields marked with `#morm.auto_update_time`
 
 `PlainDateTime` fields use `@morm.current_plain_date_time_utc()`, and `ZonedDateTime` fields use `@morm.current_timestamp_utc()`.
 

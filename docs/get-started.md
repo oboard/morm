@@ -69,16 +69,16 @@ Create `entities.mbt` and describe your models as normal structs.
 using @time {type PlainDateTime, type ZonedDateTime}
 
 ///|
-#entity
+#morm.entity
 pub(all) struct Class {
-  #id
-  #default(autoincrement())
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
 
-  #varchar(length="255")
+  #morm.varchar(length="255")
   name : String
 
-  #foreign_key(references="teacher.id", on_delete="CASCADE")
+  #morm.foreign_key(references="teacher.id", on_delete="CASCADE")
   teacher_id : Int
 
   created_at : PlainDateTime
@@ -86,13 +86,13 @@ pub(all) struct Class {
 } derive(ToJson, FromJson)
 
 ///|
-#entity
+#morm.entity
 pub(all) struct Student {
-  #id
-  #default(autoincrement())
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
 
-  #varchar(length="255")
+  #morm.varchar(length="255")
   name : String
 
   age : Int
@@ -107,6 +107,42 @@ After generation, each entity gets:
 
 That metadata is what migrations, query builders, and generated mappers use.
 
+The same `example/entities.mbt` also includes relation and JSON-storage patterns:
+
+```moonbit
+///|
+#morm.entity
+pub(all) struct Enrollment {
+  #morm.id
+  #morm.default(autoincrement())
+  id : Int64
+  #morm.many_to_one(references="student.id", fk="student_id", on_delete="CASCADE")
+  student : Student
+  #morm.many_to_one(table="class", column="id", fk="class_id")
+  klass : Class
+  #morm.varchar(length="255")
+  note : String
+} derive(ToJson, FromJson)
+
+///|
+#morm.entity
+pub(all) struct StudentAggregate {
+  #morm.id
+  id : Int64
+  #morm.one_to_many(mapped_by="student")
+  enrollments : FixedArray[Int]
+} derive(ToJson, FromJson)
+
+///|
+#morm.entity
+pub(all) struct JsonDocument {
+  #morm.id
+  id : Int64
+  #morm.json(storage="blob")
+  payload : Json
+} derive(ToJson, FromJson)
+```
+
 ## Nullability Rules
 
 `morm` keeps nullability simple and type-driven:
@@ -119,11 +155,12 @@ Example:
 
 ```moonbit
 ///|
-#entity
+#morm.entity
 pub(all) struct Teacher {
-  #id
-  #default(autoincrement())
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
+  #morm.varchar(length="255")
   name : String
   birth_date : @time.ZonedDateTime?
 } derive(ToJson, FromJson)
@@ -155,29 +192,30 @@ These are the attributes you will use most often:
 
 | Attribute | Purpose |
 | --- | --- |
-| `#entity` | Marks a struct as a managed entity |
-| `#id` | Marks a field as the primary key |
-| `#default(autoincrement())` | Marks a field as auto-increment |
-| `#varchar(length="255")` | Sets a varchar column |
-| `#char(length="1")` | Sets a fixed char column |
-| `#text` / `#mediumtext` / `#longtext` | Sets text-like columns |
-| `#decimal(precision="10", scale="2")` | Sets a decimal column |
-| `#boolean` | Forces boolean column type |
-| `#json` / `#jsonb` | Uses JSON-capable columns |
-| `#date` / `#time` / `#datetime` / `#timestamp` | Forces temporal column type |
-| `#foreign_key(...)` | Adds a foreign key constraint |
-| `#many_to_one(...)` | Models a relation that materializes as a foreign key column |
-| `#one_to_many(...)` | Models a collection side that is not emitted as a physical column |
-| `#transient` | Keeps a field on the entity only (no physical column, excluded from `from(entity)` writes) |
-| `#auto_create_time` | Opts a field into generated create timestamp behavior |
-| `#auto_update_time` | Opts a field into generated update timestamp behavior |
+| `#morm.entity` | Marks a struct as a managed entity |
+| `#morm.id` | Marks a field as the primary key |
+| `#morm.default(autoincrement())` | Marks a field as auto-increment |
+| `#morm.varchar(length="255")` | Sets a varchar column |
+| `#morm.char(length="1")` | Sets a fixed char column |
+| `#morm.text` / `#morm.mediumtext` / `#morm.longtext` | Sets text-like columns |
+| `#morm.decimal(precision="10", scale="2")` | Sets a decimal column |
+| `#morm.boolean` | Forces boolean column type |
+| `#morm.json` / `#morm.jsonb` | Uses JSON-capable columns |
+| `#morm.date` / `#morm.time` / `#morm.datetime` / `#morm.timestamp` | Forces temporal column type |
+| `#morm.foreign_key(...)` | Adds a foreign key constraint |
+| `#morm.many_to_one(...)` | Models a relation that materializes as a foreign key column |
+| `#morm.one_to_many(...)` | Models a collection side that is not emitted as a physical column |
+| `#morm.transient` | Keeps a field on the entity only (no physical column, excluded from `from(entity)` writes) |
+| `#morm.auto_create_time` | Opts a field into generated create timestamp behavior |
+| `#morm.auto_update_time` | Opts a field into generated update timestamp behavior |
 
-## Generate Entity Code
+## Generate Code
 
-Inside this repository, the direct command is:
+Inside this repository, the direct commands are:
 
 ```bash
 moon run mormgen -- example/entities.mbt -o example/entities.g.mbt
+moon run mormgen -- example/mapper.mbt -o example/mapper.g.mbt
 ```
 
 Inside a consuming project, the `pre-build` hook usually handles this for you via the packaged `morm-gen` binary.
@@ -190,17 +228,37 @@ Create `mapper.mbt` and describe mapper traits:
 
 ```moonbit
 ///|
-#mapper(table="student")
+#morm.mapper(table="class")
+pub trait ClassMapper {
+  async save(Self, entity : Class) -> Class
+}
+
+///|
+#morm.mapper(table="student")
 pub trait StudentMapper {
   async find_student_by_id(Self, id : Int) -> Student?
   async find_student_by_name(Self, name : String) -> Student?
   async find_students_by_age(Self, age : Int) -> FixedArray[Student]
+  async find_students_by_age_and_name(Self, age : Int, name : String) -> FixedArray[
+    Student,
+  ]
+  async count_students_by_age(Self, age : Int) -> Int?
+  async find_all(Self) -> FixedArray[Student]
+  async all(Self) -> FixedArray[Student]
 }
 
 ///|
-#mapper(table="class")
-pub trait ClassMapper {
-  async save(Self, entity : Class) -> Class
+#morm.mapper(table="enrollment")
+pub trait EnrollmentMapper {
+  async find_enrollments_by_student_id(Self, student_id : Int) -> FixedArray[
+    Enrollment,
+  ]
+  #morm.query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
+  async find_by_class_raw(Self, class_id : Int) -> FixedArray[Enrollment]
+  #morm.fetch_graph(join="LEFT JOIN student ON student.id = enrollment.student_id")
+  async find_with_student_by_id(Self, id : Int) -> Enrollment?
+  #morm.load_graph(join="LEFT JOIN class ON class.id = enrollment.class_id")
+  async find_with_class_by_id(Self, id : Int) -> Enrollment?
 }
 ```
 
@@ -218,7 +276,7 @@ You can bind a mapper by:
 
 ## Method Name Derivation
 
-If you omit `#query`, `mormgen` derives queries from method names for common patterns:
+If you omit `#morm.query`, `mormgen` derives queries from method names for common patterns:
 
 - `find_student_by_id`
 - `find_student_by_name`
@@ -231,13 +289,13 @@ This keeps simple read methods concise while staying explicit in generated code.
 
 ## Explicit SQL Methods
 
-When naming rules are not enough, use `#query`:
+When naming rules are not enough, use `#morm.query`:
 
 ```moonbit
 ///|
-#mapper(table="enrollment")
+#morm.mapper(table="enrollment")
 pub trait EnrollmentMapper {
-  #query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
+  #morm.query("SELECT id, student_id, class_id, note FROM enrollment WHERE class_id = ?")
   async find_by_class_raw(Self, class_id : Int) -> FixedArray[Enrollment]
 }
 ```
@@ -248,8 +306,8 @@ This gives you exact SQL control while still keeping typed params and typed resu
 
 Mapper methods can also attach joins with:
 
-- `#fetch_graph(join="...")`
-- `#load_graph(join="...")`
+- `#morm.fetch_graph(join="...")`
+- `#morm.load_graph(join="...")`
 
 These are currently implemented as query builder `.join(...)` appends. They do not add a separate object graph identity map; they simply extend the SQL used for the generated method.
 
@@ -279,8 +337,8 @@ By default:
 
 If you want custom field names, add:
 
-- `#auto_create_time`
-- `#auto_update_time`
+- `#morm.auto_create_time`
+- `#morm.auto_update_time`
 
 Supported generated values:
 
@@ -291,15 +349,15 @@ Example:
 
 ```moonbit
 ///|
-#entity
+#morm.entity
 pub(all) struct AuditLog {
-  #id
+  #morm.id
   id : Int64
 
-  #auto_create_time
+  #morm.auto_create_time
   inserted_on : @time.PlainDateTime
 
-  #auto_update_time
+  #morm.auto_update_time
   touched_on : @time.PlainDateTime
 } derive(ToJson, FromJson)
 ```
