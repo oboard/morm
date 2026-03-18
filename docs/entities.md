@@ -6,19 +6,19 @@ outline: deep
 
 Entities are the schema source of truth in `morm`.
 
-You describe a table as a normal MoonBit struct, annotate it with `#entity`, and let `mormgen` generate `table()` metadata from it.
+You describe a table as a normal MoonBit struct, annotate it with `#morm.entity`, and let `mormgen` generate `table()` metadata from it.
 
 ## Minimal Example
 
 ```moonbit
 ///|
-#entity
+#morm.entity
 pub(all) struct Student {
-  #id
-  #default(autoincrement())
+  #morm.id
+  #morm.default(autoincrement())
   id : Int64
 
-  #varchar(length="255")
+  #morm.varchar(length="255")
   name : String
 
   age : Int
@@ -54,9 +54,9 @@ Example:
 
 ```moonbit
 ///|
-#entity
+#morm.entity
 pub(all) struct Teacher {
-  #id
+  #morm.id
   id : Int64
   name : String
   birth_date : @time.ZonedDateTime?
@@ -67,25 +67,25 @@ pub(all) struct Teacher {
 
 ## Primary Keys
 
-Use `#id` to mark the primary key field.
+Use `#morm.id` to mark the primary key field.
 
 ```moonbit
-#id
+#morm.id
 id : Int64
 ```
 
-Use `#default(autoincrement())` when the engine should treat it as an auto-incrementing key.
+Use `#morm.default(autoincrement())` when the engine should treat it as an auto-incrementing key.
 
 ```moonbit
-#id
-#default(autoincrement())
+#morm.id
+#morm.default(autoincrement())
 id : Int64
 ```
 
 You can also declare a primary-key generation strategy inline:
 
 ```moonbit
-#id(strategy="uuid")
+#morm.id(strategy="uuid")
 id : String
 ```
 
@@ -96,16 +96,16 @@ Currently this annotation is emitted as column engine option `pk.strategy=<value
 
 Use these attributes to force string-related SQL types:
 
-- `#varchar(length="255")`
-- `#char(length="1")`
-- `#text`
-- `#mediumtext`
-- `#longtext`
+- `#morm.varchar(length="255")`
+- `#morm.char(length="1")`
+- `#morm.text`
+- `#morm.mediumtext`
+- `#morm.longtext`
 
 Example:
 
 ```moonbit
-#varchar(length="255")
+#morm.varchar(length="255")
 name : String
 ```
 
@@ -113,13 +113,13 @@ name : String
 
 Common numeric attributes:
 
-- `#tinyint`
-- `#smallint`
-- `#int`
-- `#bigint`
-- `#float`
-- `#double`
-- `#decimal(precision="10", scale="2")`
+- `#morm.tinyint`
+- `#morm.smallint`
+- `#morm.int`
+- `#morm.bigint`
+- `#morm.float`
+- `#morm.double`
+- `#morm.decimal(precision="10", scale="2")`
 
 These are useful when you need specific DDL semantics rather than relying on default type mapping.
 
@@ -127,20 +127,20 @@ These are useful when you need specific DDL semantics rather than relying on def
 
 For document-like or raw storage:
 
-- `#json`
-- `#jsonb`
-- `#binary(length="...")`
-- `#varbinary(length="...")`
-- `#blob`
+- `#morm.json`
+- `#morm.jsonb`
+- `#morm.binary(length="...")`
+- `#morm.varbinary(length="...")`
+- `#morm.blob`
 
 ## Time Columns
 
 Time-related annotations:
 
-- `#date`
-- `#time`
-- `#datetime`
-- `#timestamp`
+- `#morm.date`
+- `#morm.time`
+- `#morm.datetime`
+- `#morm.timestamp`
 
 But in most cases, the field type itself is enough:
 
@@ -160,10 +160,10 @@ This keeps schema intent aligned with actual application semantics.
 
 ## Foreign Keys
 
-Use `#foreign_key` for explicit foreign key constraints.
+Use `#morm.foreign_key` for explicit foreign key constraints.
 
 ```moonbit
-#foreign_key(references="teacher.id", on_delete="CASCADE")
+#morm.foreign_key(references="teacher.id", on_delete="CASCADE")
 teacher_id : Int
 ```
 
@@ -176,13 +176,13 @@ This produces:
 
 `morm` also recognizes relation-style annotations:
 
-- `#many_to_one(...)`
-- `#one_to_many(...)`
+- `#morm.many_to_one(...)`
+- `#morm.one_to_many(...)`
 
 Example:
 
 ```moonbit
-#many_to_one(references="student.id", fk="student_id", on_delete="CASCADE")
+#morm.many_to_one(references="student.id", fk="student_id", on_delete="CASCADE")
 student : Student
 ```
 
@@ -191,7 +191,7 @@ This can materialize the relation as a foreign-key column in generated metadata.
 For one-to-many:
 
 ```moonbit
-#one_to_many(mapped_by="student")
+#morm.one_to_many(mapped_by="student")
 enrollments : FixedArray[Int]
 ```
 
@@ -199,10 +199,10 @@ This is treated as a logical relation and is not emitted as a physical table col
 
 ## Transient Fields
 
-Use `#transient` when a field should stay in the entity model but not be persisted as a database column.
+Use `#morm.transient` when a field should stay in the entity model but not be persisted as a database column.
 
 ```moonbit
-#transient
+#morm.transient
 display_name : String?
 ```
 
@@ -219,22 +219,22 @@ Convention-based:
 
 Explicit opt-in:
 
-- `#auto_create_time`
-- `#auto_update_time`
+- `#morm.auto_create_time`
+- `#morm.auto_update_time`
 
 Example:
 
 ```moonbit
 ///|
-#entity
+#morm.entity
 pub(all) struct AuditRow {
-  #id
+  #morm.id
   id : Int64
 
-  #auto_create_time
+  #morm.auto_create_time
   inserted_on : @time.PlainDateTime
 
-  #auto_update_time
+  #morm.auto_update_time
   touched_on : @time.PlainDateTime
 } derive(ToJson, FromJson)
 ```

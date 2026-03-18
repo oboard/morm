@@ -8,11 +8,11 @@ outline: deep
 
 ## 常见注解
 
-- `#entity` 标记实体
-- `#id` 标记主键
-- `#default(autoincrement())` 自增键
-- `#foreign_key(...)` 外键
-- `#transient` 非持久字段
+- `#morm.entity` 标记实体
+- `#morm.id` 标记主键
+- `#morm.default(autoincrement())` 自增键
+- `#morm.foreign_key(...)` 外键
+- `#morm.transient` 非持久字段
 
 ## 类型映射
 
