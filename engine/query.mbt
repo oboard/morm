@@ -1,45 +1,4 @@
 ///|
-pub async fn[E : Engine, Q : QueryBuilder] exec_query(
-  engine : E,
-  query : Q,
-) -> QueryResult {
-  engine.exec(Statement(query.to_statement()))
-}
-
-///|
-pub async fn[E : Engine] exec(engine : E, query : Query) -> QueryResult {
-  engine.exec(query)
-}
-
-///|
-pub async fn[E : Engine] tx_begin(engine : E) -> QueryResult {
-  engine.exec(Tx(Begin))
-}
-
-///|
-pub async fn[E : Engine] tx_commit(engine : E) -> QueryResult {
-  engine.exec(Tx(Commit))
-}
-
-///|
-pub async fn[E : Engine] tx_rollback(engine : E) -> QueryResult {
-  engine.exec(Tx(Rollback))
-}
-
-///|
-pub async fn[E : Engine] tx_savepoint(engine : E, name : String) -> QueryResult {
-  engine.exec(Tx(Savepoint(name)))
-}
-
-///|
-pub async fn[E : Engine] tx_rollback_to_savepoint(
-  engine : E,
-  name : String,
-) -> QueryResult {
-  engine.exec(Tx(RollbackToSavepoint(name)))
-}
-
-///|
 fn placeholders(count : Int) -> String {
   let parts : Array[String] = []
   let mut i = 0
@@ -340,6 +299,26 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
       }
       (buf.to_string(), where_.map(w => w.value))
     }
+  }
+}
+
+///|
+fn tx_sql(op : TxOp) -> String {
+  match op {
+    Begin => "BEGIN"
+    Commit => "COMMIT"
+    Rollback => "ROLLBACK"
+    Savepoint(name) => "SAVEPOINT " + name
+    RollbackToSavepoint(name) => "ROLLBACK TO SAVEPOINT " + name
+  }
+}
+
+///|
+pub fn render_query_sql(query : &QueryBuilder) -> (String, FixedArray[Param]) {
+  match query.to_query() {
+    Statement(stmt) => render_default_sql(stmt)
+    Raw(sql, params) => (sql, params)
+    Tx(op) => (tx_sql(op), [])
   }
 }
 

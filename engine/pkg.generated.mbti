@@ -15,10 +15,6 @@ pub fn bytes_to_hex(Bytes) -> String
 
 pub fn decode_json_column(Json, String) -> Json raise ParamDecodeError
 
-pub async fn[E : Engine] exec(E, Query) -> QueryResult
-
-pub async fn[E : Engine, Q : QueryBuilder] exec_query(E, Q) -> QueryResult
-
 pub fn format_plain_date(@time.PlainDate, String?) -> String
 
 pub fn format_plain_date_time(@time.PlainDateTime, String?) -> String
@@ -47,17 +43,9 @@ pub fn preload_many_to_many_sql_qmark(String, String, String, String, String, In
 
 pub fn render_default_sql(Statement) -> (String, FixedArray[Param])
 
+pub fn render_query_sql(&QueryBuilder) -> (String, FixedArray[Param])
+
 pub fn[T : ToParam] to_param(T) -> Param
-
-pub async fn[E : Engine] tx_begin(E) -> QueryResult
-
-pub async fn[E : Engine] tx_commit(E) -> QueryResult
-
-pub async fn[E : Engine] tx_rollback(E) -> QueryResult
-
-pub async fn[E : Engine] tx_rollback_to_savepoint(E, String) -> QueryResult
-
-pub async fn[E : Engine] tx_savepoint(E, String) -> QueryResult
 
 // Errors
 pub(all) suberror ParamDecodeError {
@@ -146,6 +134,7 @@ pub impl Eq for Query
 pub impl Show for Query
 pub impl ToJson for Query
 pub impl @json.FromJson for Query
+pub impl QueryBuilder for Query
 
 pub(all) struct QueryResult {
   ok : Bool
@@ -254,7 +243,7 @@ pub impl @json.FromJson for WhereType
 
 // Traits
 pub(open) trait Engine {
-  async exec(Self, Query) -> QueryResult
+  async exec(Self, &QueryBuilder) -> QueryResult
   async exec_raw(Self, String, FixedArray[Param]) -> QueryResult
   async migrate_table(Self, @table.Table) -> QueryResult
   close(Self) -> Unit
@@ -285,7 +274,7 @@ pub impl FromParam for @time.PlainTime
 pub impl FromParam for @time.ZonedDateTime
 
 pub(open) trait QueryBuilder {
-  to_statement(Self) -> Statement
+  to_query(Self) -> Query
 }
 
 pub(open) trait ToParam {

@@ -507,8 +507,11 @@ fn SQLiteEngine::exec_sql(
 }
 
 ///|
-pub impl @engine.Engine for SQLiteEngine with exec(self, query : @engine.Query) -> @engine.QueryResult {
-  let (sql, params) = match query {
+pub impl @engine.Engine for SQLiteEngine with exec(
+  self,
+  query : &@engine.QueryBuilder,
+) -> @engine.QueryResult {
+  let (sql, params) = match query.to_query() {
     @engine.Statement(stmt) => render_sqlite(stmt)
     @engine.Raw(sql, params) => (sql, params)
     @engine.Tx(op) => (sqlite_tx_sql(op), [])

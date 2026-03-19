@@ -116,7 +116,7 @@ let q = @morm.select_from("class")
 Execute through an engine:
 
 ```moonbit
-let res = @engine.exec_query(engine, q)
+let res = engine.exec(q)
 ```
 
 ## Migration Example

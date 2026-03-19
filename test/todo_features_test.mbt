@@ -1,17 +1,17 @@
 ///|
 test "soft delete query helpers" {
   let scoped = @morm.select_from_scoped("users")
-  let (sql1, params1) = @engine.render_default_sql(scoped.to_statement())
+  let (sql1, params1) = @engine.render_query_sql(scoped)
   inspect(sql1, content="SELECT * FROM users WHERE deleted = ?")
   inspect(params1.to_json().stringify(), content="[false]")
 
   let del = @morm.soft_delete_by_id("users", "id", 42)
-  let (sql2, params2) = @engine.render_default_sql(del.to_statement())
+  let (sql2, params2) = @engine.render_query_sql(del)
   inspect(sql2, content="UPDATE users SET deleted = ? WHERE id = ?")
   inspect(params2.to_json().stringify(), content="[true,42]")
 
   let restore = @morm.restore_by_id("users", "id", 42, deleted_col="is_deleted")
-  let (sql3, params3) = @engine.render_default_sql(restore.to_statement())
+  let (sql3, params3) = @engine.render_query_sql(restore)
   inspect(sql3, content="UPDATE users SET is_deleted = ? WHERE id = ?")
   inspect(params3.to_json().stringify(), content="[false,42]")
 }

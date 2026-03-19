@@ -6,35 +6,35 @@ test "query" {
     .order_by(Desc("id"))
     .offset(5)
     .limit(5)
-  let (sql_pg, _) = @engine.render_default_sql(q.to_statement())
+  let (sql_pg, _) = @engine.render_query_sql(q)
   inspect(
     sql_pg,
     content=(
       #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
-  let (sql_my, _) = @engine.render_default_sql(q.to_statement())
+  let (sql_my, _) = @engine.render_query_sql(q)
   inspect(
     sql_my,
     content=(
       #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
-  let (sql_ora, _) = @engine.render_default_sql(q.to_statement())
+  let (sql_ora, _) = @engine.render_query_sql(q)
   inspect(
     sql_ora,
     content=(
       #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
-  let (sql_ss, _) = @engine.render_default_sql(q.to_statement())
+  let (sql_ss, _) = @engine.render_query_sql(q)
   inspect(
     sql_ss,
     content=(
       #|SELECT * FROM students WHERE id = ? AND name = ? ORDER BY id DESC LIMIT 5 OFFSET 5
     ),
   )
-  let (sql_sqlite, _) = @engine.render_default_sql(q.to_statement())
+  let (sql_sqlite, _) = @engine.render_query_sql(q)
   inspect(
     sql_sqlite,
     content=(
@@ -48,7 +48,7 @@ test "query where ne like" {
   let q = @morm.select_from("students")
     .where_ne("status", "deleted")
     .where_like("name", "%Ali%")
-  let (sql, params) = @engine.render_default_sql(q.to_statement())
+  let (sql, params) = @engine.render_query_sql(q)
   inspect(
     sql,
     content=(
@@ -218,7 +218,7 @@ test "update from entity only uses physical table columns" {
     name: "alice",
     display_name: Some("Alice"),
   })
-  let (sql, params) = @engine.render_default_sql(q.to_statement())
+  let (sql, params) = @engine.render_query_sql(q)
   inspect(sql, content="UPDATE update_from_entity SET id = ?, name = ?")
   inspect(params.to_json().stringify(), content="[1,\"alice\"]")
 }
@@ -227,7 +227,7 @@ test "update from entity only uses physical table columns" {
 test "insert from entity encodes bson column as bytes" {
   let value : Json = { "kind": "doc", "n": 3 }
   let q = @morm.insert_into("bson_doc").from(BsonDoc::{ id: 1, payload: value })
-  let (_, params) = @engine.render_default_sql(q.to_statement())
+  let (_, params) = @engine.render_query_sql(q)
   match params[1] {
     @engine.Bytes(bytes) => {
       let decoded = try! @bson.from_bytes(bytes)
@@ -245,7 +245,7 @@ test "insert values_many renders single multi-row sql" {
       [@engine.Int(1), @engine.String("Alice")],
       [@engine.Int(2), @engine.String("Bob")],
     ])
-  let (sql, params) = @engine.render_default_sql(q.to_statement())
+  let (sql, params) = @engine.render_query_sql(q)
   inspect(sql, content="INSERT INTO students (id, name) VALUES (?, ?), (?, ?)")
   inspect(params.to_json().stringify(), content="[1,\"Alice\",2,\"Bob\"]")
 }

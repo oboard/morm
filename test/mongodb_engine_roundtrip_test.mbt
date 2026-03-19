@@ -26,18 +26,15 @@ async test "mongodb render exec_raw roundtrip" {
     Err(_) => panic()
   }
 
-  ignore(@engine.exec_query(engine, @morm.delete_from("roundtrip_test")))
+  ignore(engine.exec(@morm.delete_from("roundtrip_test")))
 
   let insert_stmt = @morm.insert_into("roundtrip_test")
     .columns(["id", "name", "age"])
     .values([@engine.Int(7), @engine.String("Eve"), @engine.Int(25)])
-    .to_statement()
-  inspect(engine.exec(@engine.Statement(insert_stmt)).ok, content="true")
+  inspect(engine.exec(insert_stmt).ok, content="true")
 
-  let select_stmt = @morm.select_from("roundtrip_test")
-    .where_eq("id", 7)
-    .to_statement()
-  let result = engine.exec(@engine.Statement(select_stmt))
+  let select_stmt = @morm.select_from("roundtrip_test").where_eq("id", 7)
+  let result = engine.exec(select_stmt)
   inspect(result.ok, content="true")
   inspect(result.rows.length(), content="1")
   json_inspect(result.rows[0], content={ "id": 7, "name": "Eve", "age": 25 })
@@ -53,12 +50,11 @@ async test "mongodb cursor getMore" {
     Err(_) => panic()
   }
 
-  ignore(@engine.exec_query(engine, @morm.delete_from("cursor_test")))
+  ignore(engine.exec(@morm.delete_from("cursor_test")))
 
   let mut i = 0
   while i < 130 {
-    let res = @engine.exec_query(
-      engine,
+    let res = engine.exec(
       @morm.insert_into("cursor_test")
       .columns(["id", "name"])
       .values([@engine.Int(i), @engine.String("u" + i.to_string())]),
@@ -67,10 +63,7 @@ async test "mongodb cursor getMore" {
     i = i + 1
   }
 
-  let result = @engine.exec_query(
-    engine,
-    @morm.select_from("cursor_test").order_by(Asc("id")),
-  )
+  let result = engine.exec(@morm.select_from("cursor_test").order_by(Asc("id")))
   inspect(result.ok, content="true")
   inspect(result.rows.length(), content="130")
   json_inspect(result.rows[0], content={ "id": 0, "name": "u0" })

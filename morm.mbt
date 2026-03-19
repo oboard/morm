@@ -282,38 +282,17 @@ pub(open) trait Driver {
 ///|
 // ---- 简易查询构建器 ----
 pub struct Query {
-  select : String
-  from : String
-  joins : FixedArray[String]
-  where_ : FixedArray[Where]
-  order_by : FixedArray[OrderBy]
-  limit : Int?
-  offset : Int?
+  stmt : @engine.SelectStatement
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
-pub(all) enum OrderBy {
-  Asc(String)
-  Desc(String)
-} derive(Eq, Show, ToJson, FromJson)
+pub type OrderBy = @engine.OrderBy
 
 ///|
-pub struct Where {
-  col : String
-  value : @engine.Param
-  ty : WhereType
-} derive(Eq, Show, ToJson, FromJson)
+pub type Where = @engine.Where
 
 ///|
-pub enum WhereType {
-  Eq
-  Ne
-  Gt
-  Lt
-  Gte
-  Lte
-  Like
-} derive(Eq, Show, ToJson, FromJson)
+pub type WhereType = @engine.WhereType
 
 ///|
 fn json_to_param(value : Json) -> @engine.Param {
@@ -489,7 +468,7 @@ async fn[E : @engine.Engine] select_by_eq(
     limit: None,
     offset: None,
   })
-  @engine.exec(engine, @engine.Statement(stmt)).rows
+  engine.exec(@engine.Statement(stmt)).rows
 }
 
 ///|
@@ -663,26 +642,30 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(
 ///|
 pub fn select_from(table : String) -> Query {
   {
-    select: "*",
-    from: table,
-    joins: [],
-    where_: [],
-    order_by: [],
-    limit: None,
-    offset: None,
+    stmt: {
+      select: "*",
+      from: table,
+      joins: [],
+      where_: [],
+      order_by: [],
+      limit: None,
+      offset: None,
+    },
   }
 }
 
 ///|
 pub fn select_raw(table : String, cols_expr : String) -> Query {
   {
-    select: cols_expr,
-    from: table,
-    joins: [],
-    where_: [],
-    order_by: [],
-    limit: None,
-    offset: None,
+    stmt: {
+      select: cols_expr,
+      from: table,
+      joins: [],
+      where_: [],
+      order_by: [],
+      limit: None,
+      offset: None,
+    },
   }
 }
 
@@ -692,8 +675,9 @@ pub fn[V : @engine.ToParam] Query::where_eq(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Eq }]
-  { ..self, where_, }
+  let where_ = self.stmt.where_ +
+    [{ col, value: value.to_param(), ty: @engine.Eq }]
+  { stmt: { ..self.stmt, where_, } }
 }
 
 ///|
@@ -702,8 +686,9 @@ pub fn[V : @engine.ToParam] Query::where_gt(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Gt }]
-  { ..self, where_, }
+  let where_ = self.stmt.where_ +
+    [{ col, value: value.to_param(), ty: @engine.Gt }]
+  { stmt: { ..self.stmt, where_, } }
 }
 
 ///|
@@ -712,8 +697,9 @@ pub fn[V : @engine.ToParam] Query::where_ne(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Ne }]
-  { ..self, where_, }
+  let where_ = self.stmt.where_ +
+    [{ col, value: value.to_param(), ty: @engine.Ne }]
+  { stmt: { ..self.stmt, where_, } }
 }
 
 ///|
@@ -722,8 +708,9 @@ pub fn[V : @engine.ToParam] Query::where_lt(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Lt }]
-  { ..self, where_, }
+  let where_ = self.stmt.where_ +
+    [{ col, value: value.to_param(), ty: @engine.Lt }]
+  { stmt: { ..self.stmt, where_, } }
 }
 
 ///|
@@ -732,8 +719,9 @@ pub fn[V : @engine.ToParam] Query::where_like(
   col : String,
   pattern : V,
 ) -> Query {
-  let where_ = self.where_ + [{ col, value: pattern.to_param(), ty: Like }]
-  { ..self, where_, }
+  let where_ = self.stmt.where_ +
+    [{ col, value: pattern.to_param(), ty: @engine.Like }]
+  { stmt: { ..self.stmt, where_, } }
 }
 
 ///|
@@ -742,8 +730,9 @@ pub fn[V : @engine.ToParam] Query::where_gte(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Gte }]
-  { ..self, where_, }
+  let where_ = self.stmt.where_ +
+    [{ col, value: value.to_param(), ty: @engine.Gte }]
+  { stmt: { ..self.stmt, where_, } }
 }
 
 ///|
@@ -752,78 +741,50 @@ pub fn[V : @engine.ToParam] Query::where_lte(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.where_ + [{ col, value: value.to_param(), ty: Lte }]
-  { ..self, where_, }
+  let where_ = self.stmt.where_ +
+    [{ col, value: value.to_param(), ty: @engine.Lte }]
+  { stmt: { ..self.stmt, where_, } }
 }
 
 ///|
 pub fn Query::order_by(self : Query, order_by : OrderBy) -> Query {
-  { ..self, order_by: self.order_by + [order_by] }
+  { stmt: { ..self.stmt, order_by: self.stmt.order_by + [order_by] } }
 }
 
 ///|
 pub fn Query::join(self : Query, join_sql : String) -> Query {
-  { ..self, joins: self.joins + [join_sql] }
+  { stmt: { ..self.stmt, joins: self.stmt.joins + [join_sql] } }
 }
 
 ///|
 pub fn Query::limit(self : Query, n : Int) -> Query {
-  { ..self, limit: Some(n) }
+  { stmt: { ..self.stmt, limit: Some(n) } }
 }
 
 ///|
 pub fn Query::offset(self : Query, n : Int) -> Query {
-  { ..self, offset: Some(n) }
+  { stmt: { ..self.stmt, offset: Some(n) } }
 }
 
 ///|
 pub fn Query::page(self : Query, page : Int, size : Int) -> Query {
-  { ..self, offset: Some((page - 1) * size), limit: Some(size) }
+  { stmt: { ..self.stmt, offset: Some((page - 1) * size), limit: Some(size) } }
 }
 
 ///|
-pub impl @engine.QueryBuilder for Query with to_statement(self) -> @engine.Statement {
-  let where_ = self.where_.map(w => {
-    let ty = match w.ty {
-      Eq => @engine.Eq
-      Ne => @engine.Ne
-      Gt => @engine.Gt
-      Lt => @engine.Lt
-      Gte => @engine.Gte
-      Lte => @engine.Lte
-      Like => @engine.Like
-    }
-    @engine.Where::{ col: w.col, value: w.value, ty }
-  })
-  let order_by = self.order_by.map(ob => {
-    match ob {
-      Asc(col) => @engine.Asc(col)
-      Desc(col) => @engine.Desc(col)
-    }
-  })
-  @engine.Select({
-    select: self.select,
-    from: self.from,
-    joins: self.joins,
-    where_,
-    order_by,
-    limit: self.limit,
-    offset: self.offset,
-  })
+pub impl @engine.QueryBuilder for Query with to_query(self) -> @engine.Query {
+  @engine.Statement(@engine.Select(self.stmt))
 }
 
 ///|
 // ---- INSERT 构建器 ----
 pub struct InsertQuery {
-  into : String
-  columns : FixedArray[String]
-  values : FixedArray[@engine.Param]
-  rows : FixedArray[FixedArray[@engine.Param]]
+  stmt : @engine.InsertStatement
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
 pub fn insert_into(table : String) -> InsertQuery {
-  { into: table, columns: [], values: [], rows: [] }
+  { stmt: { into: table, columns: [], values: [], rows: [] } }
 }
 
 ///|
@@ -846,7 +807,7 @@ pub fn[E : Entity] InsertQuery::from(
   } else {
     []
   }
-  { ..self, columns, values, rows: [] }
+  { stmt: { ..self.stmt, columns, values, rows: [] } }
 }
 
 ///|
@@ -876,7 +837,14 @@ pub fn[E : Entity] InsertQuery::from_many(
       rows.push([])
     }
   }
-  { ..self, columns, values: [], rows: FixedArray::from_array(rows) }
+  {
+    stmt: {
+      ..self.stmt,
+      columns,
+      values: [],
+      rows: FixedArray::from_array(rows),
+    },
+  }
 }
 
 ///|
@@ -884,47 +852,45 @@ pub fn InsertQuery::columns(
   self : InsertQuery,
   columns : FixedArray[String],
 ) -> InsertQuery {
-  { ..self, columns, }
+  { stmt: { ..self.stmt, columns, } }
 }
 
 ///|
 pub fn InsertQuery::values(
   self : InsertQuery,
-  values : FixedArray[@engine.Param],
+  values : FixedArray[&@engine.ToParam],
 ) -> InsertQuery {
-  { ..self, values, rows: [] }
+  { stmt: { ..self.stmt, values: values.map(v => v.to_param()), rows: [] } }
 }
 
 ///|
 pub fn InsertQuery::values_many(
   self : InsertQuery,
-  rows : FixedArray[FixedArray[@engine.Param]],
+  rows : FixedArray[FixedArray[&@engine.ToParam]],
 ) -> InsertQuery {
-  { ..self, rows, values: [] }
+  {
+    stmt: {
+      ..self.stmt,
+      rows: rows.map(row => row.map(v => v.to_param())),
+      values: [],
+    },
+  }
 }
 
 ///|
-pub impl @engine.QueryBuilder for InsertQuery with to_statement(self) -> @engine.Statement {
-  @engine.Insert({
-    into: self.into,
-    columns: self.columns,
-    values: self.values,
-    rows: self.rows,
-  })
+pub impl @engine.QueryBuilder for InsertQuery with to_query(self) -> @engine.Query {
+  @engine.Statement(@engine.Insert(self.stmt))
 }
 
 ///|
 // ---- UPSERT 构建器 ----
 pub struct UpsertQuery {
-  table : String
-  sets : FixedArray[Set]
-  conflict_target : FixedArray[String] // 冲突检测列（主键或唯一索引列）
-  update_sets : FixedArray[Set] // 冲突时更新的列
+  stmt : @engine.UpsertStatement
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
 pub fn upsert_into(table : String) -> UpsertQuery {
-  { table, sets: [], conflict_target: [], update_sets: [] }
+  { stmt: { table, sets: [], conflict_target: [], update_sets: [] } }
 }
 
 ///|
@@ -935,7 +901,7 @@ pub fn[E : Entity] UpsertQuery::from(
   let json = entity.to_json()
   let table = entity.table()
   let sets = if json is Object(obj) {
-    let out : Array[Set] = []
+    let out : Array[@engine.Set] = []
     for col in table.columns {
       if obj.get(col.name) is Some(value) {
         out.push({ col: col.name, value: json_to_param_for_column(value, col) })
@@ -959,7 +925,7 @@ pub fn[E : Entity] UpsertQuery::from(
         }
       }
   }
-  { ..self, sets, conflict_target: conflict_cols }
+  { stmt: { ..self.stmt, sets, conflict_target: conflict_cols } }
 }
 
 ///|
@@ -968,7 +934,7 @@ pub fn UpsertQuery::set(
   col : String,
   value : @engine.Param,
 ) -> UpsertQuery {
-  { ..self, sets: self.sets + [{ col, value }] }
+  { stmt: { ..self.stmt, sets: self.stmt.sets + [{ col, value }] } }
 }
 
 ///|
@@ -976,7 +942,7 @@ pub fn UpsertQuery::on_conflict(
   self : UpsertQuery,
   columns : FixedArray[String],
 ) -> UpsertQuery {
-  { ..self, conflict_target: columns }
+  { stmt: { ..self.stmt, conflict_target: columns } }
 }
 
 ///|
@@ -985,41 +951,28 @@ pub fn UpsertQuery::do_update_set(
   col : String,
   value : @engine.Param,
 ) -> UpsertQuery {
-  { ..self, update_sets: self.update_sets + [{ col, value }] }
+  {
+    stmt: { ..self.stmt, update_sets: self.stmt.update_sets + [{ col, value }] },
+  }
 }
 
 ///|
-pub impl @engine.QueryBuilder for UpsertQuery with to_statement(self) -> @engine.Statement {
-  let sets = self.sets.map(s => @engine.Set::{ col: s.col, value: s.value })
-  let update_sets = self.update_sets.map(s => @engine.Set::{
-    col: s.col,
-    value: s.value,
-  })
-  @engine.Upsert({
-    table: self.table,
-    sets,
-    conflict_target: self.conflict_target,
-    update_sets,
-  })
+pub impl @engine.QueryBuilder for UpsertQuery with to_query(self) -> @engine.Query {
+  @engine.Statement(@engine.Upsert(self.stmt))
 }
 
 ///|
 // ---- UPDATE 构建器 ----
-pub struct Set {
-  col : String
-  value : @engine.Param
-} derive(Eq, Show, ToJson, FromJson)
+pub type Set = @engine.Set
 
 ///|
 pub struct UpdateQuery {
-  table : String
-  sets : FixedArray[Set]
-  where_ : FixedArray[Where]
+  stmt : @engine.UpdateStatement
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
 pub fn update(table : String) -> UpdateQuery {
-  { table, sets: [], where_: [] }
+  { stmt: { table, sets: [], where_: [] } }
 }
 
 ///|
@@ -1030,7 +983,7 @@ pub fn[E : Entity] UpdateQuery::from(
   let json = entity.to_json()
   let table = entity.table()
   let sets = if json is Object(obj) {
-    let out : Array[Set] = []
+    let out : Array[@engine.Set] = []
     for col in table.columns {
       if obj.get(col.name) is Some(value) {
         out.push({ col: col.name, value: json_to_param_for_column(value, col) })
@@ -1040,7 +993,7 @@ pub fn[E : Entity] UpdateQuery::from(
   } else {
     []
   }
-  { ..self, sets, }
+  { stmt: { ..self.stmt, sets, } }
 }
 
 ///|
@@ -1049,7 +1002,12 @@ pub fn[V : @engine.ToParam] UpdateQuery::set(
   col : String,
   value : V,
 ) -> UpdateQuery {
-  { ..self, sets: self.sets + [{ col, value: value.to_param() }] }
+  {
+    stmt: {
+      ..self.stmt,
+      sets: self.stmt.sets + [{ col, value: value.to_param() }],
+    },
+  }
 }
 
 ///|
@@ -1058,7 +1016,13 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_eq(
   col : String,
   value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Eq }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Eq }],
+    },
+  }
 }
 
 ///|
@@ -1067,7 +1031,13 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_gt(
   col : String,
   value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Gt }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Gt }],
+    },
+  }
 }
 
 ///|
@@ -1076,7 +1046,13 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_ne(
   col : String,
   value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Ne }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Ne }],
+    },
+  }
 }
 
 ///|
@@ -1085,7 +1061,13 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_lt(
   col : String,
   value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lt }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Lt }],
+    },
+  }
 }
 
 ///|
@@ -1095,8 +1077,11 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_like(
   pattern : V,
 ) -> UpdateQuery {
   {
-    ..self,
-    where_: self.where_ + [{ col, value: pattern.to_param(), ty: Like }],
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: pattern.to_param(), ty: @engine.Like }],
+    },
   }
 }
 
@@ -1106,7 +1091,13 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_gte(
   col : String,
   value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Gte }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Gte }],
+    },
+  }
 }
 
 ///|
@@ -1115,37 +1106,29 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_lte(
   col : String,
   value : V,
 ) -> UpdateQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lte }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Lte }],
+    },
+  }
 }
 
 ///|
-pub impl @engine.QueryBuilder for UpdateQuery with to_statement(self) -> @engine.Statement {
-  let sets = self.sets.map(s => @engine.Set::{ col: s.col, value: s.value })
-  let where_ = self.where_.map(w => {
-    let ty = match w.ty {
-      Eq => @engine.Eq
-      Ne => @engine.Ne
-      Gt => @engine.Gt
-      Lt => @engine.Lt
-      Gte => @engine.Gte
-      Lte => @engine.Lte
-      Like => @engine.Like
-    }
-    @engine.Where::{ col: w.col, value: w.value, ty }
-  })
-  @engine.Update({ table: self.table, sets, where_ })
+pub impl @engine.QueryBuilder for UpdateQuery with to_query(self) -> @engine.Query {
+  @engine.Statement(@engine.Update(self.stmt))
 }
 
 ///|
 // ---- DELETE 构建器 ----
 pub struct DeleteQuery {
-  from : String
-  where_ : FixedArray[Where]
+  stmt : @engine.DeleteStatement
 } derive(Eq, Show, ToJson, FromJson)
 
 ///|
 pub fn delete_from(table : String) -> DeleteQuery {
-  { from: table, where_: [] }
+  { stmt: { from: table, where_: [] } }
 }
 
 ///|
@@ -1154,7 +1137,13 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_eq(
   col : String,
   value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Eq }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Eq }],
+    },
+  }
 }
 
 ///|
@@ -1163,7 +1152,13 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_gt(
   col : String,
   value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Gt }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Gt }],
+    },
+  }
 }
 
 ///|
@@ -1172,7 +1167,13 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_ne(
   col : String,
   value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Ne }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Ne }],
+    },
+  }
 }
 
 ///|
@@ -1181,7 +1182,13 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_lt(
   col : String,
   value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lt }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Lt }],
+    },
+  }
 }
 
 ///|
@@ -1191,8 +1198,11 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_like(
   pattern : V,
 ) -> DeleteQuery {
   {
-    ..self,
-    where_: self.where_ + [{ col, value: pattern.to_param(), ty: Like }],
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: pattern.to_param(), ty: @engine.Like }],
+    },
   }
 }
 
@@ -1202,7 +1212,13 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_gte(
   col : String,
   value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Gte }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Gte }],
+    },
+  }
 }
 
 ///|
@@ -1211,24 +1227,102 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_lte(
   col : String,
   value : V,
 ) -> DeleteQuery {
-  { ..self, where_: self.where_ + [{ col, value: value.to_param(), ty: Lte }] }
+  {
+    stmt: {
+      ..self.stmt,
+      where_: self.stmt.where_ +
+      [{ col, value: value.to_param(), ty: @engine.Lte }],
+    },
+  }
 }
 
 ///|
-pub impl @engine.QueryBuilder for DeleteQuery with to_statement(self) -> @engine.Statement {
-  let where_ = self.where_.map(w => {
-    let ty = match w.ty {
-      Eq => @engine.Eq
-      Ne => @engine.Ne
-      Gt => @engine.Gt
-      Lt => @engine.Lt
-      Gte => @engine.Gte
-      Lte => @engine.Lte
-      Like => @engine.Like
-    }
-    @engine.Where::{ col: w.col, value: w.value, ty }
-  })
-  @engine.Delete({ from: self.from, where_ })
+pub impl @engine.QueryBuilder for DeleteQuery with to_query(self) -> @engine.Query {
+  @engine.Statement(@engine.Delete(self.stmt))
+}
+
+///|
+pub struct TxQuery {
+  op : @engine.TxOp
+} derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub fn tx_begin() -> TxQuery {
+  { op: @engine.Begin }
+}
+
+///|
+pub fn tx_commit() -> TxQuery {
+  { op: @engine.Commit }
+}
+
+///|
+pub fn tx_rollback() -> TxQuery {
+  { op: @engine.Rollback }
+}
+
+///|
+pub fn tx_savepoint(name : String) -> TxQuery {
+  { op: @engine.Savepoint(name) }
+}
+
+///|
+pub fn tx_rollback_to_savepoint(name : String) -> TxQuery {
+  { op: @engine.RollbackToSavepoint(name) }
+}
+
+///|
+pub impl @engine.QueryBuilder for TxQuery with to_query(self) -> @engine.Query {
+  @engine.Tx(self.op)
+}
+
+///|
+pub struct TxBatch[E] {
+  engine : E
+}
+
+///|
+pub async fn[E : @engine.Engine] tx_block(engine : E) -> TxBatch[E] {
+  ignore(engine.exec(tx_begin()))
+  { engine, }
+}
+
+///|
+pub async fn[Q : @engine.QueryBuilder, E : @engine.Engine] TxBatch::exec(
+  self : TxBatch[E],
+  query : Q,
+) -> @engine.QueryResult {
+  self.engine.exec(query)
+}
+
+///|
+pub async fn[E : @engine.Engine] TxBatch::commit(
+  self : TxBatch[E],
+) -> @engine.QueryResult {
+  self.engine.exec(tx_commit())
+}
+
+///|
+pub async fn[E : @engine.Engine] TxBatch::rollback(
+  self : TxBatch[E],
+) -> @engine.QueryResult {
+  self.engine.exec(tx_rollback())
+}
+
+///|
+pub async fn[E : @engine.Engine] TxBatch::savepoint(
+  self : TxBatch[E],
+  name : String,
+) -> @engine.QueryResult {
+  self.engine.exec(tx_savepoint(name))
+}
+
+///|
+pub async fn[E : @engine.Engine] TxBatch::rollback_to_savepoint(
+  self : TxBatch[E],
+  name : String,
+) -> @engine.QueryResult {
+  self.engine.exec(tx_rollback_to_savepoint(name))
 }
 
 ///|
@@ -1244,7 +1338,13 @@ pub fn[E : Entity] DeleteQuery::from(
       match obj.get(pk) {
         Some(v) => {
           let pv = json_to_param(v)
-          { ..self, where_: self.where_ + [{ col: pk, value: pv, ty: Eq }] }
+          {
+            stmt: {
+              ..self.stmt,
+              where_: self.stmt.where_ +
+              [{ col: pk, value: pv, ty: @engine.Eq }],
+            },
+          }
         }
         None => self
       }

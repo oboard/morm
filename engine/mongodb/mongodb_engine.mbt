@@ -2145,8 +2145,11 @@ pub impl @engine.Engine for MongoDBEngine with migrate_table(
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with exec(self, query : @engine.Query) {
-  let stmt = match query {
+pub impl @engine.Engine for MongoDBEngine with exec(
+  self,
+  query : &@engine.QueryBuilder,
+) {
+  let stmt = match query.to_query() {
     @engine.Statement(stmt) => stmt
     @engine.Raw(sql, _params) => {
       guard parse_command(sql) is Some(cmd) else {

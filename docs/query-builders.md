@@ -206,7 +206,7 @@ This adds the implicit predicate `deleted = false`.
 All builders implement `@engine.QueryBuilder`, so they can be passed to:
 
 ```moonbit
-let res = @engine.exec_query(engine, q)
+let res = engine.exec(q)
 ```
 
 The engine is responsible for:

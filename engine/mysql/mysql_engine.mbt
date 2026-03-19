@@ -1104,8 +1104,11 @@ fn mysql_tx_sql(op : @engine.TxOp) -> String {
 }
 
 ///|
-pub impl @engine.Engine for MySQLEngine with exec(self, query : @engine.Query) -> @engine.QueryResult {
-  let (sql, params) = match query {
+pub impl @engine.Engine for MySQLEngine with exec(
+  self,
+  query : &@engine.QueryBuilder,
+) -> @engine.QueryResult {
+  let (sql, params) = match query.to_query() {
     @engine.Statement(stmt) => @engine.render_default_sql(stmt)
     @engine.Raw(sql, params) => (sql, params)
     @engine.Tx(op) => (mysql_tx_sql(op), [])

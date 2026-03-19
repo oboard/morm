@@ -60,8 +60,11 @@ impl @engine.Engine for MockEngine with exec_raw(
 }
 
 ///|
-impl @engine.Engine for MockEngine with exec(self, query : @engine.Query) -> @engine.QueryResult {
-  match query {
+impl @engine.Engine for MockEngine with exec(
+  self,
+  query : &@engine.QueryBuilder,
+) -> @engine.QueryResult {
+  match query.to_query() {
     @engine.Statement(stmt) => {
       let (sql, params) = @engine.render_default_sql(stmt)
       self.exec_raw(sql, params)

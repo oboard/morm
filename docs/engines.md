@@ -57,7 +57,7 @@ Read the dedicated pages for implementation details and operational guidance:
 The common execution helper is:
 
 ```moonbit
-let res = @engine.exec_query(engine, q)
+let res = engine.exec(q)
 ```
 
 Where:

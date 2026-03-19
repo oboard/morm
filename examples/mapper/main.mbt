@@ -10,24 +10,24 @@ async fn main {
 
   let seed = @morm.insert_into("user")
     .columns(["email", "active"])
-    .values([String("alice@example.com"), Int(1)])
+    .values(["alice@example.com", 1])
   let seed2 = @morm.insert_into("user")
     .columns(["email", "active"])
-    .values([String("bob@example.com"), Int(0)])
+    .values(["bob@example.com", 0])
   let seed3 = @morm.insert_into("user")
     .columns(["email", "active"])
-    .values([String("carol@example.com"), Int(1)])
-  let seed_res = @engine.exec_query(engine, seed)
+    .values(["carol@example.com", 1])
+  let seed_res = engine.exec(seed)
   if !seed_res.ok {
     println("seed user alice failed")
     return
   }
-  let seed2_res = @engine.exec_query(engine, seed2)
+  let seed2_res = engine.exec(seed2)
   if !seed2_res.ok {
     println("seed user bob failed")
     return
   }
-  let seed3_res = @engine.exec_query(engine, seed3)
+  let seed3_res = engine.exec(seed3)
   if !seed3_res.ok {
     println("seed user carol failed")
     return

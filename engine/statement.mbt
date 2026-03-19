@@ -62,3 +62,8 @@ pub(all) enum Query {
   Raw(String, FixedArray[Param])
   Tx(TxOp)
 } derive(Eq, Show, ToJson, FromJson)
+
+///|
+pub impl QueryBuilder for Query with to_query(self) -> Query {
+  self
+}

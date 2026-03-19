@@ -74,13 +74,13 @@ pub(all) struct Set {
 
 ///|
 pub(open) trait QueryBuilder {
-  to_statement(Self) -> Statement
+  to_query(Self) -> Query
 }
 
 ///|
 pub(open) trait Engine {
   /// Execute a normalized query model (statement/raw/transaction).
-  async exec(Self, query : Query) -> QueryResult
+  async exec(Self, query : &QueryBuilder) -> QueryResult
   ///|
   /// Convenience wrapper for raw SQL; internally equivalent to exec(Query::Raw(...)).
   async exec_raw(Self, sql : String, params : FixedArray[Param]) -> QueryResult

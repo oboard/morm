@@ -973,9 +973,9 @@ fn sqlserver_tx_sql(op : @engine.TxOp) -> String {
 ///|
 pub impl @engine.Engine for SQLServerEngine with exec(
   self,
-  query : @engine.Query,
+  query : &@engine.QueryBuilder,
 ) -> @engine.QueryResult {
-  let (sql, params) = match query {
+  let (sql, params) = match query.to_query() {
     @engine.Statement(stmt) => @engine.render_default_sql(stmt)
     @engine.Raw(sql, params) => (sql, params)
     @engine.Tx(op) => (sqlserver_tx_sql(op), [])

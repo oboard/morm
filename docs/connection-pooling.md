@@ -64,9 +64,9 @@ For `MySQL` and `PostgreSQL`, an active transaction is pinned to one borrowed co
 
 That means:
 
-1. `@engine.tx_begin(engine)` borrows one connection and keeps it.
+1. `engine.exec(@engine.Tx(@engine.Begin))` borrows one connection and keeps it.
 2. All later `exec_raw` / `exec_query` calls on that same engine instance run on the same socket.
-3. `@engine.tx_commit(engine)` or `@engine.tx_rollback(engine)` returns the connection to the pool.
+3. `engine.exec(@engine.Tx(@engine.Commit))` or `engine.exec(@engine.Tx(@engine.Rollback))` returns the connection to the pool.
 
 This is the minimum requirement for correct transaction behavior.
 

@@ -23,16 +23,16 @@ async fn main {
   // Query Builder INSERT.
   let insert_alice = @morm.insert_into("user")
     .columns(["email", "name", "active"])
-    .values([String("alice@example.com"), String("Alice"), Int(1)])
+    .values(["alice@example.com", "Alice", 1])
   let insert_bob = @morm.insert_into("user")
     .columns(["email", "name", "active"])
-    .values([String("bob@example.com"), String("Bob"), Int(0)])
-  let insert_alice_res = @engine.exec_query(engine, insert_alice)
+    .values(["bob@example.com", "Bob", 0])
+  let insert_alice_res = engine.exec(insert_alice)
   if !insert_alice_res.ok {
     println("insert alice failed")
     return
   }
-  let insert_bob_res = @engine.exec_query(engine, insert_bob)
+  let insert_bob_res = engine.exec(insert_bob)
   if !insert_bob_res.ok {
     println("insert bob failed")
     return
@@ -42,7 +42,7 @@ async fn main {
   let select_active = @morm.select_from("user")
     .where_eq("active", 1)
     .order_by(Asc("id"))
-  let active_res = @engine.exec_query(engine, select_active)
+  let active_res = engine.exec(select_active)
   if !active_res.ok {
     println("select active users failed")
     return
@@ -56,7 +56,7 @@ async fn main {
   let update_bob = @morm.update("user")
     .set("active", 1)
     .where_eq("email", "bob@example.com")
-  let update_bob_res = @engine.exec_query(engine, update_bob)
+  let update_bob_res = engine.exec(update_bob)
   if !update_bob_res.ok {
     println("update bob active failed")
     return
@@ -66,17 +66,14 @@ async fn main {
   let delete_alice = @morm.delete_from("user").where_eq(
     "email", "alice@example.com",
   )
-  let delete_alice_res = @engine.exec_query(engine, delete_alice)
+  let delete_alice_res = engine.exec(delete_alice)
   if !delete_alice_res.ok {
     println("delete alice failed")
     return
   }
 
   // Final state.
-  let final_res = @engine.exec_query(
-    engine,
-    @morm.select_from("user").order_by(Asc("id")),
-  )
+  let final_res = engine.exec(@morm.select_from("user").order_by(Asc("id")))
   if !final_res.ok {
     println("final select failed")
     return

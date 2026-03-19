@@ -873,7 +873,7 @@ fn generate_mapper_code(
       $|     error: Some("async execution did not return"),
       $|   }
       $|   @async.run_async_main(() => {
-      $|     res = @engine.exec_query(self.engine, q)
+      $|     res = self.engine.exec(q)
       $|   })
       $|   res
       $| }
@@ -979,7 +979,7 @@ fn generate_mapper_code(
         (
           $|\{auto_stamp_code}
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
-          $|   @engine.exec_query(self.engine, q).ok
+          $|   self.engine.exec(q).ok
           $| }
           $|
         )
@@ -987,7 +987,7 @@ fn generate_mapper_code(
         (
           $|\{auto_stamp_code}
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
-          $|   let res = @engine.exec_query(self.engine, q)
+          $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
           $|     return Some(\{option_decode_expr})
           $|   }
@@ -1000,7 +1000,7 @@ fn generate_mapper_code(
         (
           $|\{auto_stamp_code}
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
-          $|   let res = @engine.exec_query(self.engine, q)
+          $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
           $|     return \{render_value_decode_expr(entity_ty, "result", entity_specs)}
           $|   }
@@ -1059,7 +1059,7 @@ fn generate_mapper_code(
         (
           $|\{auto_stamp_code}
           $|   let q = \{update_query_expr}
-          $|   @engine.exec_query(self.engine, q).ok
+          $|   self.engine.exec(q).ok
           $| }
           $|
         )
@@ -1067,7 +1067,7 @@ fn generate_mapper_code(
         (
           $|\{auto_stamp_code}
           $|   let q = \{update_query_expr}
-          $|   let res = @engine.exec_query(self.engine, q)
+          $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
           $|     return Some(\{option_decode_expr})
           $|   }
@@ -1079,7 +1079,7 @@ fn generate_mapper_code(
         (
           $|\{auto_stamp_code}
           $|   let q = \{update_query_expr}
-          $|   let res = @engine.exec_query(self.engine, q)
+          $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
           $|     return \{value_decode_expr}
           $|   }
@@ -1091,7 +1091,7 @@ fn generate_mapper_code(
     } else if m.name == "delete" && m.params.length() == 1 {
       (
         $|   let q = @morm.delete_from(\{table_expr}).from(entity)
-        $|   @engine.exec_query(self.engine, q).ok
+        $|   self.engine.exec(q).ok
         $| }
         $|
       )
@@ -1119,21 +1119,21 @@ fn generate_mapper_code(
                 ) {
                 (
                   $|   let q = \{code}
-                  $|   @engine.exec_query(self.engine, q).ok
+                  $|   self.engine.exec(q).ok
                   $| }
                   $|
                 )
               } else if m.returns_array {
                 (
                   $|   let q = \{code}
-                  $|   @engine.exec_query(self.engine, q).rows.map(row => \{array_decode_expr})
+                  $|   self.engine.exec(q).rows.map(row => \{array_decode_expr})
                   $| }
                   $|
                 )
               } else if m.returns_option {
                 (
                   $|   let q = \{code}
-                  $|   if @engine.exec_query(self.engine, q).rows
+                  $|   if self.engine.exec(q).rows
                   $|     is [result, ..] {
                   $|     return Some(\{option_decode_expr})
                   $|   }
@@ -1144,7 +1144,7 @@ fn generate_mapper_code(
               } else {
                 (
                   $|   let q = \{code}
-                  $|   if @engine.exec_query(self.engine, q).rows
+                  $|   if self.engine.exec(q).rows
                   $|     is [result, ..] {
                   $|     return \{value_decode_expr}
                   $|   }

@@ -818,8 +818,11 @@ fn pg_tx_sql(op : @engine.TxOp) -> String {
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with exec(self, query : @engine.Query) -> @engine.QueryResult {
-  let (sql, params) = match query {
+pub impl @engine.Engine for PgSQLEngine with exec(
+  self,
+  query : &@engine.QueryBuilder,
+) -> @engine.QueryResult {
+  let (sql, params) = match query.to_query() {
     @engine.Statement(stmt) => pg_render(stmt)
     @engine.Raw(sql, params) => (sql, params)
     @engine.Tx(op) => (pg_tx_sql(op), [])

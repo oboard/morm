@@ -143,6 +143,18 @@ pub fn table_tablespace(@table.Table, String) -> @table.Table
 
 pub fn table_temporary(@table.Table, Bool) -> @table.Table
 
+pub fn tx_begin() -> TxQuery
+
+pub async fn[E : @engine.Engine] tx_block(E) -> TxBatch[E]
+
+pub fn tx_commit() -> TxQuery
+
+pub fn tx_rollback() -> TxQuery
+
+pub fn tx_rollback_to_savepoint(String) -> TxQuery
+
+pub fn tx_savepoint(String) -> TxQuery
+
 pub fn unregister_driver_scheme(String) -> Unit
 
 pub fn update(String) -> UpdateQuery
@@ -195,8 +207,7 @@ pub impl Show for DbError
 pub impl ToJson for DbError
 
 pub struct DeleteQuery {
-  from : String
-  where_ : FixedArray[Where]
+  stmt : @engine.DeleteStatement
 }
 pub fn[E : Entity] DeleteQuery::from(Self, E) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_eq(Self, String, V) -> Self
@@ -233,30 +244,18 @@ pub impl ToJson for IndexDiff
 pub impl @json.FromJson for IndexDiff
 
 pub struct InsertQuery {
-  into : String
-  columns : FixedArray[String]
-  values : FixedArray[@engine.Param]
-  rows : FixedArray[FixedArray[@engine.Param]]
+  stmt : @engine.InsertStatement
 }
 pub fn InsertQuery::columns(Self, FixedArray[String]) -> Self
 pub fn[E : Entity] InsertQuery::from(Self, E) -> Self
 pub fn[E : Entity] InsertQuery::from_many(Self, FixedArray[E]) -> Self
-pub fn InsertQuery::values(Self, FixedArray[@engine.Param]) -> Self
-pub fn InsertQuery::values_many(Self, FixedArray[FixedArray[@engine.Param]]) -> Self
+pub fn InsertQuery::values(Self, FixedArray[&@engine.ToParam]) -> Self
+pub fn InsertQuery::values_many(Self, FixedArray[FixedArray[&@engine.ToParam]]) -> Self
 pub impl Eq for InsertQuery
 pub impl Show for InsertQuery
 pub impl ToJson for InsertQuery
 pub impl @json.FromJson for InsertQuery
 pub impl @engine.QueryBuilder for InsertQuery
-
-pub(all) enum OrderBy {
-  Asc(String)
-  Desc(String)
-}
-pub impl Eq for OrderBy
-pub impl Show for OrderBy
-pub impl ToJson for OrderBy
-pub impl @json.FromJson for OrderBy
 
 pub(all) enum PreloadResult[T] {
   One(Map[String, T])
@@ -264,18 +263,12 @@ pub(all) enum PreloadResult[T] {
 }
 
 pub struct Query {
-  select : String
-  from : String
-  joins : FixedArray[String]
-  where_ : FixedArray[Where]
-  order_by : FixedArray[OrderBy]
-  limit : Int?
-  offset : Int?
+  stmt : @engine.SelectStatement
 }
 pub fn Query::join(Self, String) -> Self
 pub fn Query::limit(Self, Int) -> Self
 pub fn Query::offset(Self, Int) -> Self
-pub fn Query::order_by(Self, OrderBy) -> Self
+pub fn Query::order_by(Self, @engine.OrderBy) -> Self
 pub fn Query::page(Self, Int, Int) -> Self
 pub fn[V : @engine.ToParam] Query::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gt(Self, String, V) -> Self
@@ -290,15 +283,6 @@ pub impl ToJson for Query
 pub impl @json.FromJson for Query
 pub impl @engine.QueryBuilder for Query
 
-pub struct Set {
-  col : String
-  value : @engine.Param
-}
-pub impl Eq for Set
-pub impl Show for Set
-pub impl ToJson for Set
-pub impl @json.FromJson for Set
-
 pub(all) struct TableDiff {
   columns : ColumnDiff
   indexes : IndexDiff
@@ -309,10 +293,26 @@ pub impl Show for TableDiff
 pub impl ToJson for TableDiff
 pub impl @json.FromJson for TableDiff
 
+pub struct TxBatch[E] {
+  engine : E
+}
+pub async fn[E : @engine.Engine] TxBatch::commit(Self[E]) -> @engine.QueryResult
+pub async fn[Q : @engine.QueryBuilder, E : @engine.Engine] TxBatch::exec(Self[E], Q) -> @engine.QueryResult
+pub async fn[E : @engine.Engine] TxBatch::rollback(Self[E]) -> @engine.QueryResult
+pub async fn[E : @engine.Engine] TxBatch::rollback_to_savepoint(Self[E], String) -> @engine.QueryResult
+pub async fn[E : @engine.Engine] TxBatch::savepoint(Self[E], String) -> @engine.QueryResult
+
+pub struct TxQuery {
+  op : @engine.TxOp
+}
+pub impl Eq for TxQuery
+pub impl Show for TxQuery
+pub impl ToJson for TxQuery
+pub impl @json.FromJson for TxQuery
+pub impl @engine.QueryBuilder for TxQuery
+
 pub struct UpdateQuery {
-  table : String
-  sets : FixedArray[Set]
-  where_ : FixedArray[Where]
+  stmt : @engine.UpdateStatement
 }
 pub fn[E : Entity] UpdateQuery::from(Self, E) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::set(Self, String, V) -> Self
@@ -330,10 +330,7 @@ pub impl @json.FromJson for UpdateQuery
 pub impl @engine.QueryBuilder for UpdateQuery
 
 pub struct UpsertQuery {
-  table : String
-  sets : FixedArray[Set]
-  conflict_target : FixedArray[String]
-  update_sets : FixedArray[Set]
+  stmt : @engine.UpsertStatement
 }
 pub fn UpsertQuery::do_update_set(Self, String, @engine.Param) -> Self
 pub fn[E : Entity] UpsertQuery::from(Self, E) -> Self
@@ -344,30 +341,6 @@ pub impl Show for UpsertQuery
 pub impl ToJson for UpsertQuery
 pub impl @json.FromJson for UpsertQuery
 pub impl @engine.QueryBuilder for UpsertQuery
-
-pub struct Where {
-  col : String
-  value : @engine.Param
-  ty : WhereType
-}
-pub impl Eq for Where
-pub impl Show for Where
-pub impl ToJson for Where
-pub impl @json.FromJson for Where
-
-pub enum WhereType {
-  Eq
-  Ne
-  Gt
-  Lt
-  Gte
-  Lte
-  Like
-}
-pub impl Eq for WhereType
-pub impl Show for WhereType
-pub impl ToJson for WhereType
-pub impl @json.FromJson for WhereType
 
 // Type aliases
 pub using @table {type Column}
@@ -384,9 +357,17 @@ pub using @table {type Index}
 
 pub using @table {type IndexType}
 
+pub using @engine {type OrderBy}
+
+pub using @engine {type Set}
+
 pub using @table {type Table}
 
 pub using @table {type TableEngineOption}
+
+pub using @engine {type Where}
+
+pub using @engine {type WhereType}
 
 // Traits
 pub(open) trait Driver {
