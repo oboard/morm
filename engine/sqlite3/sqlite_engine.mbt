@@ -23,18 +23,38 @@ fn placeholders(count : Int) -> String {
 fn format_where_sql(where_ : FixedArray[@engine.Where]) -> String {
   where_
   .map(w => {
-    let op = match w.ty {
-      Eq => "="
-      Ne => "!="
-      Gt => ">"
-      Lt => "<"
-      Gte => ">="
-      Lte => "<="
-      Like => "LIKE"
+    match (w.ty, w.value) {
+      (Eq, Null | Json(Null)) => "\{w.col} IS NULL"
+      (Ne, Null | Json(Null)) => "\{w.col} IS NOT NULL"
+      _ => {
+        let op = match w.ty {
+          Eq => "="
+          Ne => "!="
+          Gt => ">"
+          Lt => "<"
+          Gte => ">="
+          Lte => "<="
+          Like => "LIKE"
+        }
+        [w.col, op, "?"].join(" ")
+      }
     }
-    [w.col, op, "?"].join(" ")
   })
   .join(" AND ")
+}
+
+///|
+fn where_params(
+  where_ : FixedArray[@engine.Where],
+) -> FixedArray[@engine.Param] {
+  let out : Array[@engine.Param] = []
+  for w in where_ {
+    if w.ty is (Eq | Ne) && w.value is (Null | Json(Null)) {
+      continue
+    }
+    out.push(w.value)
+  }
+  FixedArray::from_array(out)
 }
 
 ///|
@@ -296,7 +316,7 @@ fn render_sqlite(
         buf.write_string(" OFFSET ")
         buf.write_string(v.to_string())
       }
-      (buf.to_string(), where_.map(w => w.value))
+      (buf.to_string(), where_params(where_))
     }
     Insert(insert_stmt) => {
       let { into, columns, values, rows } = insert_stmt
@@ -361,7 +381,7 @@ fn render_sqlite(
         buf.write_string(" WHERE ")
         buf.write_string(format_where_sql(where_))
       }
-      (buf.to_string(), sets.map(s => s.value) + where_.map(w => w.value))
+      (buf.to_string(), sets.map(s => s.value) + where_params(where_))
     }
     Delete(delete_stmt) => {
       let { from, where_ } = delete_stmt
@@ -372,7 +392,7 @@ fn render_sqlite(
         buf.write_string(" WHERE ")
         buf.write_string(format_where_sql(where_))
       }
-      (buf.to_string(), where_.map(w => w.value))
+      (buf.to_string(), where_params(where_))
     }
   }
 }
