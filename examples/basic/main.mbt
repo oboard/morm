@@ -49,7 +49,7 @@ async fn main {
   }
   println("basic: active_rows=\{active_res.rows.length()}")
   for row in active_res.rows {
-    println(row.stringify())
+    println(row.to_json().stringify())
   }
 
   // Query Builder UPDATE.
@@ -80,7 +80,7 @@ async fn main {
   }
   println("basic: final_rows=\{final_res.rows.length()}")
   for row in final_res.rows {
-    println(row.stringify())
+    println(row.to_json().stringify())
   }
 
   engine.close()

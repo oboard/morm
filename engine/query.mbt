@@ -81,6 +81,11 @@ fn row_object_key(row : Json, key : String) -> String? {
 }
 
 ///|
+fn query_result_row_json(row : Param) -> Json {
+  row.to_json()
+}
+
+///|
 fn map_push_json_array(
   out : Map[String, Array[Json]],
   key : String,
@@ -110,8 +115,9 @@ pub async fn[E : Engine] preload_belongs_to_default(
     return out
   }
   for row in res.rows {
-    if row_object_key(row, target_key) is Some(key) {
-      out.set(key, row)
+    let row_json = query_result_row_json(row)
+    if row_object_key(row_json, target_key) is Some(key) {
+      out.set(key, row_json)
     }
   }
   out
@@ -133,8 +139,9 @@ pub async fn[E : Engine] preload_has_many_default(
     return out
   }
   for row in res.rows {
-    if row_object_key(row, target_key) is Some(key) {
-      map_push_json_array(out, key, row)
+    let row_json = query_result_row_json(row)
+    if row_object_key(row_json, target_key) is Some(key) {
+      map_push_json_array(out, key, row_json)
     }
   }
   out
@@ -155,8 +162,9 @@ pub async fn[E : Engine] preload_many_to_many_default(
     return out
   }
   for row in res.rows {
-    if row_object_key(row, "__morm_owner_key") is Some(owner_key) {
-      map_push_json_array(out, owner_key, row)
+    let row_json = query_result_row_json(row)
+    if row_object_key(row_json, "__morm_owner_key") is Some(owner_key) {
+      map_push_json_array(out, owner_key, row_json)
     }
   }
   out
@@ -344,6 +352,6 @@ pub fn render_query_sql(query : &QueryBuilder) -> (String, FixedArray[Param]) {
 pub(all) struct QueryResult {
   ok : Bool
   rows_affected : Int
-  rows : FixedArray[Json]
+  rows : FixedArray[Param]
   error : String?
 } derive(Show, ToJson, FromJson, Eq)

@@ -442,7 +442,7 @@ fn SQLiteEngine::exec_sql(
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
   let mut error = None
-  let rows = []
+  let rows : Array[@engine.Param] = []
   println(sql + ";")
   println(params.to_json().stringify())
   try {
@@ -509,7 +509,7 @@ fn SQLiteEngine::exec_sql(
         }
         index = index + 1
       }
-      rows.push(obj.to_json())
+      rows.push(@engine.to_param(obj.to_json()))
     }
     stmt.finalize()
   } catch {

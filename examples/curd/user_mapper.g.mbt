@@ -18,7 +18,7 @@ pub impl UserMapper for UserMapperImpl with save(self, entity : User) -> Bool {
 pub impl UserMapper for UserMapperImpl with find_user_by_id(self, id : Int) -> User? {
   let q = @morm.select_from("user").where_eq("id", id)
   if self.engine.exec(q).rows is [result, ..] {
-    return Some(User::from_row(result))
+    return Some(User::from_row(result.to_json()))
   }
   None
 }

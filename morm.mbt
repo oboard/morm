@@ -468,7 +468,7 @@ async fn[E : @engine.Engine] select_by_eq(
     limit: None,
     offset: None,
   })
-  engine.exec(@engine.Statement(stmt)).rows
+  engine.exec(@engine.Statement(stmt)).rows.map(row => row.to_json())
 }
 
 ///|

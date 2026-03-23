@@ -699,7 +699,7 @@ async fn mysql_query_on_conn(
     pending_row = Some(after_cols_payload)
   }
 
-  let rows : Array[Json] = []
+  let rows : Array[@engine.Param] = []
   let mut done = false
   let mut first_pending = pending_row
   while !done {
@@ -745,7 +745,7 @@ async fn mysql_query_on_conn(
         }
         c = c + 1
       }
-      rows.push(obj.to_json())
+      rows.push(@engine.to_param(obj.to_json()))
     }
   }
 

@@ -39,7 +39,7 @@ async fn main {
 
   println("exec_raw: matched_rows=\{q.rows.length()}")
   for row in q.rows {
-    println(row.stringify())
+    println(row.to_json().stringify())
   }
 
   engine.close()

@@ -408,7 +408,7 @@ async fn pg_query_on_conn(
   }
 
   let cols : Array[String] = []
-  let rows : Array[Json] = []
+  let rows : Array[@engine.Param] = []
   let mut rows_affected = 0
   let mut done = false
 
@@ -480,7 +480,7 @@ async fn pg_query_on_conn(
         }
         i = i + 1
       }
-      rows.push(obj.to_json())
+      rows.push(@engine.to_param(obj.to_json()))
     } else if tag == b'C' {
       if cstring(payload, 0) is Some((cmd, _)) {
         rows_affected = parse_rows_affected(cmd)

@@ -713,15 +713,15 @@ fn render_value_decode_expr(
   match find_entity_spec(entity_specs, type_name) {
     Some(spec) =>
       if entity_supports_row_decoder(spec) {
-        "\{type_name}::from_row(\{value_expr})"
+        "\{type_name}::from_row(\{value_expr}.to_json())"
       } else {
-        "(try! @json.from_json(\{value_expr}) : \{type_name})"
+        "(try! @json.from_json(\{value_expr}.to_json()) : \{type_name})"
       }
     None =>
       if is_param_decodable_type(type_name) {
-        "(try! @engine.from_param(@engine.param_from_json_value(\{value_expr})) : \{type_name})"
+        "(try! @engine.from_param(\{value_expr}) : \{type_name})"
       } else {
-        "(try! @json.from_json(\{value_expr}) : \{type_name})"
+        "(try! @json.from_json(\{value_expr}.to_json()) : \{type_name})"
       }
   }
 }

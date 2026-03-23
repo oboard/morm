@@ -108,7 +108,7 @@ pub fn UserMapperImpl::new(engine : &@engine.Engine) -> UserMapperImpl {
 pub impl UserMapper for UserMapperImpl with find_user_by_id(self, id : Int) -> User? {
   let q = @morm.select_from("user").where_eq("id", id)
   if self.engine.exec(q).rows is [result, ..] {
-    return Some(User::from_row(result))
+    return Some(User::from_row(result.to_json()))
   }
   None
 }
@@ -119,5 +119,5 @@ pub impl UserMapper for UserMapperImpl with find_users_by_active(
   active : Int,
 ) -> FixedArray[User] {
   let q = @morm.select_from("user").where_eq("active", active)
-  self.engine.exec(q).rows.map(row => User::from_row(row))
+  self.engine.exec(q).rows.map(row => User::from_row(row.to_json()))
 }

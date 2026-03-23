@@ -15,7 +15,12 @@ fn ok_result(
   rows_affected : Int,
   rows : FixedArray[Json],
 ) -> @engine.QueryResult {
-  { ok: true, rows_affected, rows, error: None }
+  {
+    ok: true,
+    rows_affected,
+    rows: rows.map(row => @engine.to_param(row)),
+    error: None,
+  }
 }
 
 ///|
