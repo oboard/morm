@@ -1,5 +1,5 @@
 ///|
-pub(open) trait Entity: ToJson + @json.FromJson {
+pub(open) trait Entity: ToJson + @engine.FromParam {
   table(Self) -> Table
 }
 
@@ -458,7 +458,7 @@ async fn[E : @engine.Engine] select_by_eq(
   table : String,
   key : String,
   value : @engine.Param,
-) -> FixedArray[Json] {
+) -> FixedArray[Map[String, @engine.Param]] {
   let stmt : @engine.Statement = Select({
     select: "",
     from: table,
@@ -468,11 +468,16 @@ async fn[E : @engine.Engine] select_by_eq(
     limit: None,
     offset: None,
   })
-  engine.exec(@engine.Statement(stmt)).rows.map(row => row.to_json())
+  engine.exec(@engine.Statement(stmt)).rows
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs_to(
+fn row_param(row : Map[String, @engine.Param]) -> @engine.Param {
+  @engine.to_param(row.to_json())
+}
+
+///|
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_belongs_to(
   engine : E,
   owners : FixedArray[O],
   owner_key : String,
@@ -485,7 +490,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs
     let key = key_param.to_json().stringify()
     let rows = select_by_eq(engine, target_table, target_key, key_param)
     if rows is [row, ..] {
-      if (try? (@json.from_json(row) : T)) is Ok(entity) {
+      if (try? (@engine.from_param(row_param(row)) : T)) is Ok(entity) {
         out.set(key, entity)
       }
     }
@@ -494,7 +499,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_one(
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_one(
   engine : E,
   owners : FixedArray[O],
   owner_key : String,
@@ -507,7 +512,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_one
     let key = key_param.to_json().stringify()
     let rows = select_by_eq(engine, target_table, target_key, key_param)
     if rows is [row, ..] {
-      if (try? (@json.from_json(row) : T)) is Ok(entity) {
+      if (try? (@engine.from_param(row_param(row)) : T)) is Ok(entity) {
         out.set(key, entity)
       }
     }
@@ -516,7 +521,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_one
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_many(
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_many(
   engine : E,
   owners : FixedArray[O],
   owner_key : String,
@@ -530,7 +535,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_man
     let rows = select_by_eq(engine, target_table, target_key, key_param)
     let items : Array[T] = []
     for row in rows {
-      if (try? (@json.from_json(row) : T)) is Ok(entity) {
+      if (try? (@engine.from_param(row_param(row)) : T)) is Ok(entity) {
         items.push(entity)
       }
     }
@@ -540,7 +545,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_man
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to_many(
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_many_to_many(
   engine : E,
   owners : FixedArray[O],
   owner_key : String,
@@ -559,18 +564,14 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to
     )
     let items : Array[T] = []
     for join_row in join_rows {
-      if join_row is Object(obj) {
-        if obj.get(join_target_key) is Some(target_value) {
-          let target_rows = select_by_eq(
-            engine,
-            target_table,
-            target_key,
-            @engine.param_from_json_value(target_value),
-          )
-          for target_row in target_rows {
-            if (try? (@json.from_json(target_row) : T)) is Ok(entity) {
-              items.push(entity)
-            }
+      if join_row.get(join_target_key) is Some(target_value) {
+        let target_rows = select_by_eq(
+          engine, target_table, target_key, target_value,
+        )
+        for target_row in target_rows {
+          if (try? (@engine.from_param(row_param(target_row)) : T))
+            is Ok(entity) {
+            items.push(entity)
           }
         }
       }
@@ -587,7 +588,7 @@ pub(all) enum PreloadResult[T] {
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload(
   engine : E,
   owners : FixedArray[O],
   association : Association,

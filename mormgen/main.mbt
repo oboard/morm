@@ -592,7 +592,25 @@ fn generate_entity_impl(spec : EntitySpec, table : @morm.Table) -> String {
   let name = spec.name
   let table_literal = render_table_literal(table)
   let row_decoder = if entity_supports_row_decoder(spec) {
-    "\n" + render_entity_from_row(spec)
+    "\n" +
+    render_entity_from_row(spec) +
+    "\n" +
+    (
+      $| pub impl @engine.FromParam for \{name} with from_param(value) {
+      $|   match value {
+      $|     @engine.Json(Object(obj)) => {
+      $|       let row : Map[String, @engine.Param] = Map::new()
+      $|       for key in obj.keys() {
+      $|         if obj.get(key) is Some(value) {
+      $|           row.set(key, @engine.to_param(value))
+      $|         }
+      $|       }
+      $|       \{name}::from_row(row)
+      $|     }
+      $|     _ => raise @engine.ParamDecodeError("\{name}::from_param: expected Json object row")
+      $|   }
+      $| }
+    )
   } else {
     ""
   }

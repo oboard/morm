@@ -86,3 +86,22 @@ pub fn User::from_row(row : Map[String, @engine.Param]) -> User {
   let active : Int = (try! @engine.from_param(active_param) : Int)
   User::{ id, email, active }
 }
+
+///|
+pub impl @engine.FromParam for User with from_param(value) {
+  match value {
+    @engine.Json(Object(obj)) => {
+      let row : Map[String, @engine.Param] = Map::new()
+      for key in obj.keys() {
+        if obj.get(key) is Some(value) {
+          row.set(key, @engine.to_param(value))
+        }
+      }
+      User::from_row(row)
+    }
+    _ =>
+      raise @engine.ParamDecodeError(
+        "User::from_param: expected Json object row",
+      )
+  }
+}

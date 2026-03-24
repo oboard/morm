@@ -43,6 +43,19 @@ pub fn decode_json_column(
 }
 
 ///|
+pub fn param_row_from_json(row : Json) -> Map[String, Param] {
+  let out : Map[String, Param] = Map::new()
+  if row is Object(obj) {
+    for key in obj.keys() {
+      if obj.get(key) is Some(value) {
+        out.set(key, to_param(value))
+      }
+    }
+  }
+  out
+}
+
+///|
 pub(all) enum WhereType {
   Eq
   Ne
