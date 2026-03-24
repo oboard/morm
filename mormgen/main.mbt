@@ -514,13 +514,13 @@ fn render_from_param_expr(
   if nullable {
     return "match " +
       value_expr +
-      " { Null => None; _ => Some((try! @engine.from_param(@engine.param_from_json_value(" +
+      " { Null => None; _ => Some((try! @engine.from_param(" +
       value_expr +
-      ")) : " +
+      ") : " +
       type_name +
       ")) }"
   }
-  "(try! @engine.from_param(@engine.param_from_json_value(\{value_expr})) : \{type_name})"
+  "(try! @engine.from_param(\{value_expr}) : \{type_name})"
 }
 
 ///|
@@ -552,11 +552,11 @@ fn render_entity_from_row(spec : EntitySpec) -> String {
   let field_lines : Array[String] = []
   let ctor_lines : Array[String] = []
   for field in spec.fields {
-    let json_name = field.label + "_json"
+    let param_name = field.label + "_param"
     field_lines.push(
       "    let " +
-      json_name +
-      " = match obj.get(\"" +
+      param_name +
+      " = match row.get(\"" +
       field.label +
       "\") { Some(value) => value; None => panic() }",
     )
@@ -571,21 +571,18 @@ fn render_entity_from_row(spec : EntitySpec) -> String {
       " : " +
       field_ty +
       " = " +
-      render_field_from_row_expr(field, json_name),
+      render_field_from_row_expr(field, param_name),
     )
     ctor_lines.push("      " + field.label + ",")
   }
   let fields_code = field_lines.join("\n")
   let ctor_code = ctor_lines.join("\n")
   (
-    $| pub fn \{spec.name}::from_row(row : Json) -> \{spec.name} {
-    $|   if row is Object(obj) {
+    $| pub fn \{spec.name}::from_row(row : Map[String, @engine.Param]) -> \{spec.name} {
     $|\{fields_code}
     $|     return \{spec.name}::{
     $|\{ctor_code}
     $|     }
-    $|   }
-    $|   panic()
     $| }
   )
 }
@@ -687,12 +684,26 @@ fn render_partial_update_expr(
 }
 
 ///|
-fn fixed_array_inner_type(type_name : String) -> String? {
-  if type_name.strip_prefix("FixedArray[") is Some(rest) && rest.has_suffix("]") {
+fn collection_inner_type(
+  type_name : String,
+  collection_name : String,
+) -> String? {
+  if type_name.strip_prefix(collection_name + "[") is Some(rest) &&
+    rest.has_suffix("]") {
     let n = rest.length()
     return Some(rest[0:n - 1].to_string())
   }
   None
+}
+
+///|
+fn fixed_array_inner_type(type_name : String) -> String? {
+  collection_inner_type(type_name, "FixedArray")
+}
+
+///|
+fn array_inner_type(type_name : String) -> String? {
+  collection_inner_type(type_name, "Array")
 }
 
 ///|
@@ -705,7 +716,38 @@ fn option_inner_type(type_name : String) -> String? {
 }
 
 ///|
-fn render_value_decode_expr(
+fn render_array_decode_code(
+  ret_type : String,
+  query_expr : String,
+  array_decode_expr : String,
+) -> String {
+  if fixed_array_inner_type(ret_type) is Some(_) {
+    return (
+      $|   \{query_expr}.rows.map(row => \{array_decode_expr})
+      $| }
+      $|
+    )
+  }
+  if array_inner_type(ret_type) is Some(_) {
+    return (
+      $|   let out : \{ret_type} = []
+      $|   for row in \{query_expr}.rows {
+      $|     out.push(\{array_decode_expr})
+      $|   }
+      $|   out
+      $| }
+      $|
+    )
+  }
+  (
+    $|   panic()
+    $| }
+    $|
+  )
+}
+
+///|
+fn render_query_result_decode_expr(
   type_name : String,
   value_expr : String,
   entity_specs : Array[EntitySpec],
@@ -713,16 +755,11 @@ fn render_value_decode_expr(
   match find_entity_spec(entity_specs, type_name) {
     Some(spec) =>
       if entity_supports_row_decoder(spec) {
-        "\{type_name}::from_row(\{value_expr}.to_json())"
+        "\{type_name}::from_row(\{value_expr})"
       } else {
-        "(try! @json.from_json(\{value_expr}.to_json()) : \{type_name})"
-      }
-    None =>
-      if is_param_decodable_type(type_name) {
         "(try! @engine.from_param(\{value_expr}) : \{type_name})"
-      } else {
-        "(try! @json.from_json(\{value_expr}.to_json()) : \{type_name})"
       }
+    None => "(try! @engine.from_param(\{value_expr}) : \{type_name})"
   }
 }
 
@@ -918,19 +955,23 @@ fn generate_mapper_code(
     let ret_type = m.return_type
     let array_item_type = match fixed_array_inner_type(ret_type) {
       Some(inner) => inner
-      None => "Json"
+      None =>
+        match array_inner_type(ret_type) {
+          Some(inner) => inner
+          None => "Param"
+        }
     }
     let option_value_type = match option_inner_type(ret_type) {
       Some(inner) => inner
       None => ret_type
     }
-    let array_decode_expr = render_value_decode_expr(
+    let array_decode_expr = render_query_result_decode_expr(
       array_item_type, "row", entity_specs,
     )
-    let option_decode_expr = render_value_decode_expr(
+    let option_decode_expr = render_query_result_decode_expr(
       option_value_type, "result", entity_specs,
     )
-    let value_decode_expr = render_value_decode_expr(
+    let value_decode_expr = render_query_result_decode_expr(
       ret_type, "result", entity_specs,
     )
     let method_header =
@@ -1002,7 +1043,7 @@ fn generate_mapper_code(
           $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
           $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
-          $|     return \{render_value_decode_expr(entity_ty, "result", entity_specs)}
+          $|     return \{render_query_result_decode_expr(entity_ty, "result", entity_specs)}
           $|   }
           $|   panic()
           $| }
@@ -1124,11 +1165,8 @@ fn generate_mapper_code(
                   $|
                 )
               } else if m.returns_array {
-                (
-                  $|   let q = \{code}
-                  $|   self.engine.exec(q).rows.map(row => \{array_decode_expr})
-                  $| }
-                  $|
+                render_array_decode_code(
+                  ret_type, "self.engine.exec(q)", array_decode_expr,
                 )
               } else if m.returns_option {
                 (
@@ -1164,10 +1202,10 @@ fn generate_mapper_code(
               $|
             )
           } else if m.returns_array {
-            (
-              $|   self.engine.exec_raw("\{sql}", \{query_args}).rows.map(row => \{array_decode_expr})
-              $| }
-              $|
+            render_array_decode_code(
+              ret_type,
+              "self.engine.exec_raw(\"\{sql}\", \{query_args})",
+              array_decode_expr,
             )
           } else if m.returns_option {
             (

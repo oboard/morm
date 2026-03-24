@@ -699,7 +699,7 @@ async fn mysql_query_on_conn(
     pending_row = Some(after_cols_payload)
   }
 
-  let rows : Array[@engine.Param] = []
+  let rows : Array[Map[String, @engine.Param]] = []
   let mut done = false
   let mut first_pending = pending_row
   while !done {
@@ -729,7 +729,7 @@ async fn mysql_query_on_conn(
       row_pkt.length() < 9 {
       done = true
     } else {
-      let obj : Map[String, Json] = {}
+      let obj : Map[String, @engine.Param] = {}
       let mut pos = 0
       let mut c = 0
       while c < cols.length() {
@@ -740,12 +740,12 @@ async fn mysql_query_on_conn(
         let (v, np) = parsed.unwrap()
         pos = np
         obj[cols[c]] = match v {
-          Some(s) => json_from_text(s)
-          None => Json::null()
+          Some(s) => @engine.to_param(json_from_text(s))
+          None => @engine.Null
         }
         c = c + 1
       }
-      rows.push(@engine.to_param(obj.to_json()))
+      rows.push(obj)
     }
   }
 

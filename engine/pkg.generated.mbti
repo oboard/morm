@@ -139,7 +139,7 @@ pub impl QueryBuilder for Query
 pub(all) struct QueryResult {
   ok : Bool
   rows_affected : Int
-  rows : FixedArray[Param]
+  rows : FixedArray[Map[String, Param]]
   error : String?
 }
 pub impl Eq for QueryResult

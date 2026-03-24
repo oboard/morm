@@ -408,7 +408,7 @@ async fn pg_query_on_conn(
   }
 
   let cols : Array[String] = []
-  let rows : Array[@engine.Param] = []
+  let rows : Array[Map[String, @engine.Param]] = []
   let mut rows_affected = 0
   let mut done = false
 
@@ -451,7 +451,7 @@ async fn pg_query_on_conn(
           (b0.reinterpret_as_int() << 8) | b1.reinterpret_as_int()
         _ => return (fail("pgsql bad data-row"), false)
       }
-      let obj : Map[String, Json] = {}
+      let obj : Map[String, @engine.Param] = {}
       let mut pos = 2
       let mut i = 0
       while i < count {
@@ -469,18 +469,18 @@ async fn pg_query_on_conn(
         pos = pos + 4
         let key = if i < cols.length() { cols[i] } else { "c" + i.to_string() }
         if len < 0 {
-          obj[key] = Json::null()
+          obj[key] = @engine.Null
         } else {
           if pos + len > payload.length() {
             return (fail("pgsql truncated data value"), false)
           }
           let text = @utf8.decode_lossy(payload[pos:pos + len].to_bytes())
-          obj[key] = json_from_text(text)
+          obj[key] = @engine.to_param(json_from_text(text))
           pos = pos + len
         }
         i = i + 1
       }
-      rows.push(@engine.to_param(obj.to_json()))
+      rows.push(obj)
     } else if tag == b'C' {
       if cstring(payload, 0) is Some((cmd, _)) {
         rows_affected = parse_rows_affected(cmd)

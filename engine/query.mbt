@@ -71,31 +71,30 @@ pub fn preload_many_to_many_sql_dollar(
 }
 
 ///|
-fn row_object_key(row : Json, key : String) -> String? {
-  if row is Object(obj) {
-    if obj.get(key) is Some(v) {
-      return Some(v.stringify())
-    }
+fn row_object_key(row : Map[String, Param], key : String) -> String? {
+  if row.get(key) is Some(v) {
+    return Some(v.to_json().stringify())
   }
   None
 }
 
 ///|
-fn query_result_row_json(row : Param) -> Json {
+fn query_result_row_json(row : Map[String, Param]) -> Json {
   row.to_json()
 }
 
 ///|
-fn map_push_json_array(
+fn map_push_row_json_array(
   out : Map[String, Array[Json]],
   key : String,
-  row : Json,
+  row : Map[String, Param],
 ) -> Unit {
+  let row_json = query_result_row_json(row)
   if out.get(key) is Some(items) {
-    items.push(row)
+    items.push(row_json)
     out.set(key, items)
   } else {
-    out.set(key, [row])
+    out.set(key, [row_json])
   }
 }
 
@@ -115,9 +114,8 @@ pub async fn[E : Engine] preload_belongs_to_default(
     return out
   }
   for row in res.rows {
-    let row_json = query_result_row_json(row)
-    if row_object_key(row_json, target_key) is Some(key) {
-      out.set(key, row_json)
+    if row_object_key(row, target_key) is Some(key) {
+      out.set(key, query_result_row_json(row))
     }
   }
   out
@@ -139,9 +137,8 @@ pub async fn[E : Engine] preload_has_many_default(
     return out
   }
   for row in res.rows {
-    let row_json = query_result_row_json(row)
-    if row_object_key(row_json, target_key) is Some(key) {
-      map_push_json_array(out, key, row_json)
+    if row_object_key(row, target_key) is Some(key) {
+      map_push_row_json_array(out, key, row)
     }
   }
   out
@@ -162,9 +159,8 @@ pub async fn[E : Engine] preload_many_to_many_default(
     return out
   }
   for row in res.rows {
-    let row_json = query_result_row_json(row)
-    if row_object_key(row_json, "__morm_owner_key") is Some(owner_key) {
-      map_push_json_array(out, owner_key, row_json)
+    if row_object_key(row, "__morm_owner_key") is Some(owner_key) {
+      map_push_row_json_array(out, owner_key, row)
     }
   }
   out
@@ -352,6 +348,6 @@ pub fn render_query_sql(query : &QueryBuilder) -> (String, FixedArray[Param]) {
 pub(all) struct QueryResult {
   ok : Bool
   rows_affected : Int
-  rows : FixedArray[Param]
+  rows : FixedArray[Map[String, Param]]
   error : String?
 } derive(Show, ToJson, FromJson, Eq)

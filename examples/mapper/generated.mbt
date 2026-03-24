@@ -68,30 +68,23 @@ pub fn User::table() -> @morm.Table {
 }
 
 ///|
-pub fn User::from_row(row : Json) -> User {
-  if row is Object(obj) {
-    let id_json = match obj.get("id") {
-      Some(value) => value
-      None => panic()
-    }
-    let id : Int = (
-      try! @engine.from_param(@engine.param_from_json_value(id_json)) : Int)
-    let email_json = match obj.get("email") {
-      Some(value) => value
-      None => panic()
-    }
-    let email : String = (
-      try! @engine.from_param(@engine.param_from_json_value(email_json)) :
-      String)
-    let active_json = match obj.get("active") {
-      Some(value) => value
-      None => panic()
-    }
-    let active : Int = (
-      try! @engine.from_param(@engine.param_from_json_value(active_json)) : Int)
-    return User::{ id, email, active }
+pub fn User::from_row(row : Map[String, @engine.Param]) -> User {
+  let id_param = match row.get("id") {
+    Some(value) => value
+    None => panic()
   }
-  panic()
+  let id : Int = (try! @engine.from_param(id_param) : Int)
+  let email_param = match row.get("email") {
+    Some(value) => value
+    None => panic()
+  }
+  let email : String = (try! @engine.from_param(email_param) : String)
+  let active_param = match row.get("active") {
+    Some(value) => value
+    None => panic()
+  }
+  let active : Int = (try! @engine.from_param(active_param) : Int)
+  User::{ id, email, active }
 }
 
 ///|
@@ -108,7 +101,7 @@ pub fn UserMapperImpl::new(engine : &@engine.Engine) -> UserMapperImpl {
 pub impl UserMapper for UserMapperImpl with find_user_by_id(self, id : Int) -> User? {
   let q = @morm.select_from("user").where_eq("id", id)
   if self.engine.exec(q).rows is [result, ..] {
-    return Some(User::from_row(result.to_json()))
+    return Some(User::from_row(result))
   }
   None
 }
@@ -119,5 +112,5 @@ pub impl UserMapper for UserMapperImpl with find_users_by_active(
   active : Int,
 ) -> FixedArray[User] {
   let q = @morm.select_from("user").where_eq("active", active)
-  self.engine.exec(q).rows.map(row => User::from_row(row.to_json()))
+  self.engine.exec(q).rows.map(row => User::from_row(row))
 }

@@ -677,7 +677,7 @@ fn parse_mappers_from_ast(
                       tys~,
                       ..
                     ) =>
-                      if n == "FixedArray" {
+                      if n is ("FixedArray" | "Array") {
                         match tys.head() {
                           Some(
                             Name(
@@ -690,7 +690,7 @@ fn parse_mappers_from_ast(
                             )
                           ) => {
                             returns_array = true
-                            return_type = "FixedArray[\{inner}]"
+                            return_type = "\{n}[\{inner}]"
                           }
                           _ => ()
                         }

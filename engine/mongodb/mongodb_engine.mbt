@@ -15,10 +15,22 @@ fn ok_result(
   rows_affected : Int,
   rows : FixedArray[Json],
 ) -> @engine.QueryResult {
+  let out_rows : Array[Map[String, @engine.Param]] = []
+  for row in rows {
+    let row_map : Map[String, @engine.Param] = Map::new()
+    if row is Object(obj) {
+      for key in obj.keys() {
+        if obj.get(key) is Some(value) {
+          row_map.set(key, @engine.to_param(value))
+        }
+      }
+    }
+    out_rows.push(row_map)
+  }
   {
     ok: true,
     rows_affected,
-    rows: rows.map(row => @engine.to_param(row)),
+    rows: FixedArray::from_array(out_rows),
     error: None,
   }
 }
@@ -1759,7 +1771,7 @@ async fn run_select(
     return match reply {
       Ok(doc) =>
         match extract_count(doc) {
-          Some(n) => ok_result(1, [Json::number(n.to_double())])
+          Some(n) => ok_result(1, [{ "count(*)": n.to_json() }])
           None => fail_result("mongodb count reply missing n")
         }
       Err(err) => fail_result(err)

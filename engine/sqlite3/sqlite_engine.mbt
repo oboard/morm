@@ -442,7 +442,7 @@ fn SQLiteEngine::exec_sql(
   params : FixedArray[@engine.Param],
 ) -> @engine.QueryResult {
   let mut error = None
-  let rows : Array[@engine.Param] = []
+  let rows : Array[Map[String, @engine.Param]] = []
   println(sql + ";")
   println(params.to_json().stringify())
   try {
@@ -479,37 +479,37 @@ fn SQLiteEngine::exec_sql(
     // 构造第一行的 Json（按列名 -> 值）
 
     while stmt.step() == true {
-      let obj : Map[String, Json] = {}
+      let obj : Map[String, @engine.Param] = {}
       let col_cnt = stmt.column_count()
       let mut index = 0
       while index < col_cnt {
         let name = stmt.column_name(index~)
         match stmt.column_type(index~) {
-          SQLITE_NULL => obj[name] = Json::null()
+          SQLITE_NULL => obj[name] = @engine.Null
           SQLITE_INTEGER => {
             let v : Int = stmt.column(index~)
-            obj[name] = Json::number(v.to_double())
+            obj[name] = @engine.Int(v)
           }
           SQLITE_FLOAT => {
             let v = stmt.column(index~)
-            obj[name] = Json::number(v)
+            obj[name] = @engine.Double(v)
           }
           SQLITE_TEXT => {
             let s = stmt.column(index~)
-            obj[name] = Json::string(s)
+            obj[name] = @engine.String(s)
           }
           SQLITE_BLOB => {
             let b : Bytes = stmt.column(index~)
-            obj[name] = b.to_json()
+            obj[name] = @engine.Bytes(b)
           }
           _ => {
             let s = stmt.column_blob_as_string(index~)
-            obj[name] = Json::string(s)
+            obj[name] = @engine.String(s)
           }
         }
         index = index + 1
       }
-      rows.push(@engine.to_param(obj.to_json()))
+      rows.push(obj)
     }
     stmt.finalize()
   } catch {
