@@ -195,9 +195,96 @@ struct MapperMethodSpec {
   fetch_join : String? // 查询时追加 JOIN（JPA JOIN FETCH 风格）
   params : Array[(String, String)] // (param_name, type_name)
   return_type : String
-  returns_array : Bool
+  return_kind : String
+  return_item_type : String?
+  return_map_key_type : String?
+  return_map_value_type : String?
   returns_option : Bool
   is_async : Bool
+}
+
+///|
+fn long_ident_text(id : @moonbitlang/parser/syntax.LongIdent) -> String {
+  match id {
+    Ident(name~) => name
+    Dot(pkg~, id=target) => "@" + pkg + "." + target
+  }
+}
+
+///|
+fn type_list_text(tys : @list.List[@moonbitlang/parser/syntax.Type]) -> String {
+  let parts : Array[String] = []
+  tys.each(ty => parts.push(type_expr_text("", ty)))
+  parts.join(",")
+}
+
+///|
+fn type_expr_text(
+  _source : String,
+  ty : @moonbitlang/parser/syntax.Type,
+) -> String {
+  match ty {
+    Name(constr_id~, tys~, ..) =>
+      if tys is @list.Empty {
+        long_ident_text(constr_id.id)
+      } else {
+        "\{long_ident_text(constr_id.id)}[\{type_list_text(tys)}]"
+      }
+    Option(ty=inner, ..) => type_expr_text("", inner) + "?"
+    Tuple(tys~, ..) => "(\{type_list_text(tys)})"
+    _ => "String"
+  }
+}
+
+///|
+fn analyze_return_type(
+  source : String,
+  ty : @moonbitlang/parser/syntax.Type,
+) -> (String, String, String?, String?, String?, Bool) {
+  let full_type = type_expr_text(source, ty)
+  match ty {
+    Name(constr_id~, tys~, ..) =>
+      match constr_id.id {
+        Ident(name=n) | Dot(id=n, ..) if n
+          is ("FixedArray" | "Array" | "Set" | "List") =>
+          match tys.head() {
+            Some(inner) =>
+              (
+                full_type,
+                n,
+                Some(type_expr_text(source, inner)),
+                None,
+                None,
+                false,
+              )
+            None => (full_type, "value", None, None, None, false)
+          }
+        Ident(name="Map") | Dot(id="Map", ..) =>
+          match tys {
+            @list.More(key_ty, tail=@list.More(value_ty, ..)) =>
+              (
+                full_type,
+                "Map",
+                None,
+                Some(type_expr_text(source, key_ty)),
+                Some(type_expr_text(source, value_ty)),
+                false,
+              )
+            _ => (full_type, "value", None, None, None, false)
+          }
+        _ => (full_type, "value", None, None, None, false)
+      }
+    Option(ty=inner, ..) =>
+      (
+        full_type,
+        "option",
+        Some(type_expr_text(source, inner)),
+        None,
+        None,
+        true,
+      )
+    _ => (full_type, "value", None, None, None, false)
+  }
 }
 
 ///|
@@ -664,55 +751,30 @@ fn parse_mappers_from_ast(
                   _ => ()
                 }
               })
-              // 检查返回类型是否为 Array
-              let mut returns_array = false
-              let mut returns_option = false
               let mut return_type = "String?"
+              let mut return_kind = "value"
+              let mut return_item_type : String? = None
+              let mut return_map_key_type : String? = None
+              let mut return_map_value_type : String? = None
+              let mut returns_option = false
 
               match m.return_type {
-                Some(ty) =>
-                  match ty {
-                    Name(
-                      constr_id={ id: Ident(name=n) | Dot(id=n, ..), .. },
-                      tys~,
-                      ..
-                    ) =>
-                      if n is ("FixedArray" | "Array") {
-                        match tys.head() {
-                          Some(
-                            Name(
-                              constr_id={
-                                id: Ident(name=inner)
-                                | Dot(id=inner, ..),
-                                ..,
-                              },
-                              ..
-                            )
-                          ) => {
-                            returns_array = true
-                            return_type = "\{n}[\{inner}]"
-                          }
-                          _ => ()
-                        }
-                      } else {
-                        return_type = n
-                      }
-                    Option(
-                      ty=Name(
-                        constr_id={
-                          id: Ident(name=inner)
-                          | Dot(id=inner, ..),
-                          ..,
-                        },
-                        ..
-                      ),
-                      ..
-                    ) => {
-                      returns_option = true
-                      return_type = "\{inner}?"
-                    }
-                    _ => ()
-                  }
+                Some(ty) => {
+                  let (
+                    resolved_return_type,
+                    resolved_return_kind,
+                    resolved_return_item_type,
+                    resolved_return_map_key_type,
+                    resolved_return_map_value_type,
+                    resolved_returns_option,
+                  ) = analyze_return_type(source, ty)
+                  return_type = resolved_return_type
+                  return_kind = resolved_return_kind
+                  return_item_type = resolved_return_item_type
+                  return_map_key_type = resolved_return_map_key_type
+                  return_map_value_type = resolved_return_map_value_type
+                  returns_option = resolved_returns_option
+                }
                 None => ()
               }
 
@@ -723,7 +785,10 @@ fn parse_mappers_from_ast(
                 fetch_join: fetch_join_opt,
                 params: plist,
                 return_type,
-                returns_array,
+                return_kind,
+                return_item_type,
+                return_map_key_type,
+                return_map_value_type,
                 returns_option,
                 is_async: is_async is Some(_),
               })

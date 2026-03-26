@@ -87,15 +87,15 @@ pub fn pg_table_unlogged(@table.Table) -> @table.Table
 
 pub fn pg_table_with(@table.Table, String) -> @table.Table
 
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload(E, FixedArray[O], Association) -> PreloadResult[T]
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload(E, FixedArray[O], Association) -> PreloadResult[T]
 
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_belongs_to(E, FixedArray[O], String, String, String) -> Map[String, T]
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_belongs_to(E, FixedArray[O], String, String, String) -> Map[String, T]
 
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_many(E, FixedArray[O], String, String, String) -> Map[String, Array[T]]
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_many(E, FixedArray[O], String, String, String) -> Map[String, Array[T]]
 
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_has_one(E, FixedArray[O], String, String, String) -> Map[String, T]
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_one(E, FixedArray[O], String, String, String) -> Map[String, T]
 
-pub async fn[E : @engine.Engine, O : ToJson, T : @json.FromJson] preload_many_to_many(E, FixedArray[O], String, String, String, String, String, String) -> Map[String, Array[T]]
+pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_many_to_many(E, FixedArray[O], String, String, String, String, String, String) -> Map[String, Array[T]]
 
 pub fn register_driver_scheme(String, String) -> Unit
 
@@ -378,7 +378,7 @@ pub(open) trait Driver {
   query(Self, String, FixedArray[@engine.Param]) -> Result[FixedArray[Json], DbError]
 }
 
-pub(open) trait Entity : ToJson + @json.FromJson {
+pub(open) trait Entity : ToJson + @engine.FromParam {
   table(Self) -> @table.Table
 }
 

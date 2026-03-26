@@ -23,6 +23,7 @@ pub fn User::table() -> @table.Table
 pub impl ToJson for User
 pub impl @json.FromJson for User
 pub impl @morm.Entity for User
+pub impl @engine.FromParam for User
 
 pub struct UserMapperImpl {
   engine : &@engine.Engine

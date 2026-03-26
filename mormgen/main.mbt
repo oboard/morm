@@ -671,6 +671,16 @@ fn field_is_relation_or_virtual_for_codegen(field : FieldSpec) -> Bool {
 }
 
 ///|
+fn entity_primary_key_field_for_codegen(spec : EntitySpec) -> FieldSpec? {
+  for field in spec.fields {
+    if field_is_primary_key_for_codegen(field) {
+      return Some(field)
+    }
+  }
+  None
+}
+
+///|
 fn render_partial_update_expr(
   table_expr : String,
   entity_spec : EntitySpec,
@@ -702,29 +712,6 @@ fn render_partial_update_expr(
 }
 
 ///|
-fn collection_inner_type(
-  type_name : String,
-  collection_name : String,
-) -> String? {
-  if type_name.strip_prefix(collection_name + "[") is Some(rest) &&
-    rest.has_suffix("]") {
-    let n = rest.length()
-    return Some(rest[0:n - 1].to_string())
-  }
-  None
-}
-
-///|
-fn fixed_array_inner_type(type_name : String) -> String? {
-  collection_inner_type(type_name, "FixedArray")
-}
-
-///|
-fn array_inner_type(type_name : String) -> String? {
-  collection_inner_type(type_name, "Array")
-}
-
-///|
 fn option_inner_type(type_name : String) -> String? {
   if type_name.has_suffix("?") {
     let n = type_name.length()
@@ -734,34 +721,126 @@ fn option_inner_type(type_name : String) -> String? {
 }
 
 ///|
-fn render_array_decode_code(
-  ret_type : String,
-  query_expr : String,
-  array_decode_expr : String,
+fn render_collection_map_key_expr(
+  key_type : String,
+  value_type : String,
+  row_expr : String,
+  value_expr : String,
+  entity_specs : Array[EntitySpec],
 ) -> String {
-  if fixed_array_inner_type(ret_type) is Some(_) {
-    return (
-      $|   \{query_expr}.rows.map(row => \{array_decode_expr})
-      $| }
-      $|
-    )
+  match find_entity_spec(entity_specs, value_type) {
+    Some(spec) =>
+      match entity_primary_key_field_for_codegen(spec) {
+        Some(field) => "\{value_expr}.\{field.label}"
+        None =>
+          (
+            $| let key_param = match \{row_expr}.get("id") {
+            $|   Some(value) => value
+            $|   None => panic()
+            $| }
+            $| \{render_from_param_expr(key_type, "key_param", false)}
+          )
+      }
+    None =>
+      (
+        $| let key_param = match \{row_expr}.get("id") {
+        $|   Some(value) => value
+        $|   None => panic()
+        $| }
+        $| \{render_from_param_expr(key_type, "key_param", false)}
+      )
   }
-  if array_inner_type(ret_type) is Some(_) {
-    return (
-      $|   let out : \{ret_type} = []
-      $|   for row in \{query_expr}.rows {
-      $|     out.push(\{array_decode_expr})
-      $|   }
-      $|   out
-      $| }
-      $|
-    )
+}
+
+///|
+fn render_collection_decode_code(
+  ret_type : String,
+  return_kind : String,
+  item_type : String?,
+  map_key_type : String?,
+  map_value_type : String?,
+  query_expr : String,
+  row_decode_expr : String,
+  entity_specs : Array[EntitySpec],
+) -> String {
+  match return_kind {
+    "FixedArray" =>
+      (
+        $|   \{query_expr}.rows.map(row => \{row_decode_expr})
+        $| }
+        $|
+      )
+    "Array" =>
+      (
+        $|   let out : \{ret_type} = []
+        $|   for row in \{query_expr}.rows {
+        $|     out.push(\{row_decode_expr})
+        $|   }
+        $|   out
+        $| }
+        $|
+      )
+    "Set" =>
+      (
+        $|   let out : \{ret_type} = @set.Set::new()
+        $|   for row in \{query_expr}.rows {
+        $|     out.add(\{row_decode_expr})
+        $|   }
+        $|   out
+        $| }
+        $|
+      )
+    "List" =>
+      match item_type {
+        Some(_) =>
+          (
+            $|   let out : Array[\{item_type.unwrap()}] = []
+            $|   for row in \{query_expr}.rows {
+            $|     out.push(\{row_decode_expr})
+            $|   }
+            $|   @list.List::from_array(out)
+            $| }
+            $|
+          )
+        None =>
+          (
+            $|   panic()
+            $| }
+            $|
+          )
+      }
+    "Map" =>
+      match (map_key_type, map_value_type) {
+        (Some(key_type), Some(value_type)) => {
+          let key_expr = render_collection_map_key_expr(
+            key_type, value_type, "row", "value", entity_specs,
+          )
+          (
+            $|   let out : \{ret_type} = Map::new()
+            $|   for row in \{query_expr}.rows {
+            $|     let value : \{value_type} = \{row_decode_expr}
+            $|     let key : \{key_type} = \{key_expr}
+            $|     out.set(key, value)
+            $|   }
+            $|   out
+            $| }
+            $|
+          )
+        }
+        _ =>
+          (
+            $|   panic()
+            $| }
+            $|
+          )
+      }
+    _ =>
+      (
+        $|   panic()
+        $| }
+        $|
+      )
   }
-  (
-    $|   panic()
-    $| }
-    $|
-  )
 }
 
 ///|
@@ -971,20 +1050,23 @@ fn generate_mapper_code(
     let query_args = "[" + query_args_parts.join(", ") + "]"
     // 返回类型字符串
     let ret_type = m.return_type
-    let array_item_type = match fixed_array_inner_type(ret_type) {
+    let return_kind = m.return_kind
+    let array_item_type = match m.return_item_type {
       Some(inner) => inner
-      None =>
-        match array_inner_type(ret_type) {
-          Some(inner) => inner
-          None => "Param"
-        }
+      None => "Param"
     }
+    let map_key_type = m.return_map_key_type
+    let map_value_type = m.return_map_value_type
     let option_value_type = match option_inner_type(ret_type) {
       Some(inner) => inner
       None => ret_type
     }
-    let array_decode_expr = render_query_result_decode_expr(
-      array_item_type, "row", entity_specs,
+    let collection_item_type = match map_value_type {
+      Some(value_type) => value_type
+      None => array_item_type
+    }
+    let collection_decode_expr = render_query_result_decode_expr(
+      collection_item_type, "row", entity_specs,
     )
     let option_decode_expr = render_query_result_decode_expr(
       option_value_type, "result", entity_specs,
@@ -1182,9 +1264,17 @@ fn generate_mapper_code(
                   $| }
                   $|
                 )
-              } else if m.returns_array {
-                render_array_decode_code(
-                  ret_type, "self.engine.exec(q)", array_decode_expr,
+              } else if return_kind
+                is ("FixedArray" | "Array" | "Set" | "List" | "Map") {
+                render_collection_decode_code(
+                  ret_type,
+                  return_kind,
+                  m.return_item_type,
+                  map_key_type,
+                  map_value_type,
+                  "self.engine.exec(q)",
+                  collection_decode_expr,
+                  entity_specs,
                 )
               } else if m.returns_option {
                 (
@@ -1219,11 +1309,17 @@ fn generate_mapper_code(
               $| }
               $|
             )
-          } else if m.returns_array {
-            render_array_decode_code(
+          } else if return_kind
+            is ("FixedArray" | "Array" | "Set" | "List" | "Map") {
+            render_collection_decode_code(
               ret_type,
+              return_kind,
+              m.return_item_type,
+              map_key_type,
+              map_value_type,
               "self.engine.exec_raw(\"\{sql}\", \{query_args})",
-              array_decode_expr,
+              collection_decode_expr,
+              entity_specs,
             )
           } else if m.returns_option {
             (

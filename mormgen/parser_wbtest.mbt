@@ -38,3 +38,82 @@ test "derive builder code for update/delete naming conventions" {
     ),
   )
 }
+
+///|
+test "parse mapper collection return kinds" {
+  let source =
+    #|///|
+    #|#morm.entity
+    #|pub(all) struct User {
+    #|  #morm.id
+    #|  id : Int
+    #|  name : String
+    #|} derive(ToJson, FromJson)
+    #|
+    #|///|
+    #|#morm.mapper(table="user")
+    #|pub trait UserMapper {
+    #|  #morm.query("select * from user")
+    #|  async users_as_set(Self) -> @set.Set[User]
+    #|  #morm.query("select * from user")
+    #|  async users_as_list(Self) -> @list.List[User]
+    #|  #morm.query("select * from user")
+    #|  async users_by_id(Self) -> Map[Int, User]
+    #|}
+  let (ast, _) = @parser.parse_string(source)
+  let entity_specs = parse_entities_from_ast(ast)
+  let mappers = parse_mappers_from_ast(ast, source, entity_specs)
+  let methods = mappers[0].methods
+  inspect(methods[0].return_type, content="@set.Set[User]")
+  inspect(methods[0].return_kind, content="Set")
+  inspect(
+    methods[0].return_item_type.to_json().stringify(),
+    content="[\"User\"]",
+  )
+  inspect(methods[1].return_type, content="@list.List[User]")
+  inspect(methods[1].return_kind, content="List")
+  inspect(methods[2].return_type, content="Map[Int,User]")
+  inspect(methods[2].return_kind, content="Map")
+  inspect(
+    methods[2].return_map_key_type.to_json().stringify(),
+    content="[\"Int\"]",
+  )
+  inspect(
+    methods[2].return_map_value_type.to_json().stringify(),
+    content="[\"User\"]",
+  )
+}
+
+///|
+test "generate mapper code for set list and map returns" {
+  let source =
+    #|///|
+    #|#morm.entity
+    #|pub(all) struct User {
+    #|  #morm.id
+    #|  id : Int
+    #|  name : String
+    #|} derive(ToJson, FromJson)
+    #|
+    #|///|
+    #|#morm.mapper(table="user")
+    #|pub trait UserMapper {
+    #|  #morm.query("select * from user")
+    #|  async users_as_set(Self) -> @set.Set[User]
+    #|  #morm.query("select * from user")
+    #|  async users_as_list(Self) -> @list.List[User]
+    #|  #morm.query("select * from user")
+    #|  async users_by_id(Self) -> Map[Int, User]
+    #|}
+  let (ast, _) = @parser.parse_string(source)
+  let entity_specs = parse_entities_from_ast(ast)
+  let mapper_specs = parse_mappers_from_ast(ast, source, entity_specs)
+  let code = generate_mapper_code(mapper_specs[0], entity_specs)
+  inspect(
+    code.contains("let out : @set.Set[User] = @set.Set::new()"),
+    content="true",
+  )
+  inspect(code.contains("@list.List::from_array(out)"), content="true")
+  inspect(code.contains("let out : Map[Int,User] = Map::new()"), content="true")
+  inspect(code.contains("let key : Int = value.id"), content="true")
+}

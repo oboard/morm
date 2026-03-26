@@ -27,6 +27,8 @@ pub fn[T : FromParam] from_param(Param) -> T raise ParamDecodeError
 
 pub fn param_from_json_value(Json) -> Param
 
+pub fn param_row_from_json(Json) -> Map[String, Param]
+
 pub async fn[E : Engine] preload_belongs_to_default(E, String, String, FixedArray[Param]) -> Map[String, Json]
 
 pub async fn[E : Engine] preload_has_many_default(E, String, String, FixedArray[Param]) -> Map[String, Array[Json]]

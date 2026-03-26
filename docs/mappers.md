@@ -4,9 +4,9 @@ outline: deep
 
 # Mappers
 
-Mappers are the application-facing layer generated from annotated traits.
+Mappers are the application-facing query layer. You declare an annotated trait, and `mormgen` expands it into ordinary MoonBit code.
 
-They exist to reduce repetitive query code without hiding what actually runs.
+The goal is to reduce repetitive query boilerplate without hiding the underlying SQL or query builder behavior.
 
 ## Basic Mapper Trait
 
@@ -20,26 +20,26 @@ pub trait StudentMapper {
 }
 ```
 
-`mormgen` reads this and emits:
+`mormgen` emits:
 
 - `StudentMapperImpl`
 - `StudentMapperImpl::new(engine)`
-- method implementations that build or execute queries
+- one generated implementation per trait method
 
 ## Binding A Mapper
 
-You can bind a mapper by:
+You can bind a mapper with:
 
 - `table="student"`
 - `entity="Student"`
 
-Using `table=` is often the most direct option, and the generator can infer the entity by scanning package entities.
+`table=` is usually the most direct form. If package entities can be discovered, the generator can also infer entity metadata from them.
 
 ## Method Derivation
 
-Without `#morm.query`, the generator derives common query shapes from method names.
+Without `#morm.query`, the generator derives a conservative set of common query shapes from the method name.
 
-Examples:
+Typical examples:
 
 - `find_student_by_id`
 - `find_student_by_name`
@@ -48,7 +48,7 @@ Examples:
 - `find_all`
 - `all`
 
-This is intentionally conservative. It covers routine read patterns and stops there.
+This is intentionally limited to routine read paths. If the naming starts to feel stretched, use explicit SQL or an explicit builder path instead.
 
 ## Explicit SQL
 
@@ -65,9 +65,9 @@ pub trait EnrollmentMapper {
 
 This keeps:
 
-- your SQL exact
-- params typed
-- result decoding centralized
+- the SQL fully explicit
+- params strongly typed
+- result decoding centralized in generated code
 
 ## JOIN Extensions
 
@@ -78,7 +78,46 @@ This keeps:
 
 These append `.join(...)` to the derived builder path.
 
-They are SQL composition helpers, not a full lazy-loading graph runtime.
+They are SQL composition helpers, not a full graph-loading runtime.
+
+## Return Types
+
+Mapper read methods currently support these return shapes:
+
+- `T`
+- `T?`
+- `FixedArray[T]`
+- `Array[T]`
+- `@set.Set[T]`
+- `@list.List[T]`
+- `Map[K, T]`
+
+Behavior:
+
+- `T` and `T?` decode the first returned row
+- `FixedArray[T]` and `Array[T]` decode rows in order
+- `@set.Set[T]` decodes rows and inserts them into a set
+- `@list.List[T]` decodes rows and builds a list
+- `Map[K, T]` decodes values row by row and then builds a keyed map
+
+For `Map[K, T]`, key selection works like this:
+
+- if `T` is a recognized entity, use its primary-key field
+- otherwise fall back to reading `"id"` from the result row and decoding it as `K`
+
+In practice, `Map[K, T]` works best for entity results where the query includes the primary-key column.
+
+## Decoding Model
+
+Generated mappers no longer depend on `FromJson`.
+
+Query rows now enter generated code as `Map[String, @engine.Param]`, and decoding is performed through `@engine.from_param(...)` at the field or return-type level.
+
+That means:
+
+- entity field types must be decodable from `Param`
+- non-entity scalar return types must also satisfy `FromParam`
+- generated entity `from_row(...)` functions are based on `Map[String, Param]`
 
 ## Special `save` Method
 
@@ -94,10 +133,10 @@ pub trait ClassMapper {
 
 Generated behavior:
 
-- rewrites the entity first if auto timestamp fields are configured
+- rewrites the entity first when auto timestamp rules apply
 - builds `@morm.upsert_into(...).from(entity)`
 - executes through the engine
-- decodes the first returned row into the result type
+- decodes the first returned row into the declared return type
 
 ## Special `delete` Method
 
@@ -115,12 +154,12 @@ This generates a delete path based on entity identity.
 
 ## Auto Timestamp Injection
 
-For generated `save`, the mapper can assign timestamps before building the upsert.
+Generated `save` methods, and some generated `update` paths, can assign time fields before building the statement.
 
 Trigger rules:
 
-- `created_at`
-- `updated_at`
+- field named `created_at`
+- field named `updated_at`
 - `#morm.auto_create_time`
 - `#morm.auto_update_time`
 
@@ -129,38 +168,26 @@ Value rules:
 - `PlainDateTime -> @morm.current_plain_date_time_utc()`
 - `ZonedDateTime -> @morm.current_timestamp_utc()`
 
-## Async And Sync Shape
-
-Mapper traits typically use `async` methods, and the generated implementation follows that shape.
-
-The generated code stays straightforward:
-
-- build query or call raw SQL
-- execute via engine
-- decode JSON rows
-
-There is no hidden session or unit-of-work layer.
-
 ## When To Use Mappers
 
 Mappers are a good fit for:
 
 - standard CRUD entry points
-- simple listing and lookup methods
-- app-facing repository-like interfaces
+- simple lookup and listing methods
+- stable application-facing query interfaces
 
-Use explicit query builders or raw SQL instead when:
+Use explicit query builders or raw SQL when:
 
-- SQL is too engine-specific
-- the query is complex enough that method-name derivation becomes awkward
-- write semantics need custom conflict/update rules
+- the SQL is highly engine-specific
+- derived naming becomes awkward
+- write behavior needs custom conflict, return, or update rules
 
 ## Debugging Mapper Behavior
 
-When a generated method is not doing what you expect:
+When a generated method is not doing what you expect, inspect things in this order:
 
-1. inspect the source trait
-2. inspect the generated `.g.mbt`
-3. inspect the engine implementation used at runtime
+1. the source trait
+2. the generated `.g.mbt`
+3. the concrete engine implementation used at runtime
 
 That is the intended debugging path.
