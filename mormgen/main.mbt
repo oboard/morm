@@ -1,4 +1,7 @@
 ///|
+const PKG_NAME = "@oboard/morm"
+
+///|
 /// 变换阶段：从 EntitySpec 构建 @morm.Table，不接触解析细节
 fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table {
   let columns : Array[@morm.Column] = []
@@ -348,11 +351,11 @@ fn render_column_type(ty : @morm.ColumnType) -> String {
 ///|
 fn render_index_type(ty : @morm.IndexType) -> String {
   match ty {
-    Primary => "@morm.IndexType::Primary"
-    Unique => "@morm.IndexType::Unique"
-    Index => "@morm.IndexType::Index"
-    FullText => "@morm.IndexType::FullText"
-    Spatial => "@morm.IndexType::Spatial"
+    Primary => "\{PKG_NAME}.Primary"
+    Unique => "\{PKG_NAME}.Unique"
+    Index => "\{PKG_NAME}.Index"
+    FullText => "\{PKG_NAME}.FullText"
+    Spatial => "\{PKG_NAME}.Spatial"
   }
 }
 
@@ -434,7 +437,7 @@ fn render_table_literal(table : @morm.Table) -> String {
     .map(render_table_engine_option)
     .join(",\n")
   (
-    $| @morm.Table::{
+    $| \{PKG_NAME}.Table::{
     $|   name: \{mbt_string(table.name)},
     $|   schema: \{mbt_opt_string(table.schema)},
     $|   catalog: \{mbt_opt_string(table.catalog)},
@@ -615,8 +618,8 @@ fn generate_entity_impl(spec : EntitySpec, table : @morm.Table) -> String {
     ""
   }
   (
-    $| pub impl @oboard/morm.Entity for \{name} with table(_self) -> @oboard/morm.Table { \{name}::table() }
-    $| pub fn \{name}::table() -> @morm.Table {
+    $| pub impl \{PKG_NAME}.Entity for \{name} with table(_self) -> \{PKG_NAME}.Table { \{name}::table() }
+    $| pub fn \{name}::table() -> \{PKG_NAME}.Table {
     $|\{table_literal}
     $| }
     $|\{row_decoder}
@@ -701,7 +704,7 @@ fn render_partial_update_expr(
     return None
   }
   let parts : Array[String] = []
-  parts.push("@morm.update(\{table_expr})")
+  parts.push("\{PKG_NAME}.update(\{table_expr})")
   for label in set_fields {
     parts.push(".set(\"\{label}\", entity.\{label})")
   }
@@ -881,8 +884,9 @@ fn field_auto_update_time(field : FieldSpec) -> Bool {
 ///|
 fn auto_time_value_expr(field : FieldSpec) -> String? {
   let base = match field.field_type {
-    "PlainDateTime" | "DateTime" => Some("@morm.current_plain_date_time_utc()")
-    "ZonedDateTime" | "Timestamp" => Some("@morm.current_timestamp_utc()")
+    "PlainDateTime" | "DateTime" =>
+      Some("\{PKG_NAME}.current_plain_date_time_utc()")
+    "ZonedDateTime" | "Timestamp" => Some("\{PKG_NAME}.current_timestamp_utc()")
     _ => None
   }
   match base {
@@ -1119,7 +1123,7 @@ fn generate_mapper_code(
       if ret_type == "Bool" {
         (
           $|\{auto_stamp_code}
-          $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
+          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(entity)
           $|   self.engine.exec(q).ok
           $| }
           $|
@@ -1127,7 +1131,7 @@ fn generate_mapper_code(
       } else if m.returns_option {
         (
           $|\{auto_stamp_code}
-          $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
+          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(entity)
           $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
           $|     return Some(\{option_decode_expr})
@@ -1140,7 +1144,7 @@ fn generate_mapper_code(
         let entity_ty = m.params[0].1
         (
           $|\{auto_stamp_code}
-          $|   let q = @morm.upsert_into(\{table_expr}).from(entity)
+          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(entity)
           $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
           $|     return \{render_query_result_decode_expr(entity_ty, "result", entity_specs)}
@@ -1194,7 +1198,7 @@ fn generate_mapper_code(
       }
       let update_query_expr = match partial_update_code {
         Some(code) => code
-        None => "@morm.update(\{table_expr}).from(entity)"
+        None => "\{PKG_NAME}.update(\{table_expr}).from(entity)"
       }
       if ret_type == "Bool" {
         (
@@ -1231,7 +1235,7 @@ fn generate_mapper_code(
       }
     } else if m.name == "delete" && m.params.length() == 1 {
       (
-        $|   let q = @morm.delete_from(\{table_expr}).from(entity)
+        $|   let q = \{PKG_NAME}.delete_from(\{table_expr}).from(entity)
         $|   self.engine.exec(q).ok
         $| }
         $|
@@ -1253,10 +1257,10 @@ fn generate_mapper_code(
             Some(code) =>
               if ret_type == "Bool" &&
                 (
-                  code.has_prefix("@morm.update(") ||
-                  code.has_prefix("@morm.delete_from(") ||
-                  code.has_prefix("@morm.insert_into(") ||
-                  code.has_prefix("@morm.upsert_into(")
+                  code.has_prefix("\{PKG_NAME}.update(") ||
+                  code.has_prefix("\{PKG_NAME}.delete_from(") ||
+                  code.has_prefix("\{PKG_NAME}.insert_into(") ||
+                  code.has_prefix("\{PKG_NAME}.upsert_into(")
                 ) {
                 (
                   $|   let q = \{code}
