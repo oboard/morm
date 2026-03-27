@@ -68,7 +68,7 @@ pub fn User::table() -> @morm.Table {
 }
 
 ///|
-pub fn User::from_row(row : Map[String, @engine.Param]) -> User {
+pub fn User::_from(row : Map[String, @engine.Param]) -> User {
   let id_param = match row.get("id") {
     Some(value) => value
     None => panic()
@@ -97,7 +97,7 @@ pub impl @engine.FromParam for User with from_param(value) {
           row.set(key, @engine.to_param(value))
         }
       }
-      User::from_row(row)
+      User::_from(row)
     }
     _ =>
       raise @engine.ParamDecodeError(
@@ -120,7 +120,7 @@ pub fn UserMapperImpl::new(engine : &@engine.Engine) -> UserMapperImpl {
 pub impl UserMapper for UserMapperImpl with find_user_by_id(self, id : Int) -> User? {
   let q = @morm.select_from("user").where_eq("id", id)
   if self.engine.exec(q).rows is [result, ..] {
-    return Some(User::from_row(result))
+    return Some(User::_from(result))
   }
   None
 }
@@ -131,5 +131,5 @@ pub impl UserMapper for UserMapperImpl with find_users_by_active(
   active : Int,
 ) -> FixedArray[User] {
   let q = @morm.select_from("user").where_eq("active", active)
-  self.engine.exec(q).rows.map(row => User::from_row(row))
+  self.engine.exec(q).rows.map(row => User::_from(row))
 }

@@ -18,7 +18,7 @@ pub struct User {
   email : String
   active : Int
 }
-pub fn User::from_row(Map[String, @engine.Param]) -> Self
+pub fn User::_from(Map[String, @engine.Param]) -> Self
 pub fn User::table() -> @table.Table
 pub impl ToJson for User
 pub impl @json.FromJson for User

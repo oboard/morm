@@ -68,7 +68,7 @@ pub fn User::table() -> @morm.Table {
 }
 
 ///|
-pub fn User::from_row(row : Map[String, @engine.Param]) -> User {
+pub fn User::_from(row : Map[String, @engine.Param]) -> User {
   let id_param = match row.get("id") {
     Some(value) => value
     None => panic()
@@ -97,7 +97,7 @@ pub impl @engine.FromParam for User with from_param(value) {
           row.set(key, @engine.to_param(value))
         }
       }
-      User::from_row(row)
+      User::_from(row)
     }
     _ =>
       raise @engine.ParamDecodeError(

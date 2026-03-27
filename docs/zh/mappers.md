@@ -117,7 +117,7 @@ pub trait EnrollmentMapper {
 
 - 实体字段类型需要能从 `Param` 解码
 - 非实体标量返回值也需要满足 `FromParam`
-- 生成的实体 `from_row(...)` 也是基于 `Map[String, Param]`
+- 生成的实体 `_from(...)` 也是基于 `Map[String, Param]`
 
 ## 特殊 `save` 方法
 

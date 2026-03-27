@@ -117,7 +117,7 @@ That means:
 
 - entity field types must be decodable from `Param`
 - non-entity scalar return types must also satisfy `FromParam`
-- generated entity `from_row(...)` functions are based on `Map[String, Param]`
+- generated entity `_from(...)` functions are based on `Map[String, Param]`
 
 ## Special `save` Method
 

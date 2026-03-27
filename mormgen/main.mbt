@@ -538,7 +538,7 @@ fn field_json_storage(field : FieldSpec) -> String? {
 }
 
 ///|
-fn render_field_from_row_expr(field : FieldSpec, value_expr : String) -> String {
+fn render_field__from_expr(field : FieldSpec, value_expr : String) -> String {
   if field.field_type == "Json" {
     if field_json_storage(field) is Some(storage) {
       if field.nullable {
@@ -551,7 +551,7 @@ fn render_field_from_row_expr(field : FieldSpec, value_expr : String) -> String 
 }
 
 ///|
-fn render_entity_from_row(spec : EntitySpec) -> String {
+fn render_entity__from(spec : EntitySpec) -> String {
   let field_lines : Array[String] = []
   let ctor_lines : Array[String] = []
   for field in spec.fields {
@@ -574,14 +574,14 @@ fn render_entity_from_row(spec : EntitySpec) -> String {
       " : " +
       field_ty +
       " = " +
-      render_field_from_row_expr(field, param_name),
+      render_field__from_expr(field, param_name),
     )
     ctor_lines.push("      " + field.label + ",")
   }
   let fields_code = field_lines.join("\n")
   let ctor_code = ctor_lines.join("\n")
   (
-    $| pub fn \{spec.name}::from_row(row : Map[String, @engine.Param]) -> \{spec.name} {
+    $| pub fn \{spec.name}::_from(row : Map[String, @engine.Param]) -> \{spec.name} {
     $|\{fields_code}
     $|     return \{spec.name}::{
     $|\{ctor_code}
@@ -596,7 +596,7 @@ fn generate_entity_impl(spec : EntitySpec, table : @morm.Table) -> String {
   let table_literal = render_table_literal(table)
   let row_decoder = if entity_supports_row_decoder(spec) {
     "\n" +
-    render_entity_from_row(spec) +
+    render_entity__from(spec) +
     "\n" +
     (
       $| pub impl @engine.FromParam for \{name} with from_param(value) {
@@ -608,7 +608,7 @@ fn generate_entity_impl(spec : EntitySpec, table : @morm.Table) -> String {
       $|           row.set(key, @engine.to_param(value))
       $|         }
       $|       }
-      $|       \{name}::from_row(row)
+      $|       \{name}::_from(row)
       $|     }
       $|     _ => raise @engine.ParamDecodeError("\{name}::from_param: expected Json object row")
       $|   }
@@ -855,7 +855,7 @@ fn render_query_result_decode_expr(
   match find_entity_spec(entity_specs, type_name) {
     Some(spec) =>
       if entity_supports_row_decoder(spec) {
-        "\{type_name}::from_row(\{value_expr})"
+        "\{type_name}::_from(\{value_expr})"
       } else {
         "(try! @engine.from_param(\{value_expr}) : \{type_name})"
       }
