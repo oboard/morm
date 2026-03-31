@@ -22,7 +22,7 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
   if input.find(":") is Some(i) {
     let host = input[:i].to_string()
     let port_text = input[i + 1:].to_string()
-    let port = @strconv.parse_int(port_text) catch { _ => default_port }
+    let port = @string.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
     (if input == "" { "127.0.0.1" } else { input }, default_port)

@@ -3,6 +3,7 @@ import {
   "moonbitlang/core/buffer",
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/json",
+  "moonbitlang/core/string",
   "moonbitlang/core/strconv",
   "oboard/morm/engine",
   "oboard/morm/table",

@@ -17,11 +17,9 @@ pub struct User {
   id : Int
   email : String
   active : Int
-}
+} derive(ToJson, @json.FromJson)
 pub fn User::_from(Map[String, @engine.Param]) -> Self
 pub fn User::table() -> @table.Table
-pub impl ToJson for User
-pub impl @json.FromJson for User
 pub impl @morm.Entity for User
 pub impl @engine.FromParam for User
 

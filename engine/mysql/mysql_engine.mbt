@@ -24,7 +24,7 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
   if input.find(":") is Some(i) {
     let host = input[:i].to_string()
     let port_text = input[i + 1:].to_string()
-    let port = @strconv.parse_int(port_text) catch { _ => default_port }
+    let port = @string.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
     (if input == "" { "127.0.0.1" } else { input }, default_port)
@@ -303,11 +303,11 @@ fn json_from_text(text : String) -> Json {
   if text is ("false" | "FALSE") {
     return Json::boolean(false)
   }
-  let i = @strconv.parse_int(text) catch { _ => -2147483648 }
+  let i = @string.parse_int(text) catch { _ => -2147483648 }
   if i != -2147483648 || text == "-2147483648" {
     return Json::number(i.to_double())
   }
-  let d = @strconv.parse_double(text) catch { _ => -9.999999999999999e307 }
+  let d = @string.parse_double(text) catch { _ => -9.999999999999999e307 }
   if d != -9.999999999999999e307 {
     return Json::number(d)
   }

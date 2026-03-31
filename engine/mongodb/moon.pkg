@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/encoding/base64" @base64,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/json",
+  "moonbitlang/core/string",
   "moonbitlang/core/strconv",
   "moonbitlang/x/crypto" @crypto,
   "moonbitlang/x/json5" @json5,

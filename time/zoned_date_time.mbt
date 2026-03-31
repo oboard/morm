@@ -228,10 +228,10 @@ fn parse_offset_seconds(offset : String) -> Int raise Error {
     "-" => -1
     _ => fail(invalid_date_time_err)
   }
-  let hour = @strconv.parse_int(hour_text) catch {
+  let hour = @string.parse_int(hour_text) catch {
     _ => fail(invalid_date_time_err)
   }
-  let minute = @strconv.parse_int(minute_text) catch {
+  let minute = @string.parse_int(minute_text) catch {
     _ => fail(invalid_date_time_err)
   }
   let second = if offset.length() == 9 {
@@ -240,7 +240,7 @@ fn parse_offset_seconds(offset : String) -> Int raise Error {
     if second_colon != ":" {
       fail(invalid_date_time_err)
     }
-    @strconv.parse_int(second_text) catch {
+    @string.parse_int(second_text) catch {
       _ => fail(invalid_date_time_err)
     }
   } else {

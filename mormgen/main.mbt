@@ -114,7 +114,7 @@ fn attr_bool(value : String) -> Bool {
 
 ///|
 fn attr_int(value : String) -> Int? {
-  Some(@strconv.parse_int(value)) catch {
+  Some(@string.parse_int(value)) catch {
     _ => None
   }
 }

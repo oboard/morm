@@ -58,7 +58,7 @@ fn parse_host_port(text : String, default_port : Int) -> (String, Int) {
   if text.rev_find(":") is Some(idx) {
     let host = text[:idx].to_string()
     let port_text = text[idx + 1:].to_string()
-    let port = @strconv.parse_int(port_text) catch { _ => default_port }
+    let port = @string.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
     (if text == "" { "127.0.0.1" } else { text }, default_port)
@@ -301,7 +301,7 @@ fn command_failed_message(doc : Json, fallback : String) -> String {
 ///|
 fn json_to_int(value : Json) -> Int? {
   match value {
-    String(text) => Some(@strconv.parse_int(text)) catch { _ => None }
+    String(text) => Some(@string.parse_int(text)) catch { _ => None }
     Number(n, ..) =>
       if n.to_int().to_double() == n {
         Some(n.to_int())
@@ -603,7 +603,7 @@ async fn authenticate_connection(
   let salt = @base64.decode(salt_text) catch {
     _ => return Err("mongodb scram salt decode failed")
   }
-  let iterations = @strconv.parse_int(iter_text) catch {
+  let iterations = @string.parse_int(iter_text) catch {
     _ => return Err("mongodb scram iteration parse failed")
   }
   guard iterations > 0 else { return Err("mongodb scram iteration invalid") }
@@ -975,10 +975,10 @@ fn normalize_rows(
 ///|
 fn json_to_int64(value : Json) -> Int64? {
   match value {
-    String(text) => Some(@strconv.parse_int64(text)) catch { _ => None }
+    String(text) => Some(@string.parse_int64(text)) catch { _ => None }
     Number(n, ..) =>
       if n.to_int().to_double() == n {
-        Some(@strconv.parse_int64(n.to_int().to_string())) catch {
+        Some(@string.parse_int64(n.to_int().to_string())) catch {
           _ => None
         }
       } else {

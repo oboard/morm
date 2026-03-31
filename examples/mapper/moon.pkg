@@ -6,8 +6,9 @@ import {
   "oboard/morm/engine/sqlite3",
 }
 
+supported_targets = "+native"
+
 options(
   "bin-name": "morm-example-mapper",
   "is-main": true,
-  "supported-targets": "+native",
 )

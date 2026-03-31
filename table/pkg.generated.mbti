@@ -23,24 +23,12 @@ pub(all) struct Column {
   charset : String?
   collation : String?
   engine_options : FixedArray[ColumnEngineOption]
-}
-pub impl Compare for Column
-pub impl Eq for Column
-pub impl Hash for Column
-pub impl Show for Column
-pub impl ToJson for Column
-pub impl @json.FromJson for Column
+} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 
 pub(all) struct ColumnEngineOption {
   key : String
   value : String
-}
-pub impl Compare for ColumnEngineOption
-pub impl Eq for ColumnEngineOption
-pub impl Hash for ColumnEngineOption
-pub impl Show for ColumnEngineOption
-pub impl ToJson for ColumnEngineOption
-pub impl @json.FromJson for ColumnEngineOption
+} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 
 pub(all) enum ColumnType {
   TinyInt
@@ -69,13 +57,7 @@ pub(all) enum ColumnType {
   Json
   JsonB
   Boolean
-}
-pub impl Compare for ColumnType
-pub impl Eq for ColumnType
-pub impl Hash for ColumnType
-pub impl Show for ColumnType
-pub impl ToJson for ColumnType
-pub impl @json.FromJson for ColumnType
+} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 
 pub(all) struct ForeignKey {
   name : String
@@ -84,26 +66,14 @@ pub(all) struct ForeignKey {
   referenced_column : String
   on_delete : String
   on_update : String
-}
-pub impl Compare for ForeignKey
-pub impl Eq for ForeignKey
-pub impl Hash for ForeignKey
-pub impl Show for ForeignKey
-pub impl ToJson for ForeignKey
-pub impl @json.FromJson for ForeignKey
+} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 
 pub(all) struct Index {
   name : String
   index_type : IndexType
   columns : FixedArray[String]
   comment : String
-}
-pub impl Compare for Index
-pub impl Eq for Index
-pub impl Hash for Index
-pub impl Show for Index
-pub impl ToJson for Index
-pub impl @json.FromJson for Index
+} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 
 pub(all) enum IndexType {
   Primary
@@ -111,13 +81,7 @@ pub(all) enum IndexType {
   Index
   FullText
   Spatial
-}
-pub impl Compare for IndexType
-pub impl Eq for IndexType
-pub impl Hash for IndexType
-pub impl Show for IndexType
-pub impl ToJson for IndexType
-pub impl @json.FromJson for IndexType
+} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 
 pub(all) struct Table {
   name : String
@@ -135,24 +99,12 @@ pub(all) struct Table {
   comment : String
   auto_increment : Int?
   engine_options : FixedArray[TableEngineOption]
-}
-pub impl Compare for Table
-pub impl Eq for Table
-pub impl Hash for Table
-pub impl Show for Table
-pub impl ToJson for Table
-pub impl @json.FromJson for Table
+} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 
 pub(all) struct TableEngineOption {
   key : String
   value : String
-}
-pub impl Compare for TableEngineOption
-pub impl Eq for TableEngineOption
-pub impl Hash for TableEngineOption
-pub impl Show for TableEngineOption
-pub impl ToJson for TableEngineOption
-pub impl @json.FromJson for TableEngineOption
+} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 
 // Type aliases
 

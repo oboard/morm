@@ -15,10 +15,7 @@ pub fn to_document_bytes(Json) -> Bytes raise BsonError
 // Errors
 pub(all) suberror BsonError {
   BsonError(String)
-}
-pub impl Eq for BsonError
-pub impl Show for BsonError
-pub impl ToJson for BsonError
+} derive(Eq, Show, ToJson)
 
 // Types and methods
 

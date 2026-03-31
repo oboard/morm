@@ -372,8 +372,8 @@ fn recover_attr_raw(
     let parts = s.split(":").collect()
     let len = parts.length()
     if len >= 2 {
-      let line = @strconv.parse_int(parts[len - 2]) catch { _ => -1 }
-      let col = @strconv.parse_int(parts[len - 1]) catch { _ => -1 }
+      let line = @string.parse_int(parts[len - 2]) catch { _ => -1 }
+      let col = @string.parse_int(parts[len - 1]) catch { _ => -1 }
       (line, col)
     } else {
       (-1, -1)

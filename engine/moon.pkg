@@ -4,6 +4,7 @@ import {
   "oboard/morm/bson",
   "moonbitlang/core/buffer",
   "moonbitlang/core/json",
+  "moonbitlang/core/string",
   "moonbitlang/core/strconv",
   "oboard/morm/time",
 }

@@ -6,7 +6,8 @@ import {
   "moonbitlang/core/buffer",
 }
 
+supported_targets = "+native"
+
 options(
   "native-stub": [ "mbt_sqlite3.c", "sqlite3.c" ],
-  "supported-targets": "+native",
 )

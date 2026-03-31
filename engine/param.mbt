@@ -339,7 +339,7 @@ pub impl FromParam for UInt with from_param(value) {
     Byte(v) => v.to_uint()
     Int(v) if v >= 0 => v.reinterpret_as_uint()
     String(s) =>
-      @strconv.parse_uint(s) catch {
+      @string.parse_uint(s) catch {
         _ => param_decode_error("UInt::from_param: invalid UInt string")
       }
     _ => param_decode_error("UInt::from_param: expected UInt-compatible value")
@@ -355,7 +355,7 @@ pub impl FromParam for UInt64 with from_param(value) {
     Byte(v) => v.to_uint64()
     Int(v) if v >= 0 => v.to_uint64()
     String(s) =>
-      @strconv.parse_uint64(s) catch {
+      @string.parse_uint64(s) catch {
         _ => param_decode_error("UInt64::from_param: invalid UInt64 string")
       }
     _ =>
@@ -372,7 +372,7 @@ pub impl FromParam for Int64 with from_param(value) {
     UInt16(v) => v.to_int64()
     Byte(v) => v.to_int64()
     String(s) =>
-      @strconv.parse_int64(s) catch {
+      @string.parse_int64(s) catch {
         _ => param_decode_error("Int64::from_param: invalid Int64 string")
       }
     _ =>
@@ -399,7 +399,7 @@ pub impl FromParam for Float with from_param(value) {
     Double(v) => Float::from_double(v)
     Int(v) => Float::from_int(v)
     String(s) =>
-      Float::from_double(@strconv.parse_double(s)) catch {
+      Float::from_double(@string.parse_double(s)) catch {
         _ => param_decode_error("Float::from_param: invalid Float string")
       }
     _ =>
@@ -414,7 +414,7 @@ pub impl FromParam for Double with from_param(value) {
     Float(v) => v.to_double()
     Int(v) => v.to_double()
     String(s) =>
-      @strconv.parse_double(s) catch {
+      @string.parse_double(s) catch {
         _ => param_decode_error("Double::from_param: invalid Double string")
       }
     _ =>
