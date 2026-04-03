@@ -15,6 +15,10 @@ pub fn bytes_to_hex(Bytes) -> String
 
 pub fn decode_json_column(Json, String) -> Json raise ParamDecodeError
 
+pub fn[T : @json.FromJson] enum_from_param(Param) -> T raise ParamDecodeError
+
+pub fn[T : ToJson] enum_to_param(T) -> Param raise ParamDecodeError
+
 pub fn format_plain_date(@time.PlainDate, String?) -> String
 
 pub fn format_plain_date_time(@time.PlainDateTime, String?) -> String

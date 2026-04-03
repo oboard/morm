@@ -25,6 +25,7 @@ pub(all) enum ColumnType {
   Year
   Json
   JsonB
+  Enum(String, FixedArray[String])
   Boolean
 } derive(Show, ToJson, FromJson, Eq, Compare, Hash)
 

@@ -16,6 +16,12 @@ struct EntitySpec {
 }
 
 ///|
+struct EnumSpec {
+  name : String
+  values : FixedArray[String]
+}
+
+///|
 struct ORMAttribute {
   name : String
   value : Map[String, String]
@@ -38,6 +44,138 @@ fn trim_key(s : String) -> String {
     t = t[0:n - 1].to_string()
   }
   t
+}
+
+///|
+fn is_ident_char(ch : Char) -> Bool {
+  (ch >= 'a' && ch <= 'z') ||
+  (ch >= 'A' && ch <= 'Z') ||
+  (ch >= '0' && ch <= '9') ||
+  ch == '_'
+}
+
+///|
+fn parse_plain_enum_case_name(text : String) -> String? {
+  let trimmed = trim_key(text)
+  if trimmed == "" ||
+    trimmed.contains("(") ||
+    trimmed.contains("=") ||
+    trimmed.contains("{") {
+    return None
+  }
+  let name = if trimmed.find("//") is Some(idx) {
+    trim_key(trimmed[0:idx].to_string())
+  } else {
+    trimmed
+  }
+  if name == "" {
+    return None
+  }
+  for ch in name {
+    if !is_ident_char(ch) {
+      return None
+    }
+  }
+  Some(name)
+}
+
+///|
+fn parse_enum_case_segments(
+  segment_text : String,
+  values : Array[String],
+) -> Bool {
+  let segments = segment_text.split(",").collect()
+  for segment in segments {
+    let trimmed = trim_key(segment.to_string())
+    if trimmed == "" {
+      continue
+    }
+    if parse_plain_enum_case_name(trimmed) is Some(name) {
+      values.push(name)
+    } else {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn parse_enum_name_from_decl(line : String) -> String? {
+  guard line.find("enum ") is Some(enum_idx) else { return None }
+  let mut rest = line[enum_idx + 5:].to_string()
+  rest = trim_key(rest)
+  if rest == "" {
+    return None
+  }
+  let mut name = ""
+  for ch in rest {
+    if is_ident_char(ch) {
+      name = name + ch.to_string()
+    } else {
+      break
+    }
+  }
+  if name == "" {
+    None
+  } else {
+    Some(name)
+  }
+}
+
+///|
+fn parse_enum_specs_from_source(source : String) -> Array[EnumSpec] {
+  let specs : Array[EnumSpec] = []
+  let lines = source.split("\n").collect()
+  let mut i = 0
+  while i < lines.length() {
+    let line = lines[i].to_string()
+    if line.contains("enum ") &&
+      line.contains("{") &&
+      parse_enum_name_from_decl(line) is Some(name) {
+      let values : Array[String] = []
+      let mut supported = true
+      let mut block = if line.find("{") is Some(open_idx) {
+        line[open_idx + 1:].to_string()
+      } else {
+        ""
+      }
+      while true {
+        let mut current = block
+        let mut reached_end = false
+        if current.find("}") is Some(close_idx) {
+          current = current[0:close_idx].to_string()
+          reached_end = true
+        }
+        if !parse_enum_case_segments(current, values) {
+          supported = false
+        }
+        if reached_end {
+          break
+        }
+        i = i + 1
+        if i >= lines.length() {
+          supported = false
+          break
+        }
+        block = lines[i].to_string()
+      }
+      if supported && values.length() > 0 {
+        specs.push({ name, values: FixedArray::from_array(values) })
+      }
+    }
+    i = i + 1
+  }
+  specs
+}
+
+///|
+fn find_enum_spec(enum_specs : Array[EnumSpec], name : String) -> EnumSpec? {
+  for spec in enum_specs {
+    if spec.name == name {
+      return Some(spec)
+    }
+  }
+  None
 }
 
 ///|
@@ -1145,12 +1283,16 @@ fn parse_entities_from_ast(
 fn map_type_to_db_by_name(
   field_type : String,
   attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
+  enum_specs : Array[EnumSpec],
 ) -> @morm.ColumnType {
   // 首先检查是否有特定的 morm 类型属性
   // 使用 match 模式替代多个 if 判断，更接近 GORM 的风格
   let attr_type = find_morm_type_attribute(attrs)
   if attr_type is Some(ty) {
     return ty
+  }
+  if find_enum_spec(enum_specs, field_type) is Some(enum_spec) {
+    return Enum(enum_spec.name, enum_spec.values)
   }
   // 默认类型映射表，类似 GORM 的 DataTypeMap
   match field_type {

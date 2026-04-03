@@ -108,7 +108,7 @@ test "generate mapper code for set list and map returns" {
   let (ast, _) = @parser.parse_string(source)
   let entity_specs = parse_entities_from_ast(ast)
   let mapper_specs = parse_mappers_from_ast(ast, source, entity_specs)
-  let code = generate_mapper_code(mapper_specs[0], entity_specs)
+  let code = generate_mapper_code(mapper_specs[0], entity_specs, [])
   inspect(
     code.contains("let out : @set.Set[User] = @set.Set::new()"),
     content="true",
@@ -116,4 +116,61 @@ test "generate mapper code for set list and map returns" {
   inspect(code.contains("@list.List::from_array(out)"), content="true")
   inspect(code.contains("let out : Map[Int,User] = Map::new()"), content="true")
   inspect(code.contains("let key : Int = value.id"), content="true")
+}
+
+///|
+test "parse plain enum specs from source" {
+  let source =
+    #|///|
+    #|pub(all) enum Status {
+    #|  Draft,
+    #|  Published,
+    #|}
+    #|
+    #|///|
+    #|pub(all) enum IgnoreMe {
+    #|  WithPayload(String)
+    #|}
+  let enum_specs = parse_enum_specs_from_source(source)
+  inspect(enum_specs.length(), content="1")
+  inspect(enum_specs[0].name, content="Status")
+  inspect(
+    enum_specs[0].values.to_json().stringify(),
+    content="[\"Draft\",\"Published\"]",
+  )
+}
+
+///|
+test "generate enum codec impls for mapper package types" {
+  let source =
+    #|///|
+    #|pub(all) enum Status {
+    #|  Draft
+    #|  Published
+    #|} derive(ToJson, FromJson)
+    #|
+    #|///|
+    #|#morm.mapper(table="article")
+    #|pub trait ArticleMapper {
+    #|  #morm.query("select status from article where id = ?")
+    #|  find_status(Self, id : Int) -> Status
+    #|}
+  let (ast, _) = @parser.parse_string(source)
+  let mapper_specs = parse_mappers_from_ast(ast, source, [])
+  let code = render_enum_codec_impl(parse_enum_specs_from_source(source)[0]) +
+    "\n" +
+    generate_mapper_code(
+      mapper_specs[0],
+      [],
+      parse_enum_specs_from_source(source),
+    )
+  inspect(code.contains("pub impl @engine.ToParam for Status"), content="true")
+  inspect(
+    code.contains("pub impl @engine.FromParam for Status"),
+    content="true",
+  )
+  inspect(
+    code.contains("(try! @engine.from_param(result) : Status)"),
+    content="true",
+  )
 }

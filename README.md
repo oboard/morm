@@ -20,6 +20,7 @@ The project deliberately avoids runtime reflection and hidden ORM state.
 - typed query builders for `select`, `insert`, `upsert`, `update`, and `delete`
 - multi-engine support through a shared `Engine` contract
 - local time-type support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime`
+- direct MoonBit enum support in generated `ToParam` / `FromParam` impls and schema metadata
 - generated auto timestamp handling for `created_at` / `updated_at` and explicit timestamp annotations
 - transient entity fields via `#morm.transient` (kept in model, excluded from physical columns and `from(entity)` writes)
 
@@ -76,6 +77,10 @@ pub(all) struct Class {
   updated_at : PlainDateTime
 } derive(ToJson, FromJson)
 ```
+
+Payload-free MoonBit enums can also be used directly as entity fields. `mormgen`
+will generate enum codecs and emit native enum DDL for engines that support it
+(currently MySQL and PostgreSQL).
 
 ## Mapper Example
 

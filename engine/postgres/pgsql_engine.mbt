@@ -627,8 +627,43 @@ fn pg_type_from_column_type(column_type : @table.ColumnType) -> String {
     @table.Year => "INTEGER"
     @table.Json => "JSON"
     @table.JsonB => "JSONB"
+    @table.Enum(name, _) => name
     @table.Boolean => "BOOLEAN"
   }
+}
+
+///|
+fn pg_enum_type_name(table_schema : @table.Table, name : String) -> String {
+  match table_schema.schema {
+    Some(schema) => "\{schema}.\{name}"
+    None => name
+  }
+}
+
+///|
+fn pg_enum_type_sqls(table_schema : @table.Table) -> Array[String] {
+  let sqls : Array[String] = []
+  let seen : Map[String, Bool] = Map::new()
+  for column in table_schema.columns {
+    if column.column_type is @table.Enum(name, values) {
+      let type_name = pg_enum_type_name(table_schema, name)
+      if seen.contains(type_name) {
+        continue
+      }
+      seen.set(type_name, true)
+      let labels = values
+        .map(value => "'" + value.replace(old="'", new="''") + "'")
+        .join(", ")
+      sqls.push(
+        "DO $$ BEGIN CREATE TYPE " +
+        type_name +
+        " AS ENUM (" +
+        labels +
+        "); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+      )
+    }
+  }
+  sqls
 }
 
 ///|
@@ -662,13 +697,14 @@ fn pg_column_default_expr(column : @table.Column) -> String? {
 }
 
 ///|
-fn pg_column_def(column : @table.Column) -> String {
+fn pg_column_def(column : @table.Column, table_schema : @table.Table) -> String {
   if column.name == "" {
     return ""
   }
   let mut col_type = match column.column_type {
     @table.Json => pg_json_storage_type(column, false)
     @table.JsonB => pg_json_storage_type(column, true)
+    @table.Enum(name, _) => pg_enum_type_name(table_schema, name)
     _ => pg_type_from_column_type(column.column_type)
   }
   let default_value = pg_column_default_expr(column).unwrap_or("")
@@ -721,7 +757,7 @@ fn pg_create_table_sql(table_schema : @table.Table) -> String {
   let table_name = pg_table_name(table_schema)
   let defs : Array[String] = []
   for column in table_schema.columns {
-    let def = pg_column_def(column)
+    let def = pg_column_def(column, table_schema)
     if def != "" {
       defs.push(def)
     }
@@ -855,6 +891,12 @@ pub impl @engine.Engine for PgSQLEngine with migrate_table(
   self,
   table_schema : @table.Table,
 ) -> @engine.QueryResult {
+  for enum_sql in pg_enum_type_sqls(table_schema) {
+    let enum_res = self.exec(@engine.Raw(enum_sql, []))
+    if !enum_res.ok {
+      return enum_res
+    }
+  }
   let create_sql = pg_create_table_sql(table_schema)
   if create_sql == "" {
     return {

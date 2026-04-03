@@ -271,6 +271,19 @@ pub fn[T : FromParam] from_param(value : Param) -> T raise ParamDecodeError {
 }
 
 ///|
+pub fn[T : @json.FromJson] enum_from_param(
+  value : Param,
+) -> T raise ParamDecodeError {
+  let json = match value {
+    String(text) => Json::string(text)
+    _ => value.to_json()
+  }
+  @json.from_json(json) catch {
+    _ => param_decode_error("enum_from_param: expected enum-compatible value")
+  }
+}
+
+///|
 pub impl FromParam for Param with from_param(self) {
   self
 }
@@ -535,6 +548,17 @@ pub(open) trait ToParam {
 ///|
 pub fn[T : ToParam] to_param(value : T) -> Param {
   value.to_param()
+}
+
+///|
+pub fn[T : ToJson] enum_to_param(value : T) -> Param raise ParamDecodeError {
+  match value.to_json() {
+    String(text) => String(text)
+    _ =>
+      param_decode_error(
+        "enum_to_param: enum value must serialize to JSON string",
+      )
+  }
 }
 
 ///|

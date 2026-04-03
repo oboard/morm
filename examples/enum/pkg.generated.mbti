@@ -1,0 +1,37 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/examples/enum"
+
+import {
+  "moonbitlang/core/json",
+  "oboard/morm",
+  "oboard/morm/engine",
+  "oboard/morm/table",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Post {
+  id : Int
+  title : String
+  status : PostStatus
+} derive(ToJson, @json.FromJson)
+pub fn Post::_from(Map[String, @engine.Param]) -> Self
+pub fn Post::table() -> @table.Table
+pub impl @morm.Entity for Post
+pub impl @engine.FromParam for Post
+
+pub(all) enum PostStatus {
+  Draft
+  Published
+  Archived
+} derive(Show, ToJson, @json.FromJson)
+pub impl @engine.FromParam for PostStatus
+pub impl @engine.ToParam for PostStatus
+
+// Type aliases
+
+// Traits
+

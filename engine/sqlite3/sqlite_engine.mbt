@@ -120,6 +120,7 @@ fn sqlite_col_type(column_type : @table.ColumnType) -> String {
     | @table.VarBinary(_) => "BLOB"
     @table.Date | @table.Time | @table.DateTime | @table.Timestamp => "TEXT"
     @table.Json | @table.JsonB => "TEXT"
+    @table.Enum(_, _) => "TEXT"
     @table.Char(_)
     | @table.VarChar(_)
     | @table.Text

@@ -12,7 +12,7 @@ test "transient field is not emitted as table column" {
     #|} derive(ToJson, FromJson)
   let (ast, _) = @parser.parse_string(source)
   let specs = parse_entities_from_ast(ast)
-  let table = transform_entity_to_table(specs[0], source)
+  let table = transform_entity_to_table(specs[0], source, [])
   inspect(table.columns.length(), content="2")
   inspect(table.columns[0].name, content="id")
   inspect(table.columns[1].name, content="name")
@@ -40,7 +40,7 @@ test "primary key strategy annotation is emitted to engine options" {
     #|} derive(ToJson, FromJson)
   let (ast, _) = @parser.parse_string(source)
   let specs = parse_entities_from_ast(ast)
-  let table = transform_entity_to_table(specs[0], source)
+  let table = transform_entity_to_table(specs[0], source, [])
   inspect(table.columns[0].primary_key, content="true")
   inspect(table.columns[0].auto_increment, content="false")
   inspect(
@@ -60,7 +60,7 @@ test "auto_increment strategy keeps auto increment behavior" {
     #|} derive(ToJson, FromJson)
   let (ast, _) = @parser.parse_string(source)
   let specs = parse_entities_from_ast(ast)
-  let table = transform_entity_to_table(specs[0], source)
+  let table = transform_entity_to_table(specs[0], source, [])
   inspect(table.columns[0].primary_key, content="true")
   inspect(table.columns[0].auto_increment, content="true")
   inspect(
@@ -89,7 +89,7 @@ test "default expression literals are preserved by field type" {
     #|} derive(ToJson, FromJson)
   let (ast, _) = @parser.parse_string(source)
   let specs = parse_entities_from_ast(ast)
-  let table = transform_entity_to_table(specs[0], source)
+  let table = transform_entity_to_table(specs[0], source, [])
   inspect(table.columns[0].auto_increment, content="true")
   inspect(table.columns[0].default_value.to_json().stringify(), content="null")
   inspect(
@@ -105,4 +105,32 @@ test "default expression literals are preserved by field type" {
     content="'[\"red\", \"yellow\", \"purple\"]'",
   )
   inspect(table.columns[4].default_value.unwrap_or(""), content="false")
+}
+
+///|
+test "enum field maps to native enum column type" {
+  let source =
+    #|///|
+    #|pub(all) enum Status {
+    #|  Draft
+    #|  Published
+    #|} derive(ToJson, FromJson)
+    #|
+    #|///|
+    #|#morm.entity
+    #|pub(all) struct Article {
+    #|  #morm.id
+    #|  id : Int
+    #|  status : Status
+    #|} derive(ToJson, FromJson)
+  let (ast, _) = @parser.parse_string(source)
+  let specs = parse_entities_from_ast(ast)
+  let enum_specs = parse_enum_specs_from_source(source)
+  let table = transform_entity_to_table(specs[0], source, enum_specs)
+  inspect(
+    table.columns[1].column_type.to_json().stringify(),
+    content=(
+      #|["Enum","Status",["Draft","Published"]]
+    ),
+  )
 }

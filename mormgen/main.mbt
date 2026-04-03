@@ -3,7 +3,11 @@ const PKG_NAME = "@oboard/morm"
 
 ///|
 /// 变换阶段：从 EntitySpec 构建 @morm.Table，不接触解析细节
-fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table {
+fn transform_entity_to_table(
+  spec : EntitySpec,
+  source : String,
+  enum_specs : Array[EnumSpec],
+) -> @morm.Table {
   let columns : Array[@morm.Column] = []
   let foreign_keys : Array[@morm.ForeignKey] = []
   for f in spec.fields {
@@ -14,7 +18,7 @@ fn transform_entity_to_table(spec : EntitySpec, source : String) -> @morm.Table 
     let fk_col_opt = field_many_to_one_fk_column(f.label, f.attrs, source)
     let db_type = match fk_col_opt {
       Some(_) => @morm.ColumnType::Int
-      None => map_type_to_db_by_name(f.field_type, f.attrs)
+      None => map_type_to_db_by_name(f.field_type, f.attrs, enum_specs)
     }
     let (is_primary_key, is_auto_increment, _, primary_key_strategy) = collect_field_flags(
       f.attrs,
@@ -344,6 +348,10 @@ fn render_column_type(ty : @morm.ColumnType) -> String {
     Year => "Year"
     Json => "Json"
     JsonB => "JsonB"
+    Enum(name, values) => {
+      let rendered_values = values.map(mbt_string).join(", ")
+      "Enum(\{mbt_string(name)}, [\{rendered_values}])"
+    }
     Boolean => "Boolean"
   }
 }
@@ -467,7 +475,13 @@ fn render_table_literal(table : @morm.Table) -> String {
 
 ///|
 /// 代码生成阶段：从表结构生成实现代码
-fn is_param_decodable_type(type_name : String) -> Bool {
+fn is_param_decodable_type(
+  type_name : String,
+  enum_specs : Array[EnumSpec],
+) -> Bool {
+  if find_enum_spec(enum_specs, type_name) is Some(_) {
+    return true
+  }
   match type_name {
     "Unit"
     | "Bool"
@@ -493,7 +507,10 @@ fn is_param_decodable_type(type_name : String) -> Bool {
 }
 
 ///|
-fn entity_supports_row_decoder(spec : EntitySpec) -> Bool {
+fn entity_supports_row_decoder(
+  spec : EntitySpec,
+  enum_specs : Array[EnumSpec],
+) -> Bool {
   for field in spec.fields {
     let attrs = collect_orm_attributes(field.attrs)
     for attr in attrs {
@@ -501,7 +518,7 @@ fn entity_supports_row_decoder(spec : EntitySpec) -> Bool {
         return false
       }
     }
-    if !is_param_decodable_type(field.field_type) {
+    if !is_param_decodable_type(field.field_type, enum_specs) {
       return false
     }
   }
@@ -591,10 +608,14 @@ fn render_entity__from(spec : EntitySpec) -> String {
 }
 
 ///|
-fn generate_entity_impl(spec : EntitySpec, table : @morm.Table) -> String {
+fn generate_entity_impl(
+  spec : EntitySpec,
+  table : @morm.Table,
+  enum_specs : Array[EnumSpec],
+) -> String {
   let name = spec.name
   let table_literal = render_table_literal(table)
-  let row_decoder = if entity_supports_row_decoder(spec) {
+  let row_decoder = if entity_supports_row_decoder(spec, enum_specs) {
     "\n" +
     render_entity__from(spec) +
     "\n" +
@@ -851,16 +872,30 @@ fn render_query_result_decode_expr(
   type_name : String,
   value_expr : String,
   entity_specs : Array[EntitySpec],
+  enum_specs : Array[EnumSpec],
 ) -> String {
   match find_entity_spec(entity_specs, type_name) {
     Some(spec) =>
-      if entity_supports_row_decoder(spec) {
+      if entity_supports_row_decoder(spec, enum_specs) {
         "\{type_name}::_from(\{value_expr})"
       } else {
         "(try! @engine.from_param(\{value_expr}) : \{type_name})"
       }
     None => "(try! @engine.from_param(\{value_expr}) : \{type_name})"
   }
+}
+
+///|
+fn render_enum_codec_impl(enum_spec : EnumSpec) -> String {
+  (
+    $| pub impl @engine.ToParam for \{enum_spec.name} with to_param(self) -> @engine.Param {
+    $|   try! @engine.enum_to_param(self)
+    $| }
+    $|
+    $| pub impl @engine.FromParam for \{enum_spec.name} with from_param(value) {
+    $|   try! @engine.enum_from_param(value)
+    $| }
+  )
 }
 
 ///|
@@ -962,10 +997,36 @@ fn collect_package_entity_specs(
 }
 
 ///|
+fn collect_package_enum_specs(
+  input_file : String,
+) -> Array[EnumSpec] raise @fs.IOError {
+  let dir = path_dirname(input_file)
+  let merged : Array[EnumSpec] = []
+  let seen : Map[String, Bool] = Map::new()
+  for entry in @fs.read_dir(dir) {
+    if !is_source_mbt_file(entry) {
+      continue
+    }
+    let path = path_join(dir, entry)
+    guard @fs.is_file(path) else { continue }
+    let source = @fs.read_file_to_string(path)
+    for spec in parse_enum_specs_from_source(source) {
+      if seen.contains(spec.name) {
+        continue
+      }
+      seen.set(spec.name, true)
+      merged.push(spec)
+    }
+  }
+  merged
+}
+
+///|
 /// 代码生成阶段：根据 MapperSpec 生成 struct、mapper 函数与方法实现
 fn generate_mapper_code(
   spec : MapperSpec,
   entity_specs : Array[EntitySpec],
+  enum_specs : Array[EnumSpec],
 ) -> String {
   let trait_name = spec.trait_name
   let impl_name = trait_name + "Impl"
@@ -1070,13 +1131,13 @@ fn generate_mapper_code(
       None => array_item_type
     }
     let collection_decode_expr = render_query_result_decode_expr(
-      collection_item_type, "row", entity_specs,
+      collection_item_type, "row", entity_specs, enum_specs,
     )
     let option_decode_expr = render_query_result_decode_expr(
-      option_value_type, "result", entity_specs,
+      option_value_type, "result", entity_specs, enum_specs,
     )
     let value_decode_expr = render_query_result_decode_expr(
-      ret_type, "result", entity_specs,
+      ret_type, "result", entity_specs, enum_specs,
     )
     let method_header =
       $| pub impl \{trait_name} for \{impl_name} with \{m.name}(
@@ -1147,7 +1208,7 @@ fn generate_mapper_code(
           $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(entity)
           $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
-          $|     return \{render_query_result_decode_expr(entity_ty, "result", entity_specs)}
+          $|     return \{render_query_result_decode_expr(entity_ty, "result", entity_specs, enum_specs)}
           $|   }
           $|   panic()
           $| }
@@ -1387,18 +1448,25 @@ fn main {
     let source_content = @fs.read_file_to_string(input_file.val)
     let specs = parse_entities_from_ast(ast)
     let all_entity_specs = collect_package_entity_specs(input_file.val)
+    let package_enum_specs = collect_package_enum_specs(input_file.val)
+    let source_enum_specs = parse_enum_specs_from_source(source_content)
     let mapper_specs = parse_mappers_from_ast(
       ast, source_content, all_entity_specs,
     )
     //
     let codes : Array[String] = []
+    source_enum_specs.each(enum_spec => {
+      codes.push(render_enum_codec_impl(enum_spec))
+    })
     specs.each(spec => {
-      let table = transform_entity_to_table(spec, source_content)
-      let code = generate_entity_impl(spec, table)
+      let table = transform_entity_to_table(
+        spec, source_content, package_enum_specs,
+      )
+      let code = generate_entity_impl(spec, table, package_enum_specs)
       codes.push(code)
     })
     mapper_specs.each(ms => {
-      let mcode = generate_mapper_code(ms, all_entity_specs)
+      let mcode = generate_mapper_code(ms, all_entity_specs, package_enum_specs)
       codes.push(mcode)
     })
     let code = codes.join("\n\n")

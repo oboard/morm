@@ -228,6 +228,18 @@ fn oracle_type_from_column_type(column_type : @table.ColumnType) -> String {
     @table.DateTime | @table.Timestamp => "TIMESTAMP"
     @table.Year => "NUMBER(4)"
     @table.Json | @table.JsonB => "CLOB"
+    @table.Enum(_, values) =>
+      if values.length() == 0 {
+        "VARCHAR2(255)"
+      } else {
+        let mut max_len = 1
+        for value in values {
+          if value.length() > max_len {
+            max_len = value.length()
+          }
+        }
+        "VARCHAR2(\{max_len})"
+      }
     @table.Boolean => "NUMBER(1)"
   }
 }

@@ -890,6 +890,12 @@ fn mysql_type_from_column_type(column_type : @table.ColumnType) -> String {
     @table.Timestamp => "TIMESTAMP"
     @table.Year => "YEAR"
     @table.Json | @table.JsonB => "JSON"
+    @table.Enum(_, values) =>
+      "ENUM(" +
+      values
+      .map(value => "'" + value.replace(old="'", new="''") + "'")
+      .join(", ") +
+      ")"
     @table.Boolean => "TINYINT(1)"
   }
 }

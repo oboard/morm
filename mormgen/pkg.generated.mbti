@@ -8,6 +8,8 @@ package "oboard/morm/mormgen"
 // Types and methods
 type EntitySpec
 
+type EnumSpec
+
 type FieldSpec
 
 type MapperMethodSpec

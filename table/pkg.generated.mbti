@@ -56,6 +56,7 @@ pub(all) enum ColumnType {
   Year
   Json
   JsonB
+  Enum(String, FixedArray[String])
   Boolean
 } derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
 

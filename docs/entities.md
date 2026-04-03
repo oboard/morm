@@ -133,6 +133,44 @@ For document-like or raw storage:
 - `#morm.varbinary(length="...")`
 - `#morm.blob`
 
+## Enum Columns
+
+Plain MoonBit enums are now mapped directly.
+
+```moonbit
+///|
+pub(all) enum PostStatus {
+  Draft
+  Published
+  Archived
+} derive(ToJson, FromJson, Show)
+
+///|
+#morm.entity
+pub(all) struct Post {
+  #morm.id
+  id : Int
+  status : PostStatus
+} derive(ToJson, FromJson)
+```
+
+`mormgen` will:
+
+- generate `impl @engine.ToParam for PostStatus`
+- generate `impl @engine.FromParam for PostStatus`
+- emit the field as `ColumnType::Enum("PostStatus", ["Draft", ...])`
+
+Engine behavior:
+
+- MySQL renders native `ENUM(...)`
+- PostgreSQL creates a native enum type and uses it in the table DDL
+- SQLite / SQL Server / Oracle currently fall back to string-like column types
+
+Current limitation:
+
+- only payload-free enums are treated as database enums
+- if you override the column type with `#morm.varchar`, `#morm.text`, etc., the explicit annotation wins
+
 ## Time Columns
 
 Time-related annotations:

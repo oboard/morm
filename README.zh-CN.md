@@ -50,6 +50,7 @@ options(
 
 - **类型驱动**：字段的可空性由 `T` / `T?` 决定，而不是依赖大量注解
 - **方言内建**：支持 MySQL / PostgreSQL / Sqlite / SQLServer / Oracle 的建表和占位符差异
+- **Enum 直连**：无 payload 的 MoonBit `enum` 可直接生成 `ToParam/FromParam`，并在支持的数据库上使用原生 enum 类型
 - **SQL 优先**：`Query/Insert/Update/Delete/Upsert` 只负责构造参数化 SQL，不绑定执行层
 - **生成代码**：所有内容都生成成普通 MoonBit 代码（见 `example/*.g.mbt`），可以直接查看和修改
 
