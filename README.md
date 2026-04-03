@@ -114,7 +114,7 @@ Generated `save` methods can assign:
 ```moonbit
 let q = @morm.select_from("class")
   .where_eq("id", 1)
-  .order_by(@morm.Desc("id"))
+  .order_by(Desc("id"))
   .limit(1)
 ```
 

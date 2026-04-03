@@ -93,7 +93,7 @@ let q = @morm.select_from("student")
 
 ```moonbit
 let q = @morm.select_from("student")
-  .order_by(@morm.Desc("id"))
+  .order_by(Desc("id"))
   .limit(20)
   .offset(40)
 ```

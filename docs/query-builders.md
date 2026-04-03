@@ -31,7 +31,7 @@ Add ordering:
 
 ```moonbit
 let q = @morm.select_from("student")
-  .order_by(@morm.Desc("id"))
+  .order_by(Desc("id"))
 ```
 
 Add joins:
