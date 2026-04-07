@@ -1249,7 +1249,8 @@ fn parse_entities_from_ast(
   let specs : Array[EntitySpec] = []
   ast.each(item => {
     if item is @syntax.Impl::TopTypeDef(type_decl) {
-      if type_decl is { tycon: name, components: Record(params), attrs, .. } {
+      if type_decl
+        is { tycon: name, components: Record(fields~, ..), attrs, .. } {
         let orm_attrs = collect_orm_attributes(attrs)
         let mut has_entity = false
         let mut table_name = name.to_lower()
@@ -1265,14 +1266,14 @@ fn parse_entities_from_ast(
         if !has_entity {
           return
         }
-        let fields : Array[FieldSpec] = []
-        params.each(param => {
+        let params : Array[FieldSpec] = []
+        fields.each(param => {
           if param is { name: { label, .. }, ty, attrs, .. } {
             let (field_type, is_nullable) = extract_type_name_and_nullable(ty)
-            fields.push({ label, field_type, nullable: is_nullable, attrs })
+            params.push({ label, field_type, nullable: is_nullable, attrs })
           }
         })
-        specs.push({ name, table_name, fields, attrs: orm_attrs })
+        specs.push({ name, table_name, fields: params, attrs: orm_attrs })
       }
     }
   })
