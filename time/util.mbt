@@ -32,11 +32,13 @@ test "add_prefix_zero" {
 }
 
 ///|
-fn remove_suffix_zero(s : StringView) -> StringView {
-  loop s {
-    [_] as x => x // keep one zero if all are zeros
-    [.. head, '0'] => continue head
-    x => x
+fn remove_suffix_zero(str : StringView) -> StringView {
+  for s = str {
+    match s {
+      [_] as x => break x // keep one zero if all are zeros
+      [.. head, '0'] => continue head
+      x => break x
+    }
   }
 }
 
