@@ -21,7 +21,21 @@ pub(all) enum Weekday {
   Friday
   Saturday
   Sunday
-} derive(Eq, Show)
+} derive(Eq)
+
+///|
+pub impl Show for Weekday with output(self : Weekday, logger : &Logger) {
+  let text = match self {
+    Monday => "Monday"
+    Tuesday => "Tuesday"
+    Wednesday => "Wednesday"
+    Thursday => "Thursday"
+    Friday => "Friday"
+    Saturday => "Saturday"
+    Sunday => "Sunday"
+  }
+  logger.write_string(text)
+}
 
 ///|
 fn Weekday::new(week_day : Int) -> Weekday? {

@@ -350,4 +350,9 @@ pub(all) struct QueryResult {
   rows_affected : Int
   rows : FixedArray[Map[String, Param]]
   error : String?
-} derive(Show, ToJson, FromJson, Eq)
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub impl Show for QueryResult with output(self : QueryResult, logger : &Logger) {
+  write_json_show(self, logger)
+}

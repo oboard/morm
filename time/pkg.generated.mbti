@@ -180,7 +180,8 @@ pub(all) enum Weekday {
   Friday
   Saturday
   Sunday
-} derive(Eq, Show)
+} derive(Eq)
+pub impl Show for Weekday
 
 type Zone derive(Eq)
 pub fn Zone::from_tzif2(String, FixedArray[Byte]) -> Self raise

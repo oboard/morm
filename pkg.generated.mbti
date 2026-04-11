@@ -173,28 +173,32 @@ pub(all) struct Association {
   join_table : String?
   join_owner_key : String?
   join_target_key : String?
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for Association
 
 pub(all) enum AssociationKind {
   BelongsTo
   HasOne
   HasMany
   ManyToMany
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for AssociationKind
 
 pub(all) struct ColumnDiff {
   added : FixedArray[@table.Column]
   removed : FixedArray[@table.Column]
   changed : FixedArray[(String, @table.Column, @table.Column)]
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for ColumnDiff
 
 pub(all) struct DbError {
   message : String
-} derive(Show, ToJson)
+} derive(ToJson)
+pub impl Show for DbError
 
 pub struct DeleteQuery {
   stmt : @engine.DeleteStatement
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
 pub fn[E : Entity] DeleteQuery::from(Self, E) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_gt(Self, String, V) -> Self
@@ -203,28 +207,32 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_like(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_lt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_lte(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_ne(Self, String, V) -> Self
+pub impl Show for DeleteQuery
 pub impl @engine.QueryBuilder for DeleteQuery
 
 pub(all) struct ForeignKeyDiff {
   added : FixedArray[@table.ForeignKey]
   removed : FixedArray[@table.ForeignKey]
   changed : FixedArray[(String, @table.ForeignKey, @table.ForeignKey)]
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for ForeignKeyDiff
 
 pub(all) struct IndexDiff {
   added : FixedArray[@table.Index]
   removed : FixedArray[@table.Index]
   changed : FixedArray[(String, @table.Index, @table.Index)]
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for IndexDiff
 
 pub struct InsertQuery {
   stmt : @engine.InsertStatement
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
 pub fn InsertQuery::columns(Self, FixedArray[String]) -> Self
 pub fn[E : Entity] InsertQuery::from(Self, E) -> Self
 pub fn[E : Entity] InsertQuery::from_many(Self, FixedArray[E]) -> Self
 pub fn InsertQuery::values(Self, FixedArray[&@engine.ToParam]) -> Self
 pub fn InsertQuery::values_many(Self, FixedArray[FixedArray[&@engine.ToParam]]) -> Self
+pub impl Show for InsertQuery
 pub impl @engine.QueryBuilder for InsertQuery
 
 pub(all) enum PreloadResult[T] {
@@ -234,7 +242,7 @@ pub(all) enum PreloadResult[T] {
 
 pub struct Query {
   stmt : @engine.SelectStatement
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
 pub fn Query::join(Self, String) -> Self
 pub fn Query::limit(Self, Int) -> Self
 pub fn Query::offset(Self, Int) -> Self
@@ -247,13 +255,15 @@ pub fn[V : @engine.ToParam] Query::where_like(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_lt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_lte(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_ne(Self, String, V) -> Self
+pub impl Show for Query
 pub impl @engine.QueryBuilder for Query
 
 pub(all) struct TableDiff {
   columns : ColumnDiff
   indexes : IndexDiff
   foreign_keys : ForeignKeyDiff
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for TableDiff
 
 pub struct TxBatch[E] {
   engine : E
@@ -266,12 +276,13 @@ pub async fn[E : @engine.Engine] TxBatch::savepoint(Self[E], String) -> @engine.
 
 pub struct TxQuery {
   op : @engine.TxOp
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for TxQuery
 pub impl @engine.QueryBuilder for TxQuery
 
 pub struct UpdateQuery {
   stmt : @engine.UpdateStatement
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
 pub fn[E : Entity] UpdateQuery::from(Self, E) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::set(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_eq(Self, String, V) -> Self
@@ -281,15 +292,17 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_like(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_lt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_lte(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_ne(Self, String, V) -> Self
+pub impl Show for UpdateQuery
 pub impl @engine.QueryBuilder for UpdateQuery
 
 pub struct UpsertQuery {
   stmt : @engine.UpsertStatement
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
 pub fn UpsertQuery::do_update_set(Self, String, @engine.Param) -> Self
 pub fn[E : Entity] UpsertQuery::from(Self, E) -> Self
 pub fn UpsertQuery::on_conflict(Self, FixedArray[String]) -> Self
 pub fn UpsertQuery::set(Self, String, @engine.Param) -> Self
+pub impl Show for UpsertQuery
 pub impl @engine.QueryBuilder for UpsertQuery
 
 // Type aliases

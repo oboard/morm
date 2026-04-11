@@ -1,7 +1,14 @@
 ///|
 pub suberror SqliteError {
   SqliteError((Int, SourceLoc))
-} derive(Show)
+}
+
+///|
+pub impl Show for SqliteError with output(self : SqliteError, logger : &Logger) {
+  match self {
+    SqliteError((code, _)) => logger.write_string("SqliteError(\{code})")
+  }
+}
 
 ///|
 extern "c" fn sqlite3_errmsg(conn : Connection) -> Bytes = "moonbit_sqlite3_errmsg"

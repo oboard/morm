@@ -21,12 +21,25 @@ pub(all) enum Param {
   Json(Json)
   String(String)
   Bytes(Bytes)
-} derive(Show)
+}
+
+///|
+pub impl Show for Param with output(self : Param, logger : &Logger) {
+  logger.write_string(self.to_json().stringify())
+}
 
 ///|
 pub(all) suberror ParamDecodeError {
   ParamDecodeError(String)
-} derive(Eq, Show, ToJson)
+} derive(Eq, ToJson)
+
+///|
+pub impl Show for ParamDecodeError with output(
+  self : ParamDecodeError,
+  logger : &Logger,
+) {
+  logger.write_string(self.to_json().stringify())
+}
 
 ///|
 pub impl @json.FromJson for Param with from_json(json, _path) {

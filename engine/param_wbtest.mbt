@@ -2,7 +2,16 @@
 pub(all) enum Status {
   Draft
   Published
-} derive(ToJson, FromJson, Show)
+} derive(ToJson, FromJson)
+
+///|
+pub impl Show for Status with output(self : Status, logger : &Logger) {
+  let text = match self {
+    Draft => "Draft"
+    Published => "Published"
+  }
+  logger.write_string(text)
+}
 
 ///|
 test "enum param helpers round trip through JSON string form" {

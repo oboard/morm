@@ -259,10 +259,20 @@ pub fn infer_column_type(value : Json) -> ColumnType {
 }
 
 ///|
+fn[T : ToJson] write_json_show(value : T, logger : &Logger) -> Unit {
+  logger.write_string(value.to_json().stringify())
+}
+
+///|
 // ---- DB/Driver error & result types ----
 pub(all) struct DbError {
   message : String
-} derive(Show, ToJson)
+} derive(ToJson)
+
+///|
+pub impl Show for DbError with output(self : DbError, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub type DbResult[T] = Result[T, DbError]
@@ -283,7 +293,12 @@ pub(open) trait Driver {
 // ---- 简易查询构建器 ----
 pub struct Query {
   stmt : @engine.SelectStatement
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for Query with output(self : Query, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub type OrderBy = @engine.OrderBy
@@ -359,7 +374,15 @@ pub(all) enum AssociationKind {
   HasOne
   HasMany
   ManyToMany
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for AssociationKind with output(
+  self : AssociationKind,
+  logger : &Logger,
+) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct Association {
@@ -371,7 +394,12 @@ pub(all) struct Association {
   join_table : String?
   join_owner_key : String?
   join_target_key : String?
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for Association with output(self : Association, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub fn belongs_to(
@@ -781,7 +809,12 @@ pub impl @engine.QueryBuilder for Query with to_query(self) -> @engine.Query {
 // ---- INSERT 构建器 ----
 pub struct InsertQuery {
   stmt : @engine.InsertStatement
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for InsertQuery with output(self : InsertQuery, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub fn insert_into(table : String) -> InsertQuery {
@@ -887,7 +920,12 @@ pub impl @engine.QueryBuilder for InsertQuery with to_query(self) -> @engine.Que
 // ---- UPSERT 构建器 ----
 pub struct UpsertQuery {
   stmt : @engine.UpsertStatement
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for UpsertQuery with output(self : UpsertQuery, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub fn upsert_into(table : String) -> UpsertQuery {
@@ -969,7 +1007,12 @@ pub type Set = @engine.Set
 ///|
 pub struct UpdateQuery {
   stmt : @engine.UpdateStatement
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for UpdateQuery with output(self : UpdateQuery, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub fn update(table : String) -> UpdateQuery {
@@ -1125,7 +1168,12 @@ pub impl @engine.QueryBuilder for UpdateQuery with to_query(self) -> @engine.Que
 // ---- DELETE 构建器 ----
 pub struct DeleteQuery {
   stmt : @engine.DeleteStatement
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for DeleteQuery with output(self : DeleteQuery, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub fn delete_from(table : String) -> DeleteQuery {
@@ -1245,7 +1293,12 @@ pub impl @engine.QueryBuilder for DeleteQuery with to_query(self) -> @engine.Que
 ///|
 pub struct TxQuery {
   op : @engine.TxOp
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for TxQuery with output(self : TxQuery, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub fn tx_begin() -> TxQuery {
@@ -1424,28 +1477,51 @@ pub(all) struct ColumnDiff {
   added : FixedArray[Column]
   removed : FixedArray[Column]
   changed : FixedArray[(String, Column, Column)]
-} derive(Show, ToJson, FromJson, Eq)
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub impl Show for ColumnDiff with output(self : ColumnDiff, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct IndexDiff {
   added : FixedArray[Index]
   removed : FixedArray[Index]
   changed : FixedArray[(String, Index, Index)]
-} derive(Show, ToJson, FromJson, Eq)
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub impl Show for IndexDiff with output(self : IndexDiff, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct ForeignKeyDiff {
   added : FixedArray[ForeignKey]
   removed : FixedArray[ForeignKey]
   changed : FixedArray[(String, ForeignKey, ForeignKey)]
-} derive(Show, ToJson, FromJson, Eq)
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub impl Show for ForeignKeyDiff with output(
+  self : ForeignKeyDiff,
+  logger : &Logger,
+) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct TableDiff {
   columns : ColumnDiff
   indexes : IndexDiff
   foreign_keys : ForeignKeyDiff
-} derive(Show, ToJson, FromJson, Eq)
+} derive(ToJson, FromJson, Eq)
+
+///|
+pub impl Show for TableDiff with output(self : TableDiff, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 fn diff_columns(old_table : Table, new_table : Table) -> ColumnDiff {

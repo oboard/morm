@@ -1,7 +1,12 @@
 ///|
 pub(all) suberror BsonError {
   BsonError(String)
-} derive(Eq, Show, ToJson)
+} derive(Eq, ToJson)
+
+///|
+pub impl Show for BsonError with output(self : BsonError, logger : &Logger) {
+  logger.write_string(self.to_json().stringify())
+}
 
 ///|
 fn[T] error(msg : String) -> T raise BsonError {

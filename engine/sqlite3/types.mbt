@@ -5,7 +5,12 @@ pub(all) enum SQLiteValue {
   Real(Double)
   Text(String)
   Blob(Bytes)
-} derive(Eq, Show)
+} derive(Eq)
+
+///|
+pub impl Show for SQLiteValue with output(self : SQLiteValue, logger : &Logger) {
+  logger.write_string(self.to_json().stringify())
+}
 
 ///|
 pub impl ToJson for SQLiteValue with to_json(self) -> Json {

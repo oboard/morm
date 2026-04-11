@@ -1,4 +1,9 @@
 ///|
+fn[T : ToJson] write_json_show(value : T, logger : &Logger) -> Unit {
+  logger.write_string(value.to_json().stringify())
+}
+
+///|
 pub fn bytes_to_hex(data : Bytes) -> String {
   let out = @buffer.new(size_hint=data.length() * 2)
   for b in data {
@@ -64,26 +69,46 @@ pub(all) enum WhereType {
   Gte
   Lte
   Like
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for WhereType with output(self : WhereType, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct Where {
   col : String
   value : Param
   ty : WhereType
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for Where with output(self : Where, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) enum OrderBy {
   Asc(String)
   Desc(String)
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for OrderBy with output(self : OrderBy, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct Set {
   col : String
   value : Param
-} derive(Eq, Show, ToJson, FromJson)
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for Set with output(self : Set, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(open) trait QueryBuilder {

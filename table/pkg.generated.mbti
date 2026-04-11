@@ -23,12 +23,14 @@ pub(all) struct Column {
   charset : String?
   collation : String?
   engine_options : FixedArray[ColumnEngineOption]
-} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
+} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub impl Show for Column
 
 pub(all) struct ColumnEngineOption {
   key : String
   value : String
-} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
+} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub impl Show for ColumnEngineOption
 
 pub(all) enum ColumnType {
   TinyInt
@@ -58,7 +60,8 @@ pub(all) enum ColumnType {
   JsonB
   Enum(String, FixedArray[String])
   Boolean
-} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
+} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub impl Show for ColumnType
 
 pub(all) struct ForeignKey {
   name : String
@@ -67,14 +70,16 @@ pub(all) struct ForeignKey {
   referenced_column : String
   on_delete : String
   on_update : String
-} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
+} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub impl Show for ForeignKey
 
 pub(all) struct Index {
   name : String
   index_type : IndexType
   columns : FixedArray[String]
   comment : String
-} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
+} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub impl Show for Index
 
 pub(all) enum IndexType {
   Primary
@@ -82,7 +87,8 @@ pub(all) enum IndexType {
   Index
   FullText
   Spatial
-} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
+} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub impl Show for IndexType
 
 pub(all) struct Table {
   name : String
@@ -100,12 +106,14 @@ pub(all) struct Table {
   comment : String
   auto_increment : Int?
   engine_options : FixedArray[TableEngineOption]
-} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
+} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub impl Show for Table
 
 pub(all) struct TableEngineOption {
   key : String
   value : String
-} derive(Compare, Eq, Hash, Show, ToJson, @json.FromJson)
+} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub impl Show for TableEngineOption
 
 // Type aliases
 

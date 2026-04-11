@@ -87,7 +87,8 @@ pub const SQLITE_WARNING : Int = 28
 // Errors
 pub suberror SqliteError {
   SqliteError((Int, SourceLoc))
-} derive(Show)
+}
+pub impl Show for SqliteError
 
 // Types and methods
 #external
@@ -110,7 +111,8 @@ pub(all) enum SQLiteValue {
   Real(Double)
   Text(String)
   Blob(Bytes)
-} derive(Eq, Show)
+} derive(Eq)
+pub impl Show for SQLiteValue
 pub impl ToJson for SQLiteValue
 pub impl @json.FromJson for SQLiteValue
 pub impl @engine.ToParam for SQLiteValue

@@ -27,7 +27,8 @@ pub(all) enum PostStatus {
   Draft
   Published
   Archived
-} derive(Show, ToJson, @json.FromJson)
+} derive(ToJson, @json.FromJson)
+pub impl Show for PostStatus
 pub impl @engine.FromParam for PostStatus
 pub impl @engine.ToParam for PostStatus
 

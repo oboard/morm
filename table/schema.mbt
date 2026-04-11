@@ -1,4 +1,9 @@
 ///|
+fn[T : ToJson] write_json_show(value : T, logger : &Logger) -> Unit {
+  logger.write_string(value.to_json().stringify())
+}
+
+///|
 pub(all) enum ColumnType {
   TinyInt
   SmallInt
@@ -27,13 +32,26 @@ pub(all) enum ColumnType {
   JsonB
   Enum(String, FixedArray[String])
   Boolean
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+} derive(ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+pub impl Show for ColumnType with output(self : ColumnType, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct ColumnEngineOption {
   key : String
   value : String
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+} derive(ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+pub impl Show for ColumnEngineOption with output(
+  self : ColumnEngineOption,
+  logger : &Logger,
+) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct Column {
@@ -49,7 +67,12 @@ pub(all) struct Column {
   charset : String?
   collation : String?
   engine_options : FixedArray[ColumnEngineOption]
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+} derive(ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+pub impl Show for Column with output(self : Column, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) enum IndexType {
@@ -58,7 +81,12 @@ pub(all) enum IndexType {
   Index
   FullText
   Spatial
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+} derive(ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+pub impl Show for IndexType with output(self : IndexType, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct Index {
@@ -66,7 +94,12 @@ pub(all) struct Index {
   index_type : IndexType
   columns : FixedArray[String]
   comment : String
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+} derive(ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+pub impl Show for Index with output(self : Index, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct ForeignKey {
@@ -76,13 +109,26 @@ pub(all) struct ForeignKey {
   referenced_column : String
   on_delete : String
   on_update : String
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+} derive(ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+pub impl Show for ForeignKey with output(self : ForeignKey, logger : &Logger) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct TableEngineOption {
   key : String
   value : String
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+} derive(ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+pub impl Show for TableEngineOption with output(
+  self : TableEngineOption,
+  logger : &Logger,
+) {
+  write_json_show(self, logger)
+}
 
 ///|
 pub(all) struct Table {
@@ -101,4 +147,9 @@ pub(all) struct Table {
   comment : String
   auto_increment : Int?
   engine_options : FixedArray[TableEngineOption]
-} derive(Show, ToJson, FromJson, Eq, Compare, Hash)
+} derive(ToJson, FromJson, Eq, Compare, Hash)
+
+///|
+pub impl Show for Table with output(self : Table, logger : &Logger) {
+  write_json_show(self, logger)
+}

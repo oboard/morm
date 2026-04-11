@@ -7,7 +7,17 @@ pub(all) enum PostStatus {
   Draft
   Published
   Archived
-} derive(ToJson, FromJson, Show)
+} derive(ToJson, FromJson)
+
+///|
+pub impl Show for PostStatus with output(self : PostStatus, logger : &Logger) {
+  let text = match self {
+    Draft => "Draft"
+    Published => "Published"
+    Archived => "Archived"
+  }
+  logger.write_string(text)
+}
 
 ///|
 #morm.entity

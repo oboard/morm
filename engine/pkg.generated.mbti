@@ -56,7 +56,8 @@ pub fn[T : ToParam] to_param(T) -> Param
 // Errors
 pub(all) suberror ParamDecodeError {
   ParamDecodeError(String)
-} derive(Eq, Show, ToJson)
+} derive(Eq, ToJson)
+pub impl Show for ParamDecodeError
 
 // Types and methods
 pub(all) struct ConnectionPool[C] {
@@ -72,19 +73,22 @@ pub fn[C] ConnectionPool::release(Self[C], C, (C) -> Unit, reusable? : Bool) -> 
 pub(all) struct DeleteStatement {
   from : String
   where_ : FixedArray[Where]
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for DeleteStatement
 
 pub(all) struct InsertStatement {
   into : String
   columns : FixedArray[String]
   values : FixedArray[Param]
   rows : FixedArray[FixedArray[Param]]
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for InsertStatement
 
 pub(all) enum OrderBy {
   Asc(String)
   Desc(String)
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for OrderBy
 
 pub(all) enum Param {
   Null
@@ -108,8 +112,9 @@ pub(all) enum Param {
   Json(Json)
   String(String)
   Bytes(Bytes)
-} derive(Show)
+}
 pub impl Eq for Param
+pub impl Show for Param
 pub impl ToJson for Param
 pub impl @json.FromJson for Param
 pub impl FromParam for Param
@@ -119,7 +124,8 @@ pub(all) enum Query {
   Statement(Statement)
   Raw(String, FixedArray[Param])
   Tx(TxOp)
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for Query
 pub impl QueryBuilder for Query
 
 pub(all) struct QueryResult {
@@ -127,7 +133,8 @@ pub(all) struct QueryResult {
   rows_affected : Int
   rows : FixedArray[Map[String, Param]]
   error : String?
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for QueryResult
 
 pub(all) struct SelectStatement {
   select : String
@@ -137,12 +144,14 @@ pub(all) struct SelectStatement {
   order_by : FixedArray[OrderBy]
   limit : Int?
   offset : Int?
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for SelectStatement
 
 pub(all) struct Set {
   col : String
   value : Param
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for Set
 
 pub(all) enum Statement {
   Select(SelectStatement)
@@ -150,7 +159,8 @@ pub(all) enum Statement {
   Upsert(UpsertStatement)
   Update(UpdateStatement)
   Delete(DeleteStatement)
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for Statement
 
 pub(all) enum TxOp {
   Begin
@@ -158,26 +168,30 @@ pub(all) enum TxOp {
   Rollback
   Savepoint(String)
   RollbackToSavepoint(String)
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for TxOp
 
 pub(all) struct UpdateStatement {
   table : String
   sets : FixedArray[Set]
   where_ : FixedArray[Where]
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for UpdateStatement
 
 pub(all) struct UpsertStatement {
   table : String
   sets : FixedArray[Set]
   conflict_target : FixedArray[String]
   update_sets : FixedArray[Set]
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for UpsertStatement
 
 pub(all) struct Where {
   col : String
   value : Param
   ty : WhereType
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for Where
 
 pub(all) enum WhereType {
   Eq
@@ -187,7 +201,8 @@ pub(all) enum WhereType {
   Gte
   Lte
   Like
-} derive(Eq, Show, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for WhereType
 
 // Type aliases
 
