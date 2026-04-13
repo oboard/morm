@@ -29,6 +29,17 @@ fn column_option_value(col : @morm.Column, key : String) -> String? {
 }
 
 ///|
+fn table_option_values(table : @morm.Table, key : String) -> Array[String] {
+  let values : Array[String] = []
+  for opt in table.engine_options {
+    if opt.key == key {
+      values.push(opt.value)
+    }
+  }
+  values
+}
+
+///|
 test "primary key strategy annotation is emitted to engine options" {
   let source =
     #|///|
@@ -131,6 +142,56 @@ test "enum field maps to native enum column type" {
     table.columns[1].column_type.to_json().stringify(),
     content=(
       #|["Enum","Status",["Draft","Published"]]
+    ),
+  )
+}
+
+///|
+test "postgres privilege annotations emit table engine options" {
+  let source =
+    #|///|
+    #|#morm.entity
+    #|#morm.postgres.schema("app")
+    #|#morm.postgres.schema(authorization="app_owner")
+    #|#morm.postgres.table(owner="app_owner", unlogged="true", with="fillfactor=70")
+    #|#morm.postgres.grant(role="app_reader", schema="USAGE", table="SELECT", default_table="SELECT", for_role="app_owner")
+    #|#morm.postgres.grant(role="app_writer", schema="USAGE", table="SELECT, INSERT, UPDATE, DELETE", sequence="USAGE, SELECT", with_grant_option="true")
+    #|pub(all) struct Article {
+    #|  #morm.id
+    #|  id : Int
+    #|} derive(ToJson, FromJson)
+  let (ast, _) = @parser.parse_string(source)
+  let specs = parse_entities_from_ast(ast)
+  let table = transform_entity_to_table(specs[0], source, [])
+  inspect(table.schema.unwrap_or(""), content="\"app\"")
+  inspect(
+    table_option_values(table, "pgsql.schema.authorization")[0],
+    content="app_owner",
+  )
+  inspect(
+    table_option_values(table, "pgsql.table.owner")[0],
+    content="app_owner",
+  )
+  inspect(table_option_values(table, "pgsql.unlogged")[0], content="true")
+  inspect(table_option_values(table, "pgsql.with")[0], content="fillfactor=70")
+  inspect(
+    table_option_values(table, "pgsql.grant.schema")[0],
+    content="role=app_reader;privileges=USAGE;grant_option=false",
+  )
+  inspect(
+    table_option_values(table, "pgsql.grant.table")[1],
+    content=(
+      #|role=app_writer;privileges=SELECT, INSERT, UPDATE, DELETE;grant_option=true
+    ),
+  )
+  inspect(
+    table_option_values(table, "pgsql.grant.sequence")[0],
+    content="role=app_writer;privileges=USAGE, SELECT;grant_option=true",
+  )
+  inspect(
+    table_option_values(table, "pgsql.default_grant.table")[0],
+    content=(
+      #|role=app_reader;privileges=SELECT;grant_option=false;for_role=app_owner
     ),
   )
 }

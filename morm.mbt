@@ -151,6 +151,102 @@ pub fn pg_table_on_commit(table : Table, on_commit : String) -> Table {
 }
 
 ///|
+pub fn pg_schema_authorization(table : Table, role : String) -> Table {
+  add_table_engine_option(table, "pgsql.schema.authorization", role)
+}
+
+///|
+pub fn pg_table_owner(table : Table, role : String) -> Table {
+  add_table_engine_option(table, "pgsql.table.owner", role)
+}
+
+///|
+fn pg_grant_payload(
+  role : String,
+  privileges : String,
+  with_grant_option : Bool,
+  for_role : String?,
+) -> String {
+  let mut payload = "role=\{role};privileges=\{privileges};grant_option=\{with_grant_option}"
+  if for_role is Some(owner_role) {
+    payload = payload + ";for_role=\{owner_role}"
+  }
+  payload
+}
+
+///|
+pub fn pg_schema_grant(
+  table : Table,
+  role : String,
+  privileges : String,
+  with_grant_option : Bool,
+) -> Table {
+  add_table_engine_option(
+    table,
+    "pgsql.grant.schema",
+    pg_grant_payload(role, privileges, with_grant_option, None),
+  )
+}
+
+///|
+pub fn pg_table_grant(
+  table : Table,
+  role : String,
+  privileges : String,
+  with_grant_option : Bool,
+) -> Table {
+  add_table_engine_option(
+    table,
+    "pgsql.grant.table",
+    pg_grant_payload(role, privileges, with_grant_option, None),
+  )
+}
+
+///|
+pub fn pg_sequence_grant(
+  table : Table,
+  role : String,
+  privileges : String,
+  with_grant_option : Bool,
+) -> Table {
+  add_table_engine_option(
+    table,
+    "pgsql.grant.sequence",
+    pg_grant_payload(role, privileges, with_grant_option, None),
+  )
+}
+
+///|
+pub fn pg_default_table_grant(
+  table : Table,
+  role : String,
+  privileges : String,
+  with_grant_option : Bool,
+  for_role : String?,
+) -> Table {
+  add_table_engine_option(
+    table,
+    "pgsql.default_grant.table",
+    pg_grant_payload(role, privileges, with_grant_option, for_role),
+  )
+}
+
+///|
+pub fn pg_default_sequence_grant(
+  table : Table,
+  role : String,
+  privileges : String,
+  with_grant_option : Bool,
+  for_role : String?,
+) -> Table {
+  add_table_engine_option(
+    table,
+    "pgsql.default_grant.sequence",
+    pg_grant_payload(role, privileges, with_grant_option, for_role),
+  )
+}
+
+///|
 pub fn oracle_table_organization(table : Table, organization : String) -> Table {
   add_table_engine_option(table, "oracle.organization", organization)
 }

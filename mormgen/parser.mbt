@@ -179,6 +179,63 @@ fn find_enum_spec(enum_specs : Array[EnumSpec], name : String) -> EnumSpec? {
 }
 
 ///|
+fn split_attr_params(params_part : String) -> Array[String] {
+  let parts : Array[String] = []
+  let mut start = 0
+  let mut in_string = false
+  let mut i = 0
+  while i < params_part.length() {
+    let ch = params_part[i]
+    if ch == '"' && (i == 0 || params_part[i - 1] != '\\') {
+      in_string = !in_string
+    } else if ch == ',' && !in_string {
+      let part = trim_key(params_part[start:i].to_string())
+      if part != "" {
+        parts.push(part)
+      }
+      start = i + 1
+    }
+    i = i + 1
+  }
+  let tail = trim_key(params_part[start:].to_string())
+  if tail != "" {
+    parts.push(tail)
+  }
+  parts
+}
+
+///|
+fn parse_attr_param_map(
+  name : String,
+  params_part : String,
+) -> Map[String, String] {
+  let m : Map[String, String] = Map::new()
+  let trimmed = trim_key(params_part)
+  if name == "#morm.default" && trimmed != "" {
+    m.set("value", trimmed)
+    return m
+  }
+  if !params_part.contains("=") && trimmed != "" {
+    m.set("value", trimmed)
+    return m
+  }
+  for pair in split_attr_params(params_part) {
+    if pair.find("=") is Some(eq_idx) {
+      let k = trim_key(pair[0:eq_idx].to_string())
+      let vrest = trim_key(pair[eq_idx + 1:].to_string())
+      if vrest.has_prefix("\"") && vrest.has_suffix("\"") && vrest.length() >= 2 {
+        m.set(k, vrest[1:vrest.length() - 1].to_string())
+      } else if vrest != "" {
+        m.set(k, vrest)
+      }
+    } else if trim_key(pair) != "" {
+      m.set("value", trim_key(pair))
+    }
+  }
+  m
+}
+
+///|
 /// 收集并解析所有 #morm.* attributes 为结构化 ORMAttribute
 fn collect_orm_attributes(
   attrs : @moonbitlang/core/list.List[@moonbitlang/parser/attribute.Attribute],
@@ -197,51 +254,7 @@ fn collect_orm_attributes(
           params_part = raw[open_idx + 1:close_idx].to_string()
         }
       }
-      // 解析 params_part 为 key="value" 的字典
-      let m : Map[String, String] = Map::new()
-      if name == "#morm.default" && trim_key(params_part) != "" {
-        m.set("value", trim_key(params_part))
-      } else if !params_part.contains("=") && trim_key(params_part) != "" {
-        m.set("value", trim_key(params_part))
-      } else {
-        let mut i = 0
-        let n = params_part.length()
-        while i < n {
-          let rest = params_part[i:].to_string()
-          if rest.find(",") is Some(comma_rel) {
-            let comma_abs = i + comma_rel
-            let pair = params_part[i:comma_abs].to_string()
-            i = comma_abs + 1
-            if pair.find("=") is Some(eq_idx) {
-              let k = trim_key(pair[0:eq_idx].to_string())
-              let vrest = pair[eq_idx + 1:].to_string()
-              if vrest.has_prefix("\"") {
-                let vrest_tail = vrest[1:].to_string()
-                if vrest_tail.find("\"") is Some(end_rel) {
-                  let v = vrest[1:1 + end_rel].to_string()
-                  m.set(k, v)
-                }
-              }
-            }
-          } else {
-            let pair = params_part[i:].to_string()
-            i = n
-            if pair.find("=") is Some(eq_idx) {
-              let k = trim_key(pair[0:eq_idx].to_string())
-              let vrest = pair[eq_idx + 1:].to_string()
-              if vrest.has_prefix("\"") {
-                let vrest_tail = vrest[1:].to_string()
-                if vrest_tail.find("\"") is Some(end_rel) {
-                  let v = vrest[1:1 + end_rel].to_string()
-                  m.set(k, v)
-                }
-              }
-            } else if trim_key(pair) != "" {
-              m.set("value", trim_key(pair))
-            }
-          }
-        }
-      }
+      let m = parse_attr_param_map(name, params_part)
       results.push({ name, value: m })
     }
   })
@@ -274,50 +287,7 @@ fn collect_orm_attributes_from_source(
           params_part = raw[open_idx + 1:close_idx].to_string()
         }
       }
-      let m : Map[String, String] = Map::new()
-      if name == "#morm.default" && trim_key(params_part) != "" {
-        m.set("value", trim_key(params_part))
-      } else if !params_part.contains("=") && trim_key(params_part) != "" {
-        m.set("value", trim_key(params_part))
-      } else {
-        let mut i = 0
-        let n = params_part.length()
-        while i < n {
-          let rest = params_part[i:].to_string()
-          if rest.find(",") is Some(comma_rel) {
-            let comma_abs = i + comma_rel
-            let pair = params_part[i:comma_abs].to_string()
-            i = comma_abs + 1
-            if pair.find("=") is Some(eq_idx) {
-              let k = trim_key(pair[0:eq_idx].to_string())
-              let vrest = pair[eq_idx + 1:].to_string()
-              if vrest.has_prefix("\"") {
-                let vrest_tail = vrest[1:].to_string()
-                if vrest_tail.find("\"") is Some(end_rel) {
-                  let v = vrest[1:1 + end_rel].to_string()
-                  m.set(k, v)
-                }
-              }
-            }
-          } else {
-            let pair = params_part[i:].to_string()
-            i = n
-            if pair.find("=") is Some(eq_idx) {
-              let k = trim_key(pair[0:eq_idx].to_string())
-              let vrest = pair[eq_idx + 1:].to_string()
-              if vrest.has_prefix("\"") {
-                let vrest_tail = vrest[1:].to_string()
-                if vrest_tail.find("\"") is Some(end_rel) {
-                  let v = vrest[1:1 + end_rel].to_string()
-                  m.set(k, v)
-                }
-              }
-            } else if trim_key(pair) != "" {
-              m.set("value", trim_key(pair))
-            }
-          }
-        }
-      }
+      let m = parse_attr_param_map(name, params_part)
       results.push({ name, value: m })
     }
   })

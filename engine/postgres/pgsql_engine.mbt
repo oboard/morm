@@ -595,6 +595,50 @@ fn pg_column_engine_option(
 }
 
 ///|
+priv struct PgGrantSpec {
+  role : String
+  privileges : String
+  with_grant_option : Bool
+  for_role : String?
+}
+
+///|
+fn pg_option_payload_value(payload : String, key : String) -> String? {
+  let parts = payload.split(";").collect()
+  for part in parts {
+    let text = part.to_string()
+    if text.find("=") is Some(eq_idx) {
+      let current_key = text[:eq_idx].to_string()
+      if current_key == key {
+        return Some(text[eq_idx + 1:].to_string())
+      }
+    }
+  }
+  None
+}
+
+///|
+fn parse_pg_grant_spec(payload : String) -> PgGrantSpec? {
+  guard pg_option_payload_value(payload, "role") is Some(role) else {
+    return None
+  }
+  guard pg_option_payload_value(payload, "privileges") is Some(privileges) else {
+    return None
+  }
+  let with_grant_option = match
+    pg_option_payload_value(payload, "grant_option") {
+    Some("true") => true
+    _ => false
+  }
+  Some({
+    role,
+    privileges,
+    with_grant_option,
+    for_role: pg_option_payload_value(payload, "for_role"),
+  })
+}
+
+///|
 fn pg_table_name(table_schema : @table.Table) -> String {
   let schema = table_schema.schema.unwrap_or("")
   if schema != "" {
@@ -641,6 +685,11 @@ fn pg_enum_type_name(table_schema : @table.Table, name : String) -> String {
 }
 
 ///|
+fn pg_schema_name(table_schema : @table.Table) -> String {
+  table_schema.schema.unwrap_or("public")
+}
+
+///|
 fn pg_enum_type_sqls(table_schema : @table.Table) -> Array[String] {
   let sqls : Array[String] = []
   let seen : Map[String, Bool] = Map::new()
@@ -661,6 +710,39 @@ fn pg_enum_type_sqls(table_schema : @table.Table) -> Array[String] {
         labels +
         "); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
       )
+    }
+  }
+  sqls
+}
+
+///|
+fn pg_schema_sqls(table_schema : @table.Table) -> Array[String] {
+  if table_schema.schema is None {
+    return []
+  }
+  let schema_name = pg_schema_name(table_schema)
+  let sqls : Array[String] = []
+  let authorization = pg_table_engine_option(
+    table_schema, "pgsql.schema.authorization", "",
+  )
+  let mut create_sql = "CREATE SCHEMA IF NOT EXISTS " + schema_name
+  if authorization != "" {
+    create_sql = create_sql + " AUTHORIZATION " + authorization
+  }
+  sqls.push(create_sql)
+  for option in table_schema.engine_options {
+    if option.key == "pgsql.grant.schema" &&
+      parse_pg_grant_spec(option.value) is Some(grant) {
+      let mut sql = "GRANT " +
+        grant.privileges +
+        " ON SCHEMA " +
+        schema_name +
+        " TO " +
+        grant.role
+      if grant.with_grant_option {
+        sql = sql + " WITH GRANT OPTION"
+      }
+      sqls.push(sql)
     }
   }
   sqls
@@ -814,6 +896,85 @@ fn pg_comment_sql(table_schema : @table.Table) -> String {
 }
 
 ///|
+fn pg_post_create_sqls(table_schema : @table.Table) -> Array[String] {
+  if table_schema.name == "" {
+    return []
+  }
+  let table_name = pg_table_name(table_schema)
+  let schema_name = pg_schema_name(table_schema)
+  let sqls : Array[String] = []
+  let owner = pg_table_engine_option(table_schema, "pgsql.table.owner", "")
+  if owner != "" {
+    sqls.push("ALTER TABLE " + table_name + " OWNER TO " + owner)
+  }
+  for option in table_schema.engine_options {
+    if option.key == "pgsql.grant.table" &&
+      parse_pg_grant_spec(option.value) is Some(grant) {
+      let mut sql = "GRANT " +
+        grant.privileges +
+        " ON TABLE " +
+        table_name +
+        " TO " +
+        grant.role
+      if grant.with_grant_option {
+        sql = sql + " WITH GRANT OPTION"
+      }
+      sqls.push(sql)
+    }
+    if option.key == "pgsql.grant.sequence" &&
+      parse_pg_grant_spec(option.value) is Some(grant) {
+      let mut sql = "GRANT " +
+        grant.privileges +
+        " ON ALL SEQUENCES IN SCHEMA " +
+        schema_name +
+        " TO " +
+        grant.role
+      if grant.with_grant_option {
+        sql = sql + " WITH GRANT OPTION"
+      }
+      sqls.push(sql)
+    }
+    if option.key == "pgsql.default_grant.table" &&
+      parse_pg_grant_spec(option.value) is Some(grant) {
+      let mut sql = "ALTER DEFAULT PRIVILEGES"
+      if grant.for_role is Some(owner_role) {
+        sql = sql + " FOR ROLE " + owner_role
+      }
+      sql = sql +
+        " IN SCHEMA " +
+        schema_name +
+        " GRANT " +
+        grant.privileges +
+        " ON TABLES TO " +
+        grant.role
+      if grant.with_grant_option {
+        sql = sql + " WITH GRANT OPTION"
+      }
+      sqls.push(sql)
+    }
+    if option.key == "pgsql.default_grant.sequence" &&
+      parse_pg_grant_spec(option.value) is Some(grant) {
+      let mut sql = "ALTER DEFAULT PRIVILEGES"
+      if grant.for_role is Some(owner_role) {
+        sql = sql + " FOR ROLE " + owner_role
+      }
+      sql = sql +
+        " IN SCHEMA " +
+        schema_name +
+        " GRANT " +
+        grant.privileges +
+        " ON SEQUENCES TO " +
+        grant.role
+      if grant.with_grant_option {
+        sql = sql + " WITH GRANT OPTION"
+      }
+      sqls.push(sql)
+    }
+  }
+  sqls
+}
+
+///|
 fn pg_index_sqls(table_schema : @table.Table) -> Array[String] {
   if table_schema.name == "" {
     return []
@@ -897,6 +1058,12 @@ pub impl @engine.Engine for PgSQLEngine with migrate_table(
       return enum_res
     }
   }
+  for schema_sql in pg_schema_sqls(table_schema) {
+    let schema_res = self.exec(@engine.Raw(schema_sql, []))
+    if !schema_res.ok {
+      return schema_res
+    }
+  }
   let create_sql = pg_create_table_sql(table_schema)
   if create_sql == "" {
     return {
@@ -915,6 +1082,12 @@ pub impl @engine.Engine for PgSQLEngine with migrate_table(
     let comment_res = self.exec(@engine.Raw(comment_sql, []))
     if !comment_res.ok {
       return comment_res
+    }
+  }
+  for sql in pg_post_create_sqls(table_schema) {
+    let res = self.exec(@engine.Raw(sql, []))
+    if !res.ok {
+      return res
     }
   }
   for sql in pg_index_sqls(table_schema) {

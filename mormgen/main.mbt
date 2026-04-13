@@ -140,6 +140,30 @@ fn entity_table_attr_enabled(spec : EntitySpec, key : String) -> Bool {
 }
 
 ///|
+fn orm_attr_bool(attr : ORMAttribute, key : String) -> Bool {
+  match attr.value.get(key) {
+    Some(raw) => attr_bool(raw)
+    None => false
+  }
+}
+
+///|
+fn orm_attr_string(attr : ORMAttribute, key : String) -> String? {
+  match attr.value.get(key) {
+    Some(value) => Some(value)
+    None => None
+  }
+}
+
+///|
+fn orm_attr_name_or_value(attr : ORMAttribute) -> String? {
+  match orm_attr_string(attr, "name") {
+    Some(value) => Some(value)
+    None => orm_attr_string(attr, "value")
+  }
+}
+
+///|
 fn trim_space_text(s : String) -> String {
   let mut t = s
   while t.has_prefix(" ") || t.has_prefix("\t") {
@@ -208,6 +232,74 @@ fn apply_entity_table_attributes(
   table : @morm.Table,
 ) -> @morm.Table {
   let mut table = table
+  for attr in spec.attrs {
+    if attr.name == "#morm.postgres.schema" {
+      if orm_attr_name_or_value(attr) is Some(schema_name) {
+        table = @morm.table_schema(table, schema_name)
+      }
+      if orm_attr_string(attr, "authorization") is Some(role) {
+        table = @morm.pg_schema_authorization(table, role)
+      }
+    }
+    if attr.name == "#morm.postgres.table" {
+      if orm_attr_name_or_value(attr) is Some(table_name) {
+        table = { ..table, name: table_name }
+      }
+      if orm_attr_string(attr, "owner") is Some(role) {
+        table = @morm.pg_table_owner(table, role)
+      }
+      if orm_attr_bool(attr, "unlogged") {
+        table = @morm.pg_table_unlogged(table)
+      }
+      if orm_attr_string(attr, "with") is Some(with_clause) {
+        table = @morm.pg_table_with(table, with_clause)
+      }
+      if orm_attr_string(attr, "on_commit") is Some(on_commit) {
+        table = @morm.pg_table_on_commit(table, on_commit)
+      }
+      if orm_attr_string(attr, "tablespace") is Some(tablespace) {
+        table = @morm.table_tablespace(table, tablespace)
+      }
+    }
+    if attr.name == "#morm.postgres.grant" {
+      let with_grant_option = orm_attr_bool(attr, "with_grant_option")
+      if orm_attr_string(attr, "role") is Some(role) {
+        if orm_attr_string(attr, "schema") is Some(privileges) {
+          table = @morm.pg_schema_grant(
+            table, role, privileges, with_grant_option,
+          )
+        }
+        if orm_attr_string(attr, "table") is Some(privileges) {
+          table = @morm.pg_table_grant(
+            table, role, privileges, with_grant_option,
+          )
+        }
+        if orm_attr_string(attr, "sequence") is Some(privileges) {
+          table = @morm.pg_sequence_grant(
+            table, role, privileges, with_grant_option,
+          )
+        }
+        if orm_attr_string(attr, "default_table") is Some(privileges) {
+          table = @morm.pg_default_table_grant(
+            table,
+            role,
+            privileges,
+            with_grant_option,
+            orm_attr_string(attr, "for_role"),
+          )
+        }
+        if orm_attr_string(attr, "default_sequence") is Some(privileges) {
+          table = @morm.pg_default_sequence_grant(
+            table,
+            role,
+            privileges,
+            with_grant_option,
+            orm_attr_string(attr, "for_role"),
+          )
+        }
+      }
+    }
+  }
   if entity_table_attr_value(spec, "name") is Some(name) {
     table = { ..table, name, }
   }

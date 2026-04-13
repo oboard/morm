@@ -50,3 +50,79 @@ test "postgres emits enum type DDL before create table" {
     content="true",
   )
 }
+
+///|
+fn privilege_test_table() -> @table.Table {
+  {
+    name: "article",
+    schema: Some("app"),
+    catalog: None,
+    columns: [
+      {
+        name: "id",
+        column_type: @table.Int,
+        size: 0,
+        nullable: false,
+        default_value: None,
+        auto_increment: true,
+        primary_key: true,
+        unique: false,
+        comment: "",
+        charset: None,
+        collation: None,
+        engine_options: [],
+      },
+    ],
+    indexes: [],
+    foreign_keys: [],
+    temporary: false,
+    if_not_exists: true,
+    engine: None,
+    charset: None,
+    collation: None,
+    tablespace: None,
+    comment: "",
+    auto_increment: None,
+    engine_options: [
+      { key: "pgsql.schema.authorization", value: "app_owner" },
+      { key: "pgsql.table.owner", value: "app_owner" },
+      {
+        key: "pgsql.grant.schema",
+        value: "role=app_reader;privileges=USAGE;grant_option=false",
+      },
+      {
+        key: "pgsql.grant.table",
+        value: "role=app_reader;privileges=SELECT;grant_option=false",
+      },
+      {
+        key: "pgsql.grant.sequence",
+        value: "role=app_writer;privileges=USAGE, SELECT;grant_option=true",
+      },
+      {
+        key: "pgsql.default_grant.table",
+        value: "role=app_reader;privileges=SELECT;grant_option=false;for_role=app_owner",
+      },
+      {
+        key: "pgsql.default_grant.sequence",
+        value: "role=app_writer;privileges=USAGE, SELECT;grant_option=true;for_role=app_owner",
+      },
+    ],
+  }
+}
+
+///|
+test "postgres renders schema ownership and privilege DDL" {
+  let table = privilege_test_table()
+  inspect(
+    pg_schema_sqls(table).to_json().stringify(),
+    content=(
+      #|["CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION app_owner","GRANT USAGE ON SCHEMA app TO app_reader"]
+    ),
+  )
+  inspect(
+    pg_post_create_sqls(table).to_json().stringify(),
+    content=(
+      #|["ALTER TABLE app.article OWNER TO app_owner","GRANT SELECT ON TABLE app.article TO app_reader","GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO app_writer WITH GRANT OPTION","ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT SELECT ON TABLES TO app_reader","ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO app_writer WITH GRANT OPTION"]
+    ),
+  )
+}

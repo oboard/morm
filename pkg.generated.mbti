@@ -81,7 +81,21 @@ pub fn oracle_table_on_commit(@table.Table, String) -> @table.Table
 
 pub fn oracle_table_organization(@table.Table, String) -> @table.Table
 
+pub fn pg_default_sequence_grant(@table.Table, String, String, Bool, String?) -> @table.Table
+
+pub fn pg_default_table_grant(@table.Table, String, String, Bool, String?) -> @table.Table
+
+pub fn pg_schema_authorization(@table.Table, String) -> @table.Table
+
+pub fn pg_schema_grant(@table.Table, String, String, Bool) -> @table.Table
+
+pub fn pg_sequence_grant(@table.Table, String, String, Bool) -> @table.Table
+
+pub fn pg_table_grant(@table.Table, String, String, Bool) -> @table.Table
+
 pub fn pg_table_on_commit(@table.Table, String) -> @table.Table
+
+pub fn pg_table_owner(@table.Table, String) -> @table.Table
 
 pub fn pg_table_unlogged(@table.Table) -> @table.Table
 
