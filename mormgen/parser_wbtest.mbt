@@ -119,6 +119,40 @@ test "generate mapper code for set list and map returns" {
 }
 
 ///|
+test "parse and generate mapper page return" {
+  let source =
+    #|///|
+    #|#morm.entity
+    #|pub(all) struct User {
+    #|  #morm.id
+    #|  id : Int
+    #|  name : String
+    #|  active : Int
+    #|} derive(ToJson, FromJson)
+    #|
+    #|///|
+    #|#morm.mapper(table="user")
+    #|pub trait UserMapper {
+    #|  async find_users_by_active(Self, active : Int, pageable : @engine.Pageable) -> @engine.Page[User]
+    #|  #morm.query("SELECT id, name, active FROM user WHERE active = ?")
+    #|  async find_users_page_raw(Self, active : Int, pageable : @engine.Pageable) -> @engine.Page[User]
+    #|}
+  let (ast, _) = @parser.parse_string(source)
+  let entity_specs = parse_entities_from_ast(ast)
+  let mapper_specs = parse_mappers_from_ast(ast, source, entity_specs)
+  let methods = mapper_specs[0].methods
+  inspect(methods[0].return_kind, content="Page")
+  inspect(
+    methods[0].return_item_type.to_json().stringify(),
+    content="[\"User\"]",
+  )
+  let code = generate_mapper_code(mapper_specs[0], entity_specs, [])
+  inspect(code.contains("@oboard/morm.paginate("), content="true")
+  inspect(code.contains("@oboard/morm.paginate_raw("), content="true")
+  inspect(code.contains("(row) => User::_from(row)"), content="true")
+}
+
+///|
 test "parse plain enum specs from source" {
   let source =
     #|///|

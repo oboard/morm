@@ -48,5 +48,13 @@ async fn main {
     println(user.to_json().stringify())
   }
 
+  let page = mapper.find_users_page_by_active(1, @morm.pageable(1, 1))
+  println(
+    "mapper: active_page total=\{page.total_elements} page=\{page.number}/\{page.total_pages}",
+  )
+  for user in page.content {
+    println("mapper: page_user=\{user.email}")
+  }
+
   engine.close()
 }

@@ -91,6 +91,7 @@ Mapper read methods currently support these return shapes:
 - `@set.Set[T]`
 - `@list.List[T]`
 - `Map[K, T]`
+- `@engine.Page[T]` (requires a `Pageable` parameter)
 
 Behavior:
 
@@ -106,6 +107,50 @@ For `Map[K, T]`, key selection works like this:
 - otherwise fall back to reading `"id"` from the result row and decoding it as `K`
 
 In practice, `Map[K, T]` works best for entity results where the query includes the primary-key column.
+
+## Pageable Code Generation
+
+`mormgen` can generate pageable mapper methods directly.
+
+Example trait:
+
+```moonbit
+///|
+#morm.mapper(table="user")
+pub trait UserMapper {
+  async find_users_page_by_active(
+    Self,
+    active : Int,
+    pageable : @engine.Pageable,
+  ) -> @engine.Page[User]
+}
+```
+
+Generated implementation shape:
+
+```moonbit
+pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
+  self,
+  active : Int,
+  pageable : @engine.Pageable,
+) -> @engine.Page[User] {
+  let q = @morm.select_from("user").where_eq("active", active)
+  @morm.paginate(
+    self.engine,
+    q,
+    pageable,
+    decode=(row) => User::_from(row),
+  )
+}
+```
+
+If you use explicit SQL via `#morm.query`, generation switches to `@morm.paginate_raw(...)`.
+
+A full runnable sample is available in:
+
+- `examples/mapper/schema.mbt`
+- `examples/mapper/generated.mbt`
+- `examples/mapper/main.mbt`
 
 ## Decoding Model
 

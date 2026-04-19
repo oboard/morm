@@ -91,6 +91,7 @@ pub trait EnrollmentMapper {
 - `@set.Set[T]`
 - `@list.List[T]`
 - `Map[K, T]`
+- `@engine.Page[T]`（需要方法参数里包含 `Pageable`）
 
 其中：
 
@@ -106,6 +107,50 @@ pub trait EnrollmentMapper {
 - 否则退回读取结果行里的 `"id"` 字段并解码为 `K`
 
 因此 `Map[K, T]` 最适合返回实体结果，而且查询结果里应该包含主键列。
+
+## Pageable 代码生成
+
+`mormgen` 现在支持直接生成分页 mapper 方法。
+
+示例 trait：
+
+```moonbit
+///|
+#morm.mapper(table="user")
+pub trait UserMapper {
+  async find_users_page_by_active(
+    Self,
+    active : Int,
+    pageable : @engine.Pageable,
+  ) -> @engine.Page[User]
+}
+```
+
+生成后的实现形态：
+
+```moonbit
+pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
+  self,
+  active : Int,
+  pageable : @engine.Pageable,
+) -> @engine.Page[User] {
+  let q = @morm.select_from("user").where_eq("active", active)
+  @morm.paginate(
+    self.engine,
+    q,
+    pageable,
+    decode=(row) => User::_from(row),
+  )
+}
+```
+
+如果使用 `#morm.query` 显式 SQL，生成器会改用 `@morm.paginate_raw(...)`。
+
+完整可运行示例在：
+
+- `examples/mapper/schema.mbt`
+- `examples/mapper/generated.mbt`
+- `examples/mapper/main.mbt`
 
 ## 解码模型
 

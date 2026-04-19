@@ -4,8 +4,8 @@ pub impl @oboard/morm.Entity for User with table(_self) -> @oboard/morm.Table {
 }
 
 ///|
-pub fn User::table() -> @morm.Table {
-  @morm.Table::{
+pub fn User::table() -> @oboard/morm.Table {
+  @oboard/morm.Table::{
     name: "user",
     schema: None,
     catalog: None,
@@ -84,7 +84,7 @@ pub fn User::_from(row : Map[String, @engine.Param]) -> User {
     None => panic()
   }
   let active : Int = (try! @engine.from_param(active_param) : Int)
-  User::{ id, email, active }
+  return User::{ id, email, active }
 }
 
 ///|
@@ -130,6 +130,18 @@ pub impl UserMapper for UserMapperImpl with find_users_by_active(
   self,
   active : Int,
 ) -> FixedArray[User] {
+  self.engine.exec(@morm.select_from("user").where_eq("active", active)).rows.map(row => {
+      User::_from(row)
+    },
+  )
+}
+
+///|
+pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
+  self,
+  active : Int,
+  pageable : @engine.Pageable,
+) -> @engine.Page[User] {
   let q = @morm.select_from("user").where_eq("active", active)
-  self.engine.exec(q).rows.map(row => User::_from(row))
+  @oboard/morm.paginate(self.engine, q, pageable, row => User::_from(row))
 }

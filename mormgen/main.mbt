@@ -842,6 +842,26 @@ fn option_inner_type(type_name : String) -> String? {
 }
 
 ///|
+fn is_pageable_type_name(type_name : String) -> Bool {
+  type_name
+  is ("Pageable"
+  | "@morm.Pageable"
+  | "@oboard/morm.Pageable"
+  | "@engine.Pageable")
+}
+
+///|
+fn find_pageable_param_name(params : Array[(String, String)]) -> String? {
+  for p in params {
+    let (param_name, param_type) = p
+    if is_pageable_type_name(param_type) || param_name == "pageable" {
+      return Some(param_name)
+    }
+  }
+  None
+}
+
+///|
 fn render_collection_map_key_expr(
   key_type : String,
   value_type : String,
@@ -1198,18 +1218,21 @@ fn generate_mapper_code(
   let mut impls = ""
   for m in spec.methods {
     let param_sig_parts : Array[String] = []
-    let query_args_parts : Array[String] = []
+    let sql_args_parts : Array[String] = []
+    let pageable_param_name = find_pageable_param_name(m.params)
     for p in m.params {
       let (pname, ptype) = p
       param_sig_parts.push("\{pname} : \{ptype}")
-      query_args_parts.push("@engine.to_param(\{pname})")
+      if pageable_param_name != Some(pname) {
+        sql_args_parts.push("@engine.to_param(\{pname})")
+      }
     }
     let param_sig = if param_sig_parts.length() == 0 {
       "self"
     } else {
       "self, " + param_sig_parts.join(", ")
     }
-    let query_args = "[" + query_args_parts.join(", ") + "]"
+    let query_args = "[" + sql_args_parts.join(", ") + "]"
     // 返回类型字符串
     let ret_type = m.return_type
     let return_kind = m.return_kind
@@ -1426,6 +1449,27 @@ fn generate_mapper_code(
                   $| }
                   $|
                 )
+              } else if return_kind == "Page" {
+                match pageable_param_name {
+                  Some(pageable_name) =>
+                    (
+                      $|   let q = \{code}
+                      $|   \{PKG_NAME}.paginate(
+                      $|     self.engine,
+                      $|     q,
+                      $|     \{pageable_name},
+                      $|     (row) => \{collection_decode_expr},
+                      $|   )
+                      $| }
+                      $|
+                    )
+                  None =>
+                    (
+                      $|   panic()
+                      $| }
+                      $|
+                    )
+                }
               } else if return_kind
                 is ("FixedArray" | "Array" | "Set" | "List" | "Map") {
                 render_collection_decode_code(
@@ -1434,7 +1478,7 @@ fn generate_mapper_code(
                   m.return_item_type,
                   map_key_type,
                   map_value_type,
-                  "self.engine.exec(q)",
+                  "self.engine.exec(\{code})",
                   collection_decode_expr,
                   entity_specs,
                 )
@@ -1471,6 +1515,27 @@ fn generate_mapper_code(
               $| }
               $|
             )
+          } else if return_kind == "Page" {
+            match pageable_param_name {
+              Some(pageable_name) =>
+                (
+                  $|   \{PKG_NAME}.paginate_raw(
+                  $|     self.engine,
+                  $|     "\{sql}",
+                  $|     \{query_args},
+                  $|     \{pageable_name},
+                  $|     (row) => \{collection_decode_expr},
+                  $|   )
+                  $| }
+                  $|
+                )
+              None =>
+                (
+                  $|   panic()
+                  $| }
+                  $|
+                )
+            }
           } else if return_kind
             is ("FixedArray" | "Array" | "Set" | "List" | "Map") {
             render_collection_decode_code(

@@ -35,5 +35,6 @@ pub impl UserMapper for UserMapperImpl
 pub trait UserMapper {
   async find_user_by_id(Self, Int) -> User?
   async find_users_by_active(Self, Int) -> FixedArray[User]
+  async find_users_page_by_active(Self, Int, @engine.Pageable) -> @engine.Page[User]
 }
 

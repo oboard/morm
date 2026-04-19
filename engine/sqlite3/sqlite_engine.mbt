@@ -553,7 +553,12 @@ pub impl @engine.Engine for SQLiteEngine with exec_paginated(
   let offset = (normalized_page - 1) * size
   let (data_sql, data_params) = match page_query {
     @engine.Statement(stmt) => {
-      let rendered = render_sqlite(stmt)
+      let stmt_no_page = match stmt {
+        @engine.Select(sel) =>
+          @engine.Select({ ..sel, limit: None, offset: None })
+        _ => stmt
+      }
+      let rendered = render_sqlite(stmt_no_page)
       let new_sql = rendered.0 + " LIMIT \{size} OFFSET \{offset}"
       (new_sql, rendered.1)
     }

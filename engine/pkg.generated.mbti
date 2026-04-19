@@ -5,6 +5,7 @@ import {
   "moonbitlang/async/aqueue",
   "moonbitlang/async/semaphore",
   "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "oboard/morm/table",
   "oboard/morm/time",
@@ -106,7 +107,7 @@ pub(all) struct Pageable {
   page : Int
   size : Int
   sort : Sort?
-} derive(Eq, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub impl Show for Pageable
 
 pub(all) enum Param {
@@ -175,13 +176,13 @@ pub impl Show for Set
 pub(all) struct Sort {
   property : String
   direction : SortDirection
-} derive(Eq, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub impl Show for Sort
 
 pub(all) enum SortDirection {
   Asc
   Desc
-} derive(Eq, ToJson, @json.FromJson)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub impl Show for SortDirection
 
 pub(all) enum Statement {

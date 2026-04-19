@@ -1081,7 +1081,12 @@ pub impl @engine.Engine for PgSQLEngine with exec_paginated(
   let offset = (normalized_page - 1) * size
   let (data_sql, data_params) = match page_query {
     @engine.Statement(stmt) => {
-      let rendered = pg_render(stmt)
+      let stmt_no_page = match stmt {
+        @engine.Select(sel) =>
+          @engine.Select({ ..sel, limit: None, offset: None })
+        _ => stmt
+      }
+      let rendered = pg_render(stmt_no_page)
       let new_sql = rendered.0 + " LIMIT \{size} OFFSET \{offset}"
       (new_sql, rendered.1)
     }

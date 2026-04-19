@@ -18,4 +18,9 @@ pub struct User {
 pub trait UserMapper {
   async find_user_by_id(Self, id : Int) -> User?
   async find_users_by_active(Self, active : Int) -> FixedArray[User]
+  async find_users_page_by_active(
+    Self,
+    active : Int,
+    pageable : @engine.Pageable,
+  ) -> @engine.Page[User]
 }

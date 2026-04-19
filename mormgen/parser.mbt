@@ -380,6 +380,19 @@ fn analyze_return_type(
               )
             _ => (full_type, "value", None, None, None, false)
           }
+        Ident(name="Page") | Dot(id="Page", ..) =>
+          match tys.head() {
+            Some(inner) =>
+              (
+                full_type,
+                "Page",
+                Some(type_expr_text(source, inner)),
+                None,
+                None,
+                false,
+              )
+            None => (full_type, "value", None, None, None, false)
+          }
         _ => (full_type, "value", None, None, None, false)
       }
     Option(ty=inner, ..) =>
@@ -811,13 +824,7 @@ fn parse_mappers_from_ast(
               params.each(p => {
                 match p {
                   Positional(binder={ name: pname, .. }, ty=Some(pty)) => {
-                    let tname = match pty {
-                      Name(
-                        constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                        ..
-                      ) => t
-                      _ => "String"
-                    }
+                    let tname = type_expr_text(source, pty)
                     let resolved_name = resolve_mapper_param_name(
                       pname, inferred_param_names, param_index,
                     )
@@ -827,13 +834,7 @@ fn parse_mappers_from_ast(
                     }
                   }
                   DiscardPositional(ty=Some(pty), ..) => {
-                    let tname = match pty {
-                      Name(
-                        constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                        ..
-                      ) => t
-                      _ => "String"
-                    }
+                    let tname = type_expr_text(source, pty)
                     if tname != "Self" {
                       let pname = inferred_param_names[param_index]
                       plist.push((pname, tname))
@@ -841,13 +842,7 @@ fn parse_mappers_from_ast(
                     }
                   }
                   Labelled(binder={ name: pname, .. }, ty=Some(pty)) => {
-                    let tname = match pty {
-                      Name(
-                        constr_id={ id: Ident(name=t) | Dot(id=t, ..), .. },
-                        ..
-                      ) => t
-                      _ => "String"
-                    }
+                    let tname = type_expr_text(source, pty)
                     let resolved_name = resolve_mapper_param_name(
                       pname, inferred_param_names, param_index,
                     )

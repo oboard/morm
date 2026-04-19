@@ -103,7 +103,7 @@ pub impl Show for OrderBy with output(self : OrderBy, logger : &Logger) {
 pub(all) enum SortDirection {
   Asc
   Desc
-} derive(Eq, ToJson, FromJson)
+} derive(Debug, Eq, ToJson, FromJson)
 
 ///|
 pub impl Show for SortDirection with output(
@@ -120,7 +120,7 @@ pub impl Show for SortDirection with output(
 pub(all) struct Sort {
   property : String
   direction : SortDirection
-} derive(Eq, ToJson, FromJson)
+} derive(Debug, Eq, ToJson, FromJson)
 
 ///|
 pub impl Show for Sort with output(self : Sort, logger : &Logger) {
@@ -135,7 +135,7 @@ pub(all) struct Pageable {
   page : Int
   size : Int
   sort : Sort?
-} derive(Eq, ToJson, FromJson)
+} derive(Debug, Eq, ToJson, FromJson)
 
 ///|
 pub impl Show for Pageable with output(self : Pageable, logger : &Logger) {
