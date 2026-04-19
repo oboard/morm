@@ -38,6 +38,26 @@ options(
 
 3. 在你的 `entities.mbt` 中定义实体：
 
+## PostgreSQL Schema Ownership 与 Grant
+
+对于 PostgreSQL，`morm` 支持通过注解设置 schema 归属和权限：
+
+```moonbit nocheck
+#morm.postgres.schema("my_schema", authorization="db_owner")
+#morm.postgres.table(owner="app_user", tablespace="pg_default")
+#morm.postgres.grant(role="reader", table="SELECT", with_grant_option=true)
+pub(all) struct MyEntity {
+  #morm.id
+  id : Int64
+  ...
+} derive(ToJson, FromJson)
+```
+
+支持的注解：
+- `#morm.postgres.schema("schema_name")` - 设置 schema，可选 `authorization`
+- `#morm.postgres.table(owner="role", ...)` - 设置表 owner、tablespace、unlogged、on_commit
+- `#morm.postgres.grant(role="role", table="SELECT,INSERT", ...)` - 授予 table/sequence/schema 权限
+
 
 通过在 `struct` 上加少量 `#morm.*` 属性，可以自动生成：
 

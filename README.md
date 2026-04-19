@@ -23,6 +23,7 @@ The project deliberately avoids runtime reflection and hidden ORM state.
 - direct MoonBit enum support in generated `ToParam` / `FromParam` impls and schema metadata
 - generated auto timestamp handling for `created_at` / `updated_at` and explicit timestamp annotations
 - transient entity fields via `#morm.transient` (kept in model, excluded from physical columns and `from(entity)` writes)
+- PostgreSQL schema ownership and grant support via `#morm.postgres.schema`, `#morm.postgres.table`, and `#morm.postgres.grant`
 
 ## Install
 

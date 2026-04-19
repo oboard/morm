@@ -36,6 +36,55 @@ For production, use dedicated users and explicit SSL settings that match your en
 - Supports savepoints and rollback-to-savepoint
 - Well suited for complex multi-step business operations
 
+## Schema Ownership and Authorization
+
+Use entity annotations to set PostgreSQL schema ownership:
+
+```moonbit
+#morm.postgres.schema("app_schema", authorization="app_owner")
+pub(all) struct Product {
+  #morm.id
+  id : Int64
+  ...
+}
+```
+
+## Table Options
+
+```moonbit
+#morm.postgres.table(
+  name="products",
+  owner="app_user",
+  tablespace="pg_default",
+  unlogged=false,
+  on_commit="PRESERVE ROWS"
+)
+pub(all) struct Product { ... }
+```
+
+Supported options:
+- `owner` - set table owner role
+- `tablespace` - specify tablespace
+- `unlogged` - create as unlogged table
+- `on_commit` - `PRESERVE ROWS`, `DELETE ROWS`, or `DROP`
+
+## Grant Permissions
+
+Use `#morm.postgres.grant` for permission management:
+
+```moonbit
+#morm.postgres.grant(role="reader", table="SELECT", with_grant_option=true)
+#morm.postgres.grant(role="writer", table="SELECT,INSERT,UPDATE,DELETE")
+#morm.postgres.grant(role="app", sequence="USAGE,SELECT", for_role="owner")
+#morm.postgres.grant(role="public", schema="USAGE", default_table="SELECT")
+```
+
+Supported grant types:
+- `schema` - schema-level privileges
+- `table` - table-level privileges
+- `sequence` - sequence privileges
+- `default_table` / `default_sequence` - default privileges
+
 ## Migration Behavior
 
 - `migrate_table` handles common schema management operations
