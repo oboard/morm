@@ -258,7 +258,7 @@ let deleted = mapper.delete(stu)
 let q = @morm.select_from("student")
   .where_eq("id", 1)
   .where_eq("name", "Alice")
-  .order_by(Desc("id"))
+  .order_by(@morm.desc("id"))
   .offset(5)
   .limit(5)
 let (sql, params) = @engine.render_query_sql(q)
@@ -276,6 +276,37 @@ UPSERT 使用 `upsert_into(table)`，并且：
 
 - 在 PostgreSQL / Sqlite 下附带 `RETURNING *`，直接返回插入/更新后的行
 - 在不支持 `RETURNING` 的方言（如 MySQL）下，`save` 会用主键或唯一索引回读一行，保证你最终拿到一条完整记录
+
+## 分页与排序
+
+`morm` 的分页约定是 **1 基页码**（`page=1` 表示第一页）：
+
+```moonbit nocheck
+let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
+
+let q = @morm.select_from("student")
+  .where_gte("age", 18)
+  .apply_pageable(pageable)
+
+let page = @morm.paginate(
+  engine,
+  q,
+  pageable,
+  decode=(row) => row,
+)
+```
+
+原生 SQL 也可以直接分页：
+
+```moonbit nocheck
+let page = @morm.paginate_raw(
+  engine,
+  "SELECT id, name, age FROM student WHERE age >= ?",
+  [18],
+  @morm.pageable(2, 10),
+  decode=(row) => row,
+)
+```
 
 ## 自动迁移（Auto-migrate）
 
@@ -297,3 +328,10 @@ engine.close()
 # 运行全部测试
 moon test
 ```
+
+## 文档入口
+
+- [快速开始](docs/zh/get-started.md)
+- [查询构建器](docs/zh/query-builders.md)
+- [分页](docs/zh/pagination.md)
+- [引擎总览](docs/zh/engines.md)

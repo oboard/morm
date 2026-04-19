@@ -18,6 +18,7 @@ The project deliberately avoids runtime reflection and hidden ORM state.
 - entity-to-table metadata generation with `#morm.entity`
 - mapper generation from annotated traits
 - typed query builders for `select`, `insert`, `upsert`, `update`, and `delete`
+- page-based pagination helpers with sortable `Pageable` (`paginate` / `paginate_raw`)
 - multi-engine support through a shared `Engine` contract
 - local time-type support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime`
 - direct MoonBit enum support in generated `ToParam` / `FromParam` impls and schema metadata
@@ -115,7 +116,7 @@ Generated `save` methods can assign:
 ```moonbit
 let q = @morm.select_from("class")
   .where_eq("id", 1)
-  .order_by(Desc("id"))
+  .order_by(@morm.desc("id"))
   .limit(1)
 ```
 
@@ -123,6 +124,37 @@ Execute through an engine:
 
 ```moonbit
 let res = engine.exec(q)
+```
+
+## Pagination Example
+
+`morm` pagination is **1-based** (`page=1` is the first page):
+
+```moonbit
+let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
+
+let q = @morm.select_from("student")
+  .where_gte("age", 18)
+  .apply_pageable(pageable)
+
+let page = @morm.paginate(
+  engine,
+  q,
+  pageable,
+  decode=(row) => row,
+)
+```
+
+For raw SQL:
+
+```moonbit
+let page = @morm.paginate_raw(
+  engine,
+  "SELECT id, name, age FROM student WHERE age >= ?",
+  [18],
+  @morm.pageable(2, 10),
+  decode=(row) => row,
+)
 ```
 
 ## Migration Example
@@ -141,6 +173,7 @@ See the VitePress docs in [`docs/`](docs/):
 - [Entities](docs/entities.md)
 - [Mappers](docs/mappers.md)
 - [Query Builders](docs/query-builders.md)
+- [Pagination](docs/pagination.md)
 - [Time Types](docs/time.md)
 - [Engines](docs/engines.md)
 - [Migrations](docs/migrations.md)

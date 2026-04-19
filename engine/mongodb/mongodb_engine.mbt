@@ -2177,6 +2177,65 @@ pub impl @engine.Engine for MongoDBEngine with exec(
 }
 
 ///|
+pub impl @engine.Engine for MongoDBEngine with exec_paginated(
+  self,
+  query : &@engine.QueryBuilder,
+  count_sql : String,
+  page : Int,
+  size : Int,
+) -> @engine.Page[Map[String, @engine.Param]] {
+  let normalized_page = if page < 1 { 1 } else { page }
+  let offset = (normalized_page - 1) * size
+  let stmt = match query.to_query() {
+    @engine.Statement(stmt) =>
+      match stmt {
+        @engine.Select(sel) => {
+          let new_sel = { ..sel, offset: Some(offset), limit: Some(size) }
+          @engine.Select(new_sel)
+        }
+        _ => stmt
+      }
+    _ =>
+      return {
+        content: [],
+        total_elements: 0,
+        total_pages: 0,
+        number: normalized_page,
+        size,
+        first: true,
+        last: true,
+        empty: true,
+      }
+  }
+  let count_result = self.exec_raw(count_sql, [])
+  let total_elements = match count_result.rows {
+    [row, ..] =>
+      match row.get("n") {
+        Some(@engine.Int(n)) => n
+        _ => 0
+      }
+    _ => 0
+  }
+  let data_result = self.exec(@engine.Statement(stmt))
+  let content = data_result.rows
+  let total_pages = if size > 0 {
+    (total_elements + size - 1) / size
+  } else {
+    0
+  }
+  {
+    content,
+    total_elements,
+    total_pages,
+    number: normalized_page,
+    size,
+    first: normalized_page <= 1,
+    last: total_pages == 0 || normalized_page >= total_pages,
+    empty: content.length() == 0,
+  }
+}
+
+///|
 pub impl @engine.Engine for MongoDBEngine with exec_raw(
   self,
   sql : String,

@@ -34,6 +34,6 @@ features:
 ## 文档导览
 
 - 入门路径：[快速开始](/zh/get-started)
-- 核心能力：[实体](/zh/entities)、[映射器](/zh/mappers)、[查询构建器](/zh/query-builders)
+- 核心能力：[实体](/zh/entities)、[映射器](/zh/mappers)、[查询构建器](/zh/query-builders)、[分页](/zh/pagination)
 - 引擎细节：[引擎总览](/zh/engines) 与各引擎专题
 - 示例参考：[API 示例](/zh/api-examples)

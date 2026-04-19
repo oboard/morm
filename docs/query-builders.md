@@ -55,6 +55,17 @@ Or page helper:
 let q = @morm.select_from("student").page(3, 20)
 ```
 
+Or with `Pageable`:
+
+```moonbit
+let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
+let q = @morm.select_from("student")
+  .where_gte("age", 18)
+  .apply_pageable(pageable)
+```
+
+`Pageable.page` is 1-based.
+
 ## Select Raw Columns
 
 If you do not want `SELECT *`, use:
@@ -163,7 +174,8 @@ The same applies to:
 - `UpsertQuery::set`
 - `UpsertQuery::do_update_set`
 
-By contrast, APIs like `InsertQuery::values(...)` and `engine.exec_raw(..., params)` expect `FixedArray[@engine.Param]`, so those places still need explicit `@engine.to_param(...)`.
+By contrast, APIs like `InsertQuery::values(...)` and `engine.exec_raw(..., params)` expect `FixedArray[@engine.Param]`.
+When the element type can be inferred, literals such as `[1, "Alice"]` can be used directly.
 
 Entity-based update:
 
@@ -216,3 +228,5 @@ The engine is responsible for:
 - executing the statement
 
 That is why builders stay engine-neutral.
+
+For a higher-level page response, see [Pagination](./pagination.md).

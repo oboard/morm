@@ -34,6 +34,6 @@ features:
 ## Documentation Map
 
 - Start at [Get Started](/get-started) to go from entities to execution
-- Deep dive with [Entities](/entities), [Mappers](/mappers), and [Query Builders](/query-builders)
+- Deep dive with [Entities](/entities), [Mappers](/mappers), [Query Builders](/query-builders), and [Pagination](/pagination)
 - Review [Engines](/engines) for dialect, migration, and transaction differences
 - Copy practical snippets from [API Examples](/api-examples)

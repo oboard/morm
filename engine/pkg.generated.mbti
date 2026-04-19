@@ -90,6 +90,25 @@ pub(all) enum OrderBy {
 } derive(Eq, ToJson, @json.FromJson)
 pub impl Show for OrderBy
 
+pub(all) struct Page[T] {
+  content : FixedArray[T]
+  total_elements : Int
+  total_pages : Int
+  number : Int
+  size : Int
+  first : Bool
+  last : Bool
+  empty : Bool
+} derive(Eq, ToJson, @json.FromJson)
+pub impl[T] Show for Page[T]
+
+pub(all) struct Pageable {
+  page : Int
+  size : Int
+  sort : Sort?
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for Pageable
+
 pub(all) enum Param {
   Null
   Bool(Bool)
@@ -153,6 +172,18 @@ pub(all) struct Set {
 } derive(Eq, ToJson, @json.FromJson)
 pub impl Show for Set
 
+pub(all) struct Sort {
+  property : String
+  direction : SortDirection
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for Sort
+
+pub(all) enum SortDirection {
+  Asc
+  Desc
+} derive(Eq, ToJson, @json.FromJson)
+pub impl Show for SortDirection
+
 pub(all) enum Statement {
   Select(SelectStatement)
   Insert(InsertStatement)
@@ -211,6 +242,7 @@ pub(open) trait Engine {
   async exec(Self, &QueryBuilder) -> QueryResult
   async exec_raw(Self, String, FixedArray[Param]) -> QueryResult
   async migrate_table(Self, @table.Table) -> QueryResult
+  async exec_paginated(Self, &QueryBuilder, String, Int, Int) -> Page[Map[String, Param]]
   close(Self) -> Unit
 }
 

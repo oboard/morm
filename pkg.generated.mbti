@@ -27,6 +27,8 @@ pub fn[T] after_find(T, (T) -> T) -> T
 
 pub fn[T] after_update(T, (T) -> T) -> T
 
+pub fn asc(String) -> @engine.Sort
+
 pub async fn[E : @engine.Engine] auto_migrate(E, Array[@table.Table]) -> Unit
 
 pub fn[T] before_create(T, (T) -> T) -> T
@@ -42,6 +44,8 @@ pub fn current_plain_date_time_utc() -> @time.PlainDateTime
 pub fn current_timestamp_utc() -> @time.ZonedDateTime
 
 pub fn delete_from(String) -> DeleteQuery
+
+pub fn desc(String) -> @engine.Sort
 
 pub fn diff_table(@table.Table, @table.Table) -> TableDiff
 
@@ -80,6 +84,16 @@ pub fn on_update_cascade(@table.ForeignKey) -> @table.ForeignKey
 pub fn oracle_table_on_commit(@table.Table, String) -> @table.Table
 
 pub fn oracle_table_organization(@table.Table, String) -> @table.Table
+
+pub fn[T] page(FixedArray[T], Int, Int, Int) -> @engine.Page[T]
+
+pub fn pageable(Int, Int) -> @engine.Pageable
+
+pub fn pageable_with_sort(Int, Int, @engine.Sort) -> @engine.Pageable
+
+pub async fn[E : @engine.Engine, T] paginate(E, &@engine.QueryBuilder, @engine.Pageable, (Map[String, @engine.Param]) -> T) -> @engine.Page[T]
+
+pub async fn[E : @engine.Engine, T] paginate_raw(E, String, FixedArray[@engine.Param], @engine.Pageable, (Map[String, @engine.Param]) -> T) -> @engine.Page[T]
 
 pub fn pg_default_sequence_grant(@table.Table, String, String, Bool, String?) -> @table.Table
 
@@ -126,6 +140,8 @@ pub fn select_from_scoped(String, deleted_col? : String) -> Query
 pub fn select_raw(String, String) -> Query
 
 pub fn[V : @engine.ToParam] soft_delete_by_id(String, String, V, deleted_col? : String) -> UpdateQuery
+
+pub fn sort(String, @engine.SortDirection) -> @engine.Sort
 
 pub fn sqlite_table_strict(@table.Table) -> @table.Table
 
@@ -259,11 +275,13 @@ pub(all) enum PreloadResult[T] {
 pub struct Query {
   stmt : @engine.SelectStatement
 } derive(Eq, ToJson, @json.FromJson)
+pub fn Query::apply_pageable(Self, @engine.Pageable) -> Self
 pub fn Query::join(Self, String) -> Self
 pub fn Query::limit(Self, Int) -> Self
 pub fn Query::offset(Self, Int) -> Self
 pub fn Query::order_by(Self, @engine.OrderBy) -> Self
 pub fn Query::page(Self, Int, Int) -> Self
+pub fn Query::to_count_sql(Self) -> String
 pub fn[V : @engine.ToParam] Query::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gte(Self, String, V) -> Self

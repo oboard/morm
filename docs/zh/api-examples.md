@@ -6,17 +6,55 @@ outline: deep
 
 本页给出常见能力的最小可用示例。
 
-## 常见主题
+## QueryBuilder 执行
 
-- 实体定义与 `table()` 生成
-- 查询构建器执行
-- mapper 调用方式
-- 迁移与引擎初始化
+```moonbit
+let q = @morm.select_from("student")
+  .where_eq("id", 1)
+  .order_by(@morm.desc("id"))
+  .limit(1)
 
-## 建议阅读顺序
+let res = engine.exec(q)
+```
+
+## Pageable 分页
+
+```moonbit
+let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
+
+let q = @morm.select_from("student")
+  .where_gte("age", 18)
+  .apply_pageable(pageable)
+
+let page = @morm.paginate(
+  engine,
+  q,
+  pageable,
+  decode=(row) => row,
+)
+```
+
+## 原生 SQL 分页
+
+```moonbit
+let page = @morm.paginate_raw(
+  engine,
+  "SELECT id, name FROM student WHERE age >= ?",
+  [18],
+  @morm.pageable(2, 10),
+  decode=(row) => row,
+)
+```
+
+## 迁移
+
+```moonbit
+@morm.auto_migrate(engine, [Student::table()])
+```
+
+进一步说明：
 
 1. [快速开始](/zh/get-started)
 2. [查询构建器](/zh/query-builders)
-3. [引擎总览](/zh/engines)
-
-详细示例可参考英文版 [API Examples](/api-examples)。
+3. [分页](/zh/pagination)
+4. [引擎总览](/zh/engines)

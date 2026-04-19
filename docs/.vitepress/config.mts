@@ -43,6 +43,7 @@ export default defineConfig({
         text: 'Querying',
         items: [
           { text: 'Query Builders', link: '/query-builders' },
+          { text: 'Pagination', link: '/pagination' },
           { text: 'JSON Columns', link: '/json' },
           { text: 'Time Types', link: '/time' },
           { text: 'API Examples', link: '/api-examples' }
@@ -116,6 +117,7 @@ export default defineConfig({
             text: '查询',
             items: [
               { text: '查询构建器', link: '/zh/query-builders' },
+              { text: '分页', link: '/zh/pagination' },
               { text: 'JSON 列', link: '/zh/json' },
               { text: '时间类型', link: '/zh/time' },
               { text: 'API 示例', link: '/zh/api-examples' }

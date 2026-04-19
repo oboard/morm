@@ -93,9 +93,38 @@ let q = @morm.select_from("student")
 
 ```moonbit
 let q = @morm.select_from("student")
-  .order_by(Desc("id"))
+  .order_by(@morm.desc("id"))
   .limit(20)
   .offset(40)
+```
+
+### Pageable + Paginate
+
+```moonbit
+let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
+
+let q = @morm.select_from("student")
+  .where_gte("age", 18)
+  .apply_pageable(pageable)
+
+let page = @morm.paginate(
+  engine,
+  q,
+  pageable,
+  decode=(row) => row,
+)
+```
+
+### Paginate Raw SQL
+
+```moonbit
+let page = @morm.paginate_raw(
+  engine,
+  "SELECT id, name, age FROM student WHERE age >= ?",
+  [18],
+  @morm.pageable(2, 10),
+  decode=(row) => row,
+)
 ```
 
 ### JOIN

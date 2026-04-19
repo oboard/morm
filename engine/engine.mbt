@@ -100,6 +100,75 @@ pub impl Show for OrderBy with output(self : OrderBy, logger : &Logger) {
 }
 
 ///|
+pub(all) enum SortDirection {
+  Asc
+  Desc
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for SortDirection with output(
+  self : SortDirection,
+  logger : &Logger,
+) {
+  match self {
+    Asc => logger.write_string("Asc")
+    Desc => logger.write_string("Desc")
+  }
+}
+
+///|
+pub(all) struct Sort {
+  property : String
+  direction : SortDirection
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for Sort with output(self : Sort, logger : &Logger) {
+  match self.direction {
+    Asc => logger.write_string("Sort(\{self.property} Asc)")
+    Desc => logger.write_string("Sort(\{self.property} Desc)")
+  }
+}
+
+///|
+pub(all) struct Pageable {
+  page : Int
+  size : Int
+  sort : Sort?
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl Show for Pageable with output(self : Pageable, logger : &Logger) {
+  match self.sort {
+    Some(s) =>
+      logger.write_string(
+        "Pageable(page=\{self.page}, size=\{self.size}, sort=\{s})",
+      )
+    None =>
+      logger.write_string("Pageable(page=\{self.page}, size=\{self.size})")
+  }
+}
+
+///|
+pub(all) struct Page[T] {
+  content : FixedArray[T]
+  total_elements : Int
+  total_pages : Int
+  number : Int
+  size : Int
+  first : Bool
+  last : Bool
+  empty : Bool
+} derive(Eq, ToJson, FromJson)
+
+///|
+pub impl[T] Show for Page[T] with output(self, logger) {
+  logger.write_string(
+    "Page(content=\{self.content.length()}, total_elements=\{self.total_elements}, total_pages=\{self.total_pages}, number=\{self.number}, size=\{self.size})",
+  )
+}
+
+///|
 pub(all) struct Set {
   col : String
   value : Param
@@ -125,6 +194,17 @@ pub(open) trait Engine {
   ///|
   /// Apply table migration from schema model.
   async migrate_table(Self, table_schema : @table.Table) -> QueryResult
+  ///|
+  /// Execute a paginated query and return a Page of results.
+  /// The engine is responsible for applying dialect-specific pagination SQL.
+  /// The count_query should return a single row with a single column representing total count.
+  async exec_paginated(
+    Self,
+    query : &QueryBuilder,
+    count_sql : String,
+    page : Int,
+    size : Int,
+  ) -> Page[Map[String, Param]]
   ///|
   /// Close the database connection.
   close(Self) -> Unit
