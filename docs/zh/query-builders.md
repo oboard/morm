@@ -42,19 +42,13 @@ let q = @morm.select_from("student")
   .offset(40)
 ```
 
-或者使用页码助手：
-
-```moonbit
-let q = @morm.select_from("student").page(3, 20)
-```
-
-或者使用 `Pageable`（推荐）：
+或者使用 `Pageable` + `paginate`（推荐）：
 
 ```moonbit
 let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
 let q = @morm.select_from("student")
   .where_gte("age", 18)
-  .apply_pageable(pageable)
+let page = @morm.paginate(engine, q, pageable)
 ```
 
 `Pageable.page` 采用 1 基页码（`1` 为第一页）。

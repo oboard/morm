@@ -139,7 +139,6 @@ pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
     self.engine,
     q,
     pageable,
-    decode=(row) => User::_from(row),
   )
 }
 ```

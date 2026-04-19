@@ -49,19 +49,13 @@ let q = @morm.select_from("student")
   .offset(40)
 ```
 
-Or page helper:
-
-```moonbit
-let q = @morm.select_from("student").page(3, 20)
-```
-
-Or with `Pageable`:
+Or with `Pageable` + `paginate`:
 
 ```moonbit
 let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
 let q = @morm.select_from("student")
   .where_gte("age", 18)
-  .apply_pageable(pageable)
+let page = @morm.paginate(engine, q, pageable)
 ```
 
 `Pageable.page` is 1-based.

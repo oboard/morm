@@ -102,6 +102,7 @@ pub(all) struct Page[T] {
   empty : Bool
 } derive(Eq, ToJson, @json.FromJson)
 pub impl[T] Show for Page[T]
+pub impl[T : FromParam] FromParam for Page[T]
 
 pub(all) struct Pageable {
   page : Int
@@ -129,6 +130,7 @@ pub(all) enum Param {
   DateTime(@time.PlainDateTime, String?)
   Timestamp(@time.ZonedDateTime, String?)
   Uuid(String)
+  Object(Map[String, Param])
   Json(Json)
   String(String)
   Bytes(Bytes)
@@ -240,10 +242,11 @@ pub impl Show for WhereType
 
 // Traits
 pub(open) trait Engine {
+  async page(Self, &QueryBuilder, Pageable) -> QueryResult
+  async page_raw(Self, String, FixedArray[Param], Pageable) -> QueryResult
   async exec(Self, &QueryBuilder) -> QueryResult
   async exec_raw(Self, String, FixedArray[Param]) -> QueryResult
   async migrate_table(Self, @table.Table) -> QueryResult
-  async exec_paginated(Self, &QueryBuilder, String, Int, Int) -> Page[Map[String, Param]]
   close(Self) -> Unit
 }
 
@@ -293,6 +296,7 @@ pub impl ToParam for String
 pub impl ToParam for Bytes
 pub impl ToParam for @bigint.BigInt
 pub impl ToParam for Json
+pub impl ToParam for Map[String, Param]
 pub impl ToParam for @time.PlainDate
 pub impl ToParam for @time.PlainDateTime
 pub impl ToParam for @time.PlainTime

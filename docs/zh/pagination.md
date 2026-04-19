@@ -22,32 +22,24 @@ outline: deep
 
 `page` 采用 **1 基页码**（`1` 表示第一页）。
 
-## 在查询构建器上应用分页
+## 构建查询 + Pageable
 
 ```moonbit
 let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
 
 let q = @morm.select_from("student")
   .where_gte("age", 18)
-  .apply_pageable(pageable)
 ```
-
-`Query::apply_pageable` 会设置：
-
-- `limit = size`
-- `offset = (page - 1) * size`
-- 若存在 `sort`，追加对应 `order_by`
 
 ## 获取分页结果
 
-使用 `paginate`：
+使用 `paginate`（通过 `T : @engine.FromParam` 自动解码）：
 
 ```moonbit
 let page = @morm.paginate(
   engine,
   q,
   pageable,
-  decode=(row) => row,
 )
 ```
 
@@ -59,7 +51,6 @@ let page = @morm.paginate_raw(
   "SELECT id, name FROM student WHERE age >= ?",
   [18],
   @morm.pageable(2, 10),
-  decode=(row) => row,
 )
 ```
 
@@ -67,11 +58,10 @@ let page = @morm.paginate_raw(
 
 `paginate` 和 `paginate_raw` 默认会从第一处 `FROM` 开始推导 `COUNT(*)` SQL。
 
-如果你的 SQL 比较复杂（例如 CTE、嵌套子查询、分组投影），建议直接使用
-`engine.exec_paginated(...)` 并显式传入 count SQL。
+如果你的 SQL 比较复杂（例如 CTE、嵌套子查询、分组投影），建议写更明确的 SQL。
 
 ## 跨引擎兼容性
 
-`paginate` 内部调用 `engine.exec_paginated(...)`，由各数据库引擎处理自身分页语法。
+`paginate` 会把分页数据查询委托给引擎侧的 `page/page_raw`，由各数据库引擎处理自身分页语法。
 
 这样可以在 `morm` 层保持统一 API，同时兼顾方言差异。

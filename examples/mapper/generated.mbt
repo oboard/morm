@@ -90,11 +90,11 @@ pub fn User::_from(row : Map[String, @engine.Param]) -> User {
 ///|
 pub impl @engine.FromParam for User with from_param(value) {
   match value {
-    @engine.Json(Object(obj)) => {
+    @engine.Object(obj) => {
       let row : Map[String, @engine.Param] = Map::new()
       for key in obj.keys() {
         if obj.get(key) is Some(value) {
-          row.set(key, @engine.to_param(value))
+          row.set(key, value)
         }
       }
       User::_from(row)
@@ -142,6 +142,9 @@ pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
   active : Int,
   pageable : @engine.Pageable,
 ) -> @engine.Page[User] {
-  let q = @morm.select_from("user").where_eq("active", active)
-  @oboard/morm.paginate(self.engine, q, pageable, row => User::_from(row))
+  @morm.paginate(
+    self.engine,
+    @morm.select_from("user").where_eq("active", active),
+    pageable,
+  )
 }

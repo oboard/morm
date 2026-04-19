@@ -186,6 +186,13 @@ pub(open) trait QueryBuilder {
 
 ///|
 pub(open) trait Engine {
+  async page(Self, query : &QueryBuilder, pageable : Pageable) -> QueryResult
+  async page_raw(
+    Self,
+    sql : String,
+    params : FixedArray[Param],
+    pageable : Pageable,
+  ) -> QueryResult
   /// Execute a normalized query model (statement/raw/transaction).
   async exec(Self, query : &QueryBuilder) -> QueryResult
   ///|
@@ -194,17 +201,6 @@ pub(open) trait Engine {
   ///|
   /// Apply table migration from schema model.
   async migrate_table(Self, table_schema : @table.Table) -> QueryResult
-  ///|
-  /// Execute a paginated query and return a Page of results.
-  /// The engine is responsible for applying dialect-specific pagination SQL.
-  /// The count_query should return a single row with a single column representing total count.
-  async exec_paginated(
-    Self,
-    query : &QueryBuilder,
-    count_sql : String,
-    page : Int,
-    size : Int,
-  ) -> Page[Map[String, Param]]
   ///|
   /// Close the database connection.
   close(Self) -> Unit

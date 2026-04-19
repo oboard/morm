@@ -614,7 +614,46 @@ async fn[E : @engine.Engine] select_by_eq(
 
 ///|
 fn row_param(row : Map[String, @engine.Param]) -> @engine.Param {
-  @engine.to_param(row.to_json())
+  let obj : Map[String, @engine.Param] = Map::new()
+  for key in row.keys() {
+    if row.get(key) is Some(value) {
+      obj.set(key.to_lower(), value)
+    }
+  }
+  @engine.Object(obj)
+}
+
+///|
+fn page_row_param(row : Map[String, @engine.Param]) -> @engine.Param {
+  let mut count = 0
+  let mut only : @engine.Param? = None
+  for key in row.keys() {
+    count = count + 1
+    if count == 1 {
+      if row.get(key) is Some(value) {
+        only = Some(value)
+      }
+    }
+  }
+  if count == 1 {
+    match only {
+      Some(value) => value
+      None => @engine.Null
+    }
+  } else {
+    row_param(row)
+  }
+}
+
+///|
+fn[T : @engine.FromParam] decode_page_row(
+  row : Map[String, @engine.Param],
+) -> T {
+  if (try? (@engine.from_param(row_param(row)) : T)) is Ok(value) {
+    value
+  } else {
+    try! @engine.from_param(page_row_param(row))
+  }
 }
 
 ///|
@@ -906,11 +945,6 @@ pub fn Query::limit(self : Query, n : Int) -> Query {
 ///|
 pub fn Query::offset(self : Query, n : Int) -> Query {
   { stmt: { ..self.stmt, offset: Some(n) } }
-}
-
-///|
-pub fn Query::page(self : Query, page : Int, size : Int) -> Query {
-  { stmt: { ..self.stmt, offset: Some((page - 1) * size), limit: Some(size) } }
 }
 
 ///|
@@ -1855,26 +1889,6 @@ pub fn[T] page(
 }
 
 ///|
-pub fn Query::apply_pageable(self : Query, pageable : Pageable) -> Query {
-  let page = if pageable.page < 1 { 1 } else { pageable.page }
-  let offset = (page - 1) * pageable.size
-  let sel = self.stmt
-  let order_by = match pageable.sort {
-    Some(s) => {
-      let ob = match s.direction {
-        Asc => OrderBy::Asc(s.property)
-        Desc => OrderBy::Desc(s.property)
-      }
-      sel.order_by + [ob]
-    }
-    None => sel.order_by
-  }
-  Query::{
-    stmt: { ..sel, limit: Some(pageable.size), offset: Some(offset), order_by },
-  }
-}
-
-///|
 pub fn Query::to_count_sql(self : Query) -> String {
   let sel = self.stmt
   let mut count_sql = "SELECT COUNT(*) FROM " + sel.from
@@ -1906,14 +1920,24 @@ pub fn Query::to_count_sql(self : Query) -> String {
 }
 
 ///|
-pub async fn[E : @engine.Engine, T] paginate(
+pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate(
   engine : E,
   query : &@engine.QueryBuilder,
   pageable : Pageable,
-  decode : (Map[String, @engine.Param]) -> T,
 ) -> Page[T] {
   let page = if pageable.page < 1 { 1 } else { pageable.page }
-  let (base_sql, _) = @engine.render_query_sql(query)
+  let count_query = match query.to_query() {
+    @engine.Statement(stmt) =>
+      match stmt {
+        @engine.Select(sel) =>
+          @engine.Statement(
+            @engine.Select({ ..sel, order_by: [], limit: None, offset: None }),
+          )
+        _ => @engine.Statement(stmt)
+      }
+    other => other
+  }
+  let (base_sql, _) = @engine.render_query_sql(count_query)
   let upper = base_sql.to_upper()
   let count_sql = if upper.contains(" FROM ") {
     let from_idx = upper.find(" FROM ").unwrap()
@@ -1921,30 +1945,57 @@ pub async fn[E : @engine.Engine, T] paginate(
   } else {
     "SELECT COUNT(*)"
   }
-  let data_result = engine.exec_paginated(query, count_sql, page, pageable.size)
+  let data_result = engine.page(query, pageable)
   let items : Array[T] = []
-  for row in data_result.content {
-    items.push(decode(row))
+  for row in data_result.rows {
+    items.push(decode_page_row(row))
+  }
+  let count_result = engine.exec_raw(
+    count_sql,
+    @engine.render_query_sql(count_query).1,
+  )
+  let total_elements = match count_result.rows {
+    [row, ..] => {
+      let first_key : String? = None
+      let mut key_opt = first_key
+      for key in row.keys() {
+        key_opt = Some(key)
+        break
+      }
+      match key_opt {
+        Some(k) =>
+          match row.get(k) {
+            Some(@engine.Int(n)) => n
+            _ => items.length()
+          }
+        None => items.length()
+      }
+    }
+    _ => items.length()
+  }
+  let total_pages = if pageable.size > 0 {
+    (total_elements + pageable.size - 1) / pageable.size
+  } else {
+    0
   }
   {
     content: FixedArray::from_array(items),
-    total_elements: data_result.total_elements,
-    total_pages: data_result.total_pages,
-    number: data_result.number,
-    size: data_result.size,
-    first: data_result.first,
-    last: data_result.last,
-    empty: data_result.empty,
+    total_elements,
+    total_pages,
+    number: page,
+    size: pageable.size,
+    first: page <= 1,
+    last: total_pages == 0 || page >= total_pages,
+    empty: items.length() == 0,
   }
 }
 
 ///|
-pub async fn[E : @engine.Engine, T] paginate_raw(
+pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate_raw(
   engine : E,
   sql : String,
   params : FixedArray[@engine.Param],
   pageable : Pageable,
-  decode : (Map[String, @engine.Param]) -> T,
 ) -> Page[T] {
   let page = if pageable.page < 1 { 1 } else { pageable.page }
   let upper = sql.to_upper()
@@ -1954,24 +2005,44 @@ pub async fn[E : @engine.Engine, T] paginate_raw(
   } else {
     "SELECT COUNT(*)"
   }
-  let data_result = engine.exec_paginated(
-    @engine.Raw(sql, params),
-    count_sql,
-    page,
-    pageable.size,
-  )
+  let data_result = engine.page_raw(sql, params, pageable)
   let items : Array[T] = []
-  for row in data_result.content {
-    items.push(decode(row))
+  for row in data_result.rows {
+    items.push(decode_page_row(row))
+  }
+  let count_result = engine.exec_raw(count_sql, params)
+  let total_elements = match count_result.rows {
+    [row, ..] => {
+      let first_key : String? = None
+      let mut key_opt = first_key
+      for key in row.keys() {
+        key_opt = Some(key)
+        break
+      }
+      match key_opt {
+        Some(k) =>
+          match row.get(k) {
+            Some(@engine.Int(n)) => n
+            _ => items.length()
+          }
+        None => items.length()
+      }
+    }
+    _ => items.length()
+  }
+  let total_pages = if pageable.size > 0 {
+    (total_elements + pageable.size - 1) / pageable.size
+  } else {
+    0
   }
   {
     content: FixedArray::from_array(items),
-    total_elements: data_result.total_elements,
-    total_pages: data_result.total_pages,
-    number: data_result.number,
-    size: data_result.size,
-    first: data_result.first,
-    last: data_result.last,
-    empty: data_result.empty,
+    total_elements,
+    total_pages,
+    number: page,
+    size: pageable.size,
+    first: page <= 1,
+    last: total_pages == 0 || page >= total_pages,
+    empty: items.length() == 0,
   }
 }

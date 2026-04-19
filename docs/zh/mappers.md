@@ -139,12 +139,13 @@ pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
     self.engine,
     q,
     pageable,
-    decode=(row) => User::_from(row),
   )
 }
 ```
 
 如果使用 `#morm.query` 显式 SQL，生成器会改用 `@morm.paginate_raw(...)`。
+
+
 
 完整可运行示例在：
 

@@ -719,11 +719,11 @@ fn generate_entity_impl(
     (
       $| pub impl @engine.FromParam for \{name} with from_param(value) {
       $|   match value {
-      $|     @engine.Json(Object(obj)) => {
+      $|     @engine.Object(obj) => {
       $|       let row : Map[String, @engine.Param] = Map::new()
       $|       for key in obj.keys() {
       $|         if obj.get(key) is Some(value) {
-      $|           row.set(key, @engine.to_param(value))
+      $|           row.set(key, value)
       $|         }
       $|       }
       $|       \{name}::_from(row)
@@ -1453,13 +1453,7 @@ fn generate_mapper_code(
                 match pageable_param_name {
                   Some(pageable_name) =>
                     (
-                      $|   let q = \{code}
-                      $|   \{PKG_NAME}.paginate(
-                      $|     self.engine,
-                      $|     q,
-                      $|     \{pageable_name},
-                      $|     (row) => \{collection_decode_expr},
-                      $|   )
+                      $|   @morm.paginate(self.engine, \{code}, \{pageable_name})
                       $| }
                       $|
                     )
@@ -1519,13 +1513,7 @@ fn generate_mapper_code(
             match pageable_param_name {
               Some(pageable_name) =>
                 (
-                  $|   \{PKG_NAME}.paginate_raw(
-                  $|     self.engine,
-                  $|     "\{sql}",
-                  $|     \{query_args},
-                  $|     \{pageable_name},
-                  $|     (row) => \{collection_decode_expr},
-                  $|   )
+                  $|   @morm.paginate_raw(self.engine, "\{sql}", \{query_args}, \{pageable_name})
                   $| }
                   $|
                 )

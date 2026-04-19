@@ -22,32 +22,24 @@ Helpers:
 
 `page` is **1-based** (`1` is the first page).
 
-## Apply Pagination To Query Builders
+## Build Query + Pageable
 
 ```moonbit
 let pageable = @morm.pageable_with_sort(1, 20, @morm.desc("id"))
 
 let q = @morm.select_from("student")
   .where_gte("age", 18)
-  .apply_pageable(pageable)
 ```
-
-`Query::apply_pageable` sets:
-
-- `limit = size`
-- `offset = (page - 1) * size`
-- optional `order_by` from `sort`
 
 ## Fetch A Typed Page
 
-Use `paginate` with a decode function:
+Use `paginate` directly (it decodes rows via `T : @engine.FromParam`):
 
 ```moonbit
 let page = @morm.paginate(
   engine,
   q,
   pageable,
-  decode=(row) => row,
 )
 ```
 
@@ -59,7 +51,6 @@ let page = @morm.paginate_raw(
   "SELECT id, name FROM student WHERE age >= ?",
   [18],
   @morm.pageable(2, 10),
-  decode=(row) => row,
 )
 ```
 
@@ -67,11 +58,9 @@ let page = @morm.paginate_raw(
 
 Both `paginate` and `paginate_raw` generate a count SQL by slicing from the first `FROM`.
 
-For complex SQL (nested selects, CTEs, grouped projections), pass a dedicated count SQL through
-`engine.exec_paginated(...)` if you need full control.
+For complex SQL (nested selects, CTEs, grouped projections), prefer explicit tailored SQL.
 
 ## Engine Compatibility
 
-`paginate` delegates page execution to `engine.exec_paginated(...)`.
-
-That lets each engine apply its own pagination dialect while keeping one page API in `morm`.
+`paginate` delegates data-page SQL to engine-side `page/page_raw`, so each engine can apply
+its own pagination dialect while keeping one API in `morm`.

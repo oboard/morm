@@ -147,9 +147,8 @@ test "parse and generate mapper page return" {
     content="[\"User\"]",
   )
   let code = generate_mapper_code(mapper_specs[0], entity_specs, [])
-  inspect(code.contains("@oboard/morm.paginate("), content="true")
-  inspect(code.contains("@oboard/morm.paginate_raw("), content="true")
-  inspect(code.contains("(row) => User::_from(row)"), content="true")
+  inspect(code.contains("@morm.paginate(self.engine"), content="true")
+  inspect(code.contains("@morm.paginate_raw(self.engine"), content="true")
 }
 
 ///|

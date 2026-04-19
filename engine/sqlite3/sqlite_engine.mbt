@@ -470,6 +470,7 @@ fn SQLiteEngine::exec_sql(
         @engine.Timestamp(v, format) =>
           stmt.bind(index~, val=@engine.format_zoned_date_time(v, format))
         @engine.Uuid(v) => stmt.bind(index~, val=v)
+        @engine.Object(v) => stmt.bind(index~, val=v.to_json().stringify())
         @engine.Json(v) => stmt.bind(index~, val=v.stringify())
         @engine.String(v) => stmt.bind(index~, val=v)
         @engine.Bytes(v) => stmt.bind(index~, val=v)
@@ -541,57 +542,54 @@ pub impl @engine.Engine for SQLiteEngine with exec(
 }
 
 ///|
-pub impl @engine.Engine for SQLiteEngine with exec_paginated(
+pub impl @engine.Engine for SQLiteEngine with page(
   self,
   query : &@engine.QueryBuilder,
-  count_sql : String,
-  page : Int,
-  size : Int,
-) -> @engine.Page[Map[String, @engine.Param]] {
-  let page_query = query.to_query()
-  let normalized_page = if page < 1 { 1 } else { page }
-  let offset = (normalized_page - 1) * size
-  let (data_sql, data_params) = match page_query {
-    @engine.Statement(stmt) => {
-      let stmt_no_page = match stmt {
-        @engine.Select(sel) =>
-          @engine.Select({ ..sel, limit: None, offset: None })
-        _ => stmt
+  pageable : @engine.Pageable,
+) -> @engine.QueryResult {
+  let normalized_page = if pageable.page < 1 { 1 } else { pageable.page }
+  let offset = (normalized_page - 1) * pageable.size
+  let page_query = match query.to_query() {
+    @engine.Statement(stmt) =>
+      match stmt {
+        @engine.Select(sel) => {
+          let order_by = match pageable.sort {
+            Some(s) =>
+              sel.order_by +
+              [
+                match s.direction {
+                  @engine.Asc => @engine.Asc(s.property)
+                  @engine.Desc => @engine.Desc(s.property)
+                },
+              ]
+            None => sel.order_by
+          }
+          @engine.Statement(
+            @engine.Select({
+              ..sel,
+              order_by,
+              limit: Some(pageable.size),
+              offset: Some(offset),
+            }),
+          )
+        }
+        _ => @engine.Statement(stmt)
       }
-      let rendered = render_sqlite(stmt_no_page)
-      let new_sql = rendered.0 + " LIMIT \{size} OFFSET \{offset}"
-      (new_sql, rendered.1)
-    }
     @engine.Raw(sql, params) =>
-      (sql + " LIMIT \{size} OFFSET \{offset}", params)
-    _ => ("SELECT 1", [])
+      @engine.Raw(sql + " LIMIT \{pageable.size} OFFSET \{offset}", params)
+    other => other
   }
-  let count_result = self.exec_sql(count_sql, data_params)
-  let total_elements = match count_result.rows {
-    [row, ..] =>
-      match row.get("COUNT(*)") {
-        Some(@engine.Int(n)) => n
-        _ => 0
-      }
-    _ => 0
-  }
-  let data_result = self.exec_sql(data_sql, data_params)
-  let content = data_result.rows
-  let total_pages = if size > 0 {
-    (total_elements + size - 1) / size
-  } else {
-    0
-  }
-  {
-    content,
-    total_elements,
-    total_pages,
-    number: normalized_page,
-    size,
-    first: normalized_page <= 1,
-    last: total_pages == 0 || normalized_page >= total_pages,
-    empty: content.length() == 0,
-  }
+  self.exec(page_query)
+}
+
+///|
+pub impl @engine.Engine for SQLiteEngine with page_raw(
+  self,
+  sql : String,
+  params : FixedArray[@engine.Param],
+  pageable : @engine.Pageable,
+) -> @engine.QueryResult {
+  self.page(@engine.Raw(sql, params), pageable)
 }
 
 ///|

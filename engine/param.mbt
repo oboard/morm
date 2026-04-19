@@ -18,6 +18,7 @@ pub(all) enum Param {
   DateTime(@time.PlainDateTime, String?)
   Timestamp(@time.ZonedDateTime, String?)
   Uuid(String)
+  Object(Map[String, Param])
   Json(Json)
   String(String)
   Bytes(Bytes)
@@ -43,19 +44,7 @@ pub impl Show for ParamDecodeError with output(
 
 ///|
 pub impl @json.FromJson for Param with from_json(json, _path) {
-  match json {
-    Null => Null
-    True => Bool(true)
-    False => Bool(false)
-    Number(n, ..) =>
-      if n.to_int().to_double() == n {
-        Int(n.to_int())
-      } else {
-        Double(n)
-      }
-    String(s) => String(s)
-    Array(_) | Object(_) => Json(json)
-  }
+  param_from_json_value(json)
 }
 
 ///|
@@ -80,6 +69,7 @@ pub impl Eq for Param with equal(self, other) {
     (Timestamp(a, af), Timestamp(b, bf)) =>
       a.to_string() == b.to_string() && af == bf
     (Uuid(a), Uuid(b)) => a == b
+    (Object(a), Object(b)) => a == b
     (Json(a), Json(b)) => a == b
     (String(a), String(b)) => a == b
     (Bytes(a), Bytes(b)) => a == b
@@ -245,6 +235,15 @@ pub impl ToJson for Param with to_json(self) -> Json {
     DateTime(v, format) => Json::string(format_plain_date_time(v, format))
     Timestamp(v, format) => Json::string(format_zoned_date_time(v, format))
     Uuid(v) => Json::string(v)
+    Object(v) => {
+      let obj : Map[String, Json] = Map::new()
+      for key in v.keys() {
+        if v.get(key) is Some(value) {
+          obj.set(key, value.to_json())
+        }
+      }
+      Json::object(obj)
+    }
     Json(v) => v
     String(v) => v.to_json()
     Bytes(v) => v.to_json()
@@ -264,7 +263,16 @@ pub fn param_from_json_value(json : Json) -> Param {
         Double(n)
       }
     String(s) => String(s)
-    Array(_) | Object(_) => Json(json)
+    Array(_) => Json(json)
+    Object(obj) => {
+      let out : Map[String, Param] = Map::new()
+      for key in obj.keys() {
+        if obj.get(key) is Some(value) {
+          out.set(key, param_from_json_value(value))
+        }
+      }
+      Object(out)
+    }
   }
 }
 
@@ -554,6 +562,95 @@ pub impl[T : FromParam] FromParam for T? with from_param(value) {
 }
 
 ///|
+fn page_json_int_field(obj : Map[String, Json], key : String) -> Int {
+  match obj.get(key) {
+    Some(Number(n, ..)) => n.to_int()
+    _ => 0
+  }
+}
+
+///|
+fn page_json_bool_field(obj : Map[String, Json], key : String) -> Bool {
+  match obj.get(key) {
+    Some(True) => true
+    Some(False) => false
+    _ => false
+  }
+}
+
+///|
+pub impl[T : FromParam] FromParam for Page[T] with from_param(value) {
+  match value {
+    Object(obj) => {
+      let content : FixedArray[T] = match obj.get("content") {
+        Some(Json(Array(items))) => {
+          let out : Array[T] = []
+          for item in items {
+            out.push(try! FromParam::from_param(param_from_json_value(item)))
+          }
+          FixedArray::from_array(out)
+        }
+        _ => []
+      }
+      {
+        content,
+        total_elements: match obj.get("total_elements") {
+          Some(v) => try! FromParam::from_param(v)
+          None => 0
+        },
+        total_pages: match obj.get("total_pages") {
+          Some(v) => try! FromParam::from_param(v)
+          None => 0
+        },
+        number: match obj.get("number") {
+          Some(v) => try! FromParam::from_param(v)
+          None => 0
+        },
+        size: match obj.get("size") {
+          Some(v) => try! FromParam::from_param(v)
+          None => 0
+        },
+        first: match obj.get("first") {
+          Some(v) => try! FromParam::from_param(v)
+          None => false
+        },
+        last: match obj.get("last") {
+          Some(v) => try! FromParam::from_param(v)
+          None => false
+        },
+        empty: match obj.get("empty") {
+          Some(v) => try! FromParam::from_param(v)
+          None => false
+        },
+      }
+    }
+    Json(Object(obj)) => {
+      let content : FixedArray[T] = match obj.get("content") {
+        Some(Array(items)) => {
+          let out : Array[T] = []
+          for item in items {
+            out.push(try! FromParam::from_param(param_from_json_value(item)))
+          }
+          FixedArray::from_array(out)
+        }
+        _ => []
+      }
+      {
+        content,
+        total_elements: page_json_int_field(obj, "total_elements"),
+        total_pages: page_json_int_field(obj, "total_pages"),
+        number: page_json_int_field(obj, "number"),
+        size: page_json_int_field(obj, "size"),
+        first: page_json_bool_field(obj, "first"),
+        last: page_json_bool_field(obj, "last"),
+        empty: page_json_bool_field(obj, "empty"),
+      }
+    }
+    _ => param_decode_error("Page::from_param: expected Json object")
+  }
+}
+
+///|
 pub(open) trait ToParam {
   to_param(Self) -> Param
 }
@@ -672,4 +769,9 @@ pub impl ToParam for Bytes with to_param(self) -> Param {
 ///|
 pub impl ToParam for Json with to_param(self) -> Param {
   Json(self)
+}
+
+///|
+pub impl ToParam for Map[String, Param] with to_param(self) -> Param {
+  Object(self)
 }

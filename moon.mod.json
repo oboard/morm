@@ -1,6 +1,6 @@
 {
   "name": "oboard/morm",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "deps": {
     "moonbitlang/x": "0.4.43",
     "moonbitlang/parser": "0.2.5",

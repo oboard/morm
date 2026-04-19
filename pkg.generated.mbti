@@ -91,9 +91,9 @@ pub fn pageable(Int, Int) -> @engine.Pageable
 
 pub fn pageable_with_sort(Int, Int, @engine.Sort) -> @engine.Pageable
 
-pub async fn[E : @engine.Engine, T] paginate(E, &@engine.QueryBuilder, @engine.Pageable, (Map[String, @engine.Param]) -> T) -> @engine.Page[T]
+pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate(E, &@engine.QueryBuilder, @engine.Pageable) -> @engine.Page[T]
 
-pub async fn[E : @engine.Engine, T] paginate_raw(E, String, FixedArray[@engine.Param], @engine.Pageable, (Map[String, @engine.Param]) -> T) -> @engine.Page[T]
+pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate_raw(E, String, FixedArray[@engine.Param], @engine.Pageable) -> @engine.Page[T]
 
 pub fn pg_default_sequence_grant(@table.Table, String, String, Bool, String?) -> @table.Table
 
@@ -275,12 +275,10 @@ pub(all) enum PreloadResult[T] {
 pub struct Query {
   stmt : @engine.SelectStatement
 } derive(Eq, ToJson, @json.FromJson)
-pub fn Query::apply_pageable(Self, @engine.Pageable) -> Self
 pub fn Query::join(Self, String) -> Self
 pub fn Query::limit(Self, Int) -> Self
 pub fn Query::offset(Self, Int) -> Self
 pub fn Query::order_by(Self, @engine.OrderBy) -> Self
-pub fn Query::page(Self, Int, Int) -> Self
 pub fn Query::to_count_sql(Self) -> String
 pub fn[V : @engine.ToParam] Query::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gt(Self, String, V) -> Self
