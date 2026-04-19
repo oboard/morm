@@ -185,7 +185,7 @@ test "postgres privilege annotations emit table engine options" {
     ),
   )
   inspect(
-    table_option_values(table, "pgsql.grant.sequence")[0],
+    table_option_values(table, "pgsql.grant.table_sequence")[0],
     content="role=app_writer;privileges=USAGE, SELECT;grant_option=true",
   )
   inspect(

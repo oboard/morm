@@ -95,8 +95,12 @@ fn privilege_test_table() -> @table.Table {
         value: "role=app_reader;privileges=SELECT;grant_option=false",
       },
       {
-        key: "pgsql.grant.sequence",
+        key: "pgsql.grant.table_sequence",
         value: "role=app_writer;privileges=USAGE, SELECT;grant_option=true",
+      },
+      {
+        key: "pgsql.grant.sequence",
+        value: "role=app_reader;privileges=USAGE;grant_option=false",
       },
       {
         key: "pgsql.default_grant.table",
@@ -122,7 +126,7 @@ test "postgres renders schema ownership and privilege DDL" {
   inspect(
     pg_post_create_sqls(table).to_json().stringify(),
     content=(
-      #|["ALTER TABLE app.article OWNER TO app_owner","GRANT SELECT ON TABLE app.article TO app_reader","GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO app_writer WITH GRANT OPTION","ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT SELECT ON TABLES TO app_reader","ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO app_writer WITH GRANT OPTION"]
+      #|["ALTER TABLE app.article OWNER TO app_owner","GRANT SELECT ON TABLE app.article TO app_reader","DO $$ DECLARE seq_name text; BEGIN seq_name := pg_get_serial_sequence('app.article', 'id'); IF seq_name IS NOT NULL THEN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE ' || seq_name || ' TO app_writer WITH GRANT OPTION'; END IF; END $$;","GRANT USAGE ON ALL SEQUENCES IN SCHEMA app TO app_reader","ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT SELECT ON TABLES TO app_reader","ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO app_writer WITH GRANT OPTION"]
     ),
   )
 }

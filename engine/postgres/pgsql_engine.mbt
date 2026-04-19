@@ -690,6 +690,11 @@ fn pg_schema_name(table_schema : @table.Table) -> String {
 }
 
 ///|
+fn pg_escape_sql_literal(text : String) -> String {
+  text.replace(old="'", new="''")
+}
+
+///|
 fn pg_enum_type_sqls(table_schema : @table.Table) -> Array[String] {
   let sqls : Array[String] = []
   let seen : Map[String, Bool] = Map::new()
@@ -934,6 +939,31 @@ fn pg_post_create_sqls(table_schema : @table.Table) -> Array[String] {
       }
       sqls.push(sql)
     }
+    if option.key == "pgsql.grant.table_sequence" &&
+      parse_pg_grant_spec(option.value) is Some(grant) {
+      for column in table_schema.columns {
+        if !column.auto_increment {
+          continue
+        }
+        let table_name_quoted = pg_escape_sql_literal(table_name)
+        let column_name_quoted = pg_escape_sql_literal(column.name)
+        let mut grant_suffix = ""
+        if grant.with_grant_option {
+          grant_suffix = " WITH GRANT OPTION"
+        }
+        let sql = "DO $$ DECLARE seq_name text; BEGIN seq_name := pg_get_serial_sequence('" +
+          table_name_quoted +
+          "', '" +
+          column_name_quoted +
+          "'); IF seq_name IS NOT NULL THEN EXECUTE 'GRANT " +
+          grant.privileges +
+          " ON SEQUENCE ' || seq_name || ' TO " +
+          grant.role +
+          grant_suffix +
+          "'; END IF; END $$;"
+        sqls.push(sql)
+      }
+    }
     if option.key == "pgsql.default_grant.table" &&
       parse_pg_grant_spec(option.value) is Some(grant) {
       let mut sql = "ALTER DEFAULT PRIVILEGES"
@@ -1052,16 +1082,16 @@ pub impl @engine.Engine for PgSQLEngine with migrate_table(
   self,
   table_schema : @table.Table,
 ) -> @engine.QueryResult {
-  for enum_sql in pg_enum_type_sqls(table_schema) {
-    let enum_res = self.exec(@engine.Raw(enum_sql, []))
-    if !enum_res.ok {
-      return enum_res
-    }
-  }
   for schema_sql in pg_schema_sqls(table_schema) {
     let schema_res = self.exec(@engine.Raw(schema_sql, []))
     if !schema_res.ok {
       return schema_res
+    }
+  }
+  for enum_sql in pg_enum_type_sqls(table_schema) {
+    let enum_res = self.exec(@engine.Raw(enum_sql, []))
+    if !enum_res.ok {
+      return enum_res
     }
   }
   let create_sql = pg_create_table_sql(table_schema)

@@ -279,6 +279,11 @@ fn apply_entity_table_attributes(
             table, role, privileges, with_grant_option,
           )
         }
+        if orm_attr_string(attr, "schema_sequence") is Some(privileges) {
+          table = @morm.pg_schema_sequence_grant(
+            table, role, privileges, with_grant_option,
+          )
+        }
         if orm_attr_string(attr, "default_table") is Some(privileges) {
           table = @morm.pg_default_table_grant(
             table,

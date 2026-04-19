@@ -211,6 +211,20 @@ pub fn pg_sequence_grant(
 ) -> Table {
   add_table_engine_option(
     table,
+    "pgsql.grant.table_sequence",
+    pg_grant_payload(role, privileges, with_grant_option, None),
+  )
+}
+
+///|
+pub fn pg_schema_sequence_grant(
+  table : Table,
+  role : String,
+  privileges : String,
+  with_grant_option : Bool,
+) -> Table {
+  add_table_engine_option(
+    table,
     "pgsql.grant.sequence",
     pg_grant_payload(role, privileges, with_grant_option, None),
   )
