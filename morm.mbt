@@ -1111,7 +1111,42 @@ pub fn[E : Entity] UpsertQuery::from(
         }
       }
   }
-  { stmt: { ..self.stmt, sets, conflict_target: conflict_cols } }
+  let update_sets : Array[@engine.Set] = []
+  for set_item in sets {
+    let mut is_conflict_col = false
+    for conflict_col in conflict_cols {
+      if conflict_col == set_item.col {
+        is_conflict_col = true
+        break
+      }
+    }
+    if !is_conflict_col {
+      update_sets.push(set_item)
+    }
+  }
+  if update_sets.is_empty() {
+    for set_item in sets {
+      let mut is_conflict_col = false
+      for conflict_col in conflict_cols {
+        if conflict_col == set_item.col {
+          is_conflict_col = true
+          break
+        }
+      }
+      if is_conflict_col {
+        update_sets.push(set_item)
+        break
+      }
+    }
+  }
+  {
+    stmt: {
+      ..self.stmt,
+      sets,
+      conflict_target: conflict_cols,
+      update_sets: FixedArray::from_array(update_sets),
+    },
+  }
 }
 
 ///|
