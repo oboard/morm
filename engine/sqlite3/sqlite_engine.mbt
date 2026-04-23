@@ -1,11 +1,25 @@
 ///|
 struct SQLiteEngine {
   conn : Connection
+  trace_sql : Bool
 }
 
 ///|
 pub fn SQLiteEngine::open(filename : String) -> SQLiteEngine {
-  { conn: try! Connection::open(filename) }
+  SQLiteEngine::open_with_trace(filename, trace_sql=true)
+}
+
+///|
+pub fn SQLiteEngine::open_quiet(filename : String) -> SQLiteEngine {
+  SQLiteEngine::open_with_trace(filename, trace_sql=false)
+}
+
+///|
+pub fn SQLiteEngine::open_with_trace(
+  filename : String,
+  trace_sql~ : Bool,
+) -> SQLiteEngine {
+  { conn: try! Connection::open(filename), trace_sql }
 }
 
 ///|
@@ -444,8 +458,10 @@ fn SQLiteEngine::exec_sql(
 ) -> @engine.QueryResult {
   let mut error = None
   let rows : Array[Map[String, @engine.Param]] = []
-  println(sql + ";")
-  println(params.to_json().stringify())
+  if self.trace_sql {
+    println(sql + ";")
+    println(params.to_json().stringify())
+  }
   try {
     let stmt = self.conn.prepare(sql + ";")
     params.eachi((index, val) => {

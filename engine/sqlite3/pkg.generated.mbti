@@ -103,6 +103,8 @@ pub fn Connection::prepare(Self, String, loc~ : SourceLoc) -> Statement raise Sq
 
 type SQLiteEngine
 pub fn SQLiteEngine::open(String) -> Self
+pub fn SQLiteEngine::open_quiet(String) -> Self
+pub fn SQLiteEngine::open_with_trace(String, trace_sql~ : Bool) -> Self
 pub impl @engine.Engine for SQLiteEngine
 
 pub(all) enum SQLiteValue {

@@ -1,0 +1,15 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/bench",
+  "moonbitlang/core/json",
+  "oboard/morm",
+  "oboard/morm/engine",
+  "oboard/morm/engine/sqlite3",
+}
+
+supported_targets = "+native"
+
+options(
+  "bin-name": "morm-benchmarks",
+  "is-main": true,
+)

@@ -1,0 +1,54 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/examples/benchmarks"
+
+import {
+  "moonbitlang/core/json",
+  "oboard/morm",
+  "oboard/morm/engine",
+  "oboard/morm/table",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct BenchPost {
+  id : Int
+  user_id : Int
+  title : String
+  published : Int
+} derive(ToJson, @json.FromJson)
+pub fn BenchPost::_from(Map[String, @engine.Param]) -> Self
+pub fn BenchPost::table() -> @table.Table
+pub impl @morm.Entity for BenchPost
+pub impl @engine.FromParam for BenchPost
+
+pub struct BenchUser {
+  id : Int
+  email : String
+  active : Int
+} derive(ToJson, @json.FromJson)
+pub fn BenchUser::_from(Map[String, @engine.Param]) -> Self
+pub fn BenchUser::table() -> @table.Table
+pub impl @morm.Entity for BenchUser
+pub impl @engine.FromParam for BenchUser
+
+pub struct BenchUserMapperImpl {
+  engine : &@engine.Engine
+}
+pub fn BenchUserMapperImpl::new(&@engine.Engine) -> Self
+pub impl BenchUserMapper for BenchUserMapperImpl
+
+// Type aliases
+
+// Traits
+pub trait BenchUserMapper {
+  async save(Self, BenchUser) -> Bool
+  async find_user_by_id(Self, Int) -> BenchUser?
+  async find_users_by_active(Self, Int) -> FixedArray[BenchUser]
+  async find_users_page_by_active(Self, Int, @engine.Pageable) -> @engine.Page[BenchUser]
+  async update_active_by_id(Self, Int, Int) -> Bool
+  async delete_by_id(Self, Int) -> Bool
+}
+
