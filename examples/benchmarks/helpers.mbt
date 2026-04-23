@@ -54,7 +54,7 @@ async fn seed_database(engine : @sqlite3.SQLiteEngine) -> Unit {
 
 ///|
 fn setup_engine() -> @sqlite3.SQLiteEngine {
-  let engine = @sqlite3.SQLiteEngine::open_quiet(":memory:")
+  let engine = @sqlite3.SQLiteEngine::open(":memory:")
   @async.run_async_main(async fn() { seed_database(engine) })
   engine
 }
