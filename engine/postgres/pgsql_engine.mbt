@@ -108,7 +108,49 @@ pub fn PgSQLEngine::open(dsn : String) -> Result[PgSQLEngine, String] {
 
 ///|
 fn pg_render(stmt : @engine.Statement) -> (String, FixedArray[@engine.Param]) {
+  if stmt is @engine.Upsert(upsert_stmt) {
+    let { table, sets, conflict_target, update_sets } = upsert_stmt
+    let buf = @buffer.new()
+    buf.write_string("INSERT INTO ")
+    buf.write_string(table)
+    buf.write_string(" (")
+    buf.write_string(sets.map(s => s.col).join(", "))
+    buf.write_string(") VALUES (")
+    let placeholders : Array[String] = []
+    for i in 1..<=sets.length() {
+      placeholders.push("$\{i}")
+    }
+    buf.write_string(placeholders.join(", "))
+    buf.write_string(")")
+    if !conflict_target.is_empty() {
+      buf.write_string(" ON CONFLICT (")
+      buf.write_string(conflict_target.join(", "))
+      buf.write_string(")")
+    }
+    if !update_sets.is_empty() {
+      buf.write_string(" DO UPDATE SET ")
+      let assignments : Array[String] = []
+      let mut index = sets.length() + 1
+      for item in update_sets {
+        assignments.push("\{item.col} = $\{index}")
+        index += 1
+      }
+      buf.write_string(assignments.join(", "))
+    } else {
+      buf.write_string(" DO NOTHING")
+    }
+    let mut args = sets.map(s => s.value)
+    if !update_sets.is_empty() {
+      args = args + update_sets.map(s => s.value)
+    }
+    return (buf.to_string(), args)
+  }
   let (sql, params) = @engine.render_default_sql(stmt)
+  (pg_placeholder_sql(sql), params)
+}
+
+///|
+fn pg_placeholder_sql(sql : String) -> String {
   let out = @buffer.new()
   let mut index = 1
   for c in sql {
@@ -120,7 +162,7 @@ fn pg_render(stmt : @engine.Statement) -> (String, FixedArray[@engine.Param]) {
       out.write_char(c)
     }
   }
-  (out.to_string(), params)
+  out.to_string()
 }
 
 ///|
@@ -245,6 +287,60 @@ fn json_from_text(text : String) -> Json {
 }
 
 ///|
+fn be_u32(bytes : BytesView) -> Int? {
+  match bytes {
+    [u8be(b0), u8be(b1), u8be(b2), u8be(b3)] =>
+      Some(
+        (b0.reinterpret_as_int() << 24) |
+        (b1.reinterpret_as_int() << 16) |
+        (b2.reinterpret_as_int() << 8) |
+        b3.reinterpret_as_int(),
+      )
+    _ => None
+  }
+}
+
+///|
+fn pg_param_from_text(type_oid : Int, text : String) -> @engine.Param {
+  match type_oid {
+    16 => @engine.Bool(text is ("t" | "true" | "TRUE"))
+    20 =>
+      match (try? @string.parse_int(text)) {
+        Ok(value) => @engine.Int(value)
+        Err(_) =>
+          match (try? @string.parse_int64(text)) {
+            Ok(value) => @engine.Int64(value)
+            Err(_) => @engine.BigInt(BigInt::from_string(text))
+          }
+      }
+    21 =>
+      match (try? @string.parse_int(text)) {
+        Ok(value) => @engine.Int16(Int16::from_int(value))
+        Err(_) => @engine.String(text)
+      }
+    23 =>
+      match (try? @string.parse_int(text)) {
+        Ok(value) => @engine.Int(value)
+        Err(_) => @engine.String(text)
+      }
+    700 =>
+      match (try? @string.parse_double(text)) {
+        Ok(value) => @engine.Float(Float::from_double(value))
+        Err(_) => @engine.String(text)
+      }
+    701 =>
+      match (try? @string.parse_double(text)) {
+        Ok(value) => @engine.Double(value)
+        Err(_) => @engine.String(text)
+      }
+    1700 => @engine.Decimal(text)
+    114 | 3802 => @engine.Json(json_from_text(text))
+    25 | 1042 | 1043 | 2950 => @engine.String(text)
+    _ => @engine.to_param(json_from_text(text))
+  }
+}
+
+///|
 fn parse_rows_affected(command_complete : String) -> Int {
   let parts = command_complete.split(" ").collect()
   if parts.length() == 0 {
@@ -277,13 +373,11 @@ async fn read_message(conn : @socket.Tcp) -> (Byte, Bytes)? {
 
 ///|
 async fn write_tagged(conn : @socket.Tcp, tag : Byte, payload : Bytes) -> Bool {
-  let h = @buffer.new()
-  h.write_byte(tag)
-  h.write_uint_be((payload.length() + 4).reinterpret_as_uint())
-  conn.write(h.to_bytes()) catch {
-    _ => return false
-  }
-  conn.write(payload) catch {
+  let msg = @buffer.new()
+  msg.write_byte(tag)
+  msg.write_uint_be((payload.length() + 4).reinterpret_as_uint())
+  msg.write_bytes(payload)
+  conn.write(msg.to_bytes()) catch {
     _ => return false
   }
   true
@@ -409,6 +503,7 @@ async fn pg_query_on_conn(
   }
 
   let cols : Array[String] = []
+  let col_type_oids : Array[Int] = []
   let rows : Array[Map[String, @engine.Param]] = []
   let mut rows_affected = 0
   let mut done = false
@@ -424,6 +519,7 @@ async fn pg_query_on_conn(
         return (fail("pgsql bad row-description"), false)
       }
       cols.clear()
+      col_type_oids.clear()
       let count = match payload[:2] {
         [u8be(b0), u8be(b1)] =>
           (b0.reinterpret_as_int() << 8) | b1.reinterpret_as_int()
@@ -434,10 +530,17 @@ async fn pg_query_on_conn(
       while i < count {
         if cstring(payload, pos) is Some((name, next)) {
           cols.push(name)
-          pos = next + 18
-          if pos > payload.length() {
+          let meta_start = next
+          let meta_end = meta_start + 18
+          if meta_end > payload.length() {
             return (fail("pgsql truncated row-description"), false)
           }
+          let type_oid = match be_u32(payload[meta_start + 6:meta_start + 10]) {
+            Some(type_oid) => type_oid
+            None => return (fail("pgsql bad type oid"), false)
+          }
+          col_type_oids.push(type_oid)
+          pos = meta_end
         } else {
           return (fail("pgsql bad column name"), false)
         }
@@ -476,7 +579,12 @@ async fn pg_query_on_conn(
             return (fail("pgsql truncated data value"), false)
           }
           let text = @utf8.decode_lossy(payload[pos:pos + len].to_bytes())
-          obj[key] = @engine.to_param(json_from_text(text))
+          let type_oid = if i < col_type_oids.length() {
+            col_type_oids[i]
+          } else {
+            0
+          }
+          obj[key] = pg_param_from_text(type_oid, text)
           pos = pos + len
         }
         i = i + 1
@@ -1052,7 +1160,7 @@ pub impl @engine.Engine for PgSQLEngine with exec(
 ) -> @engine.QueryResult {
   let (sql, params) = match query.to_query() {
     @engine.Statement(stmt) => pg_render(stmt)
-    @engine.Raw(sql, params) => (sql, params)
+    @engine.Raw(sql, params) => (pg_placeholder_sql(sql), params)
     @engine.Tx(op) => (pg_tx_sql(op), [])
   }
   let query = inline_sql(sql, params)

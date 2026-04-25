@@ -55,6 +55,12 @@ test "morm query builder render benchmarks" (b : @bench.T) {
   b.bench(name="morm/render/upsert", fn() {
     b.keep(render_len(@morm.upsert_into("bench_user").from(bench_user(42))))
   })
+  b.bench(name="morm/render/nested_upsert", fn() {
+    b.keep(
+      render_len(@morm.upsert_into("bench_user").from(bench_user(42))) +
+      render_len(@morm.upsert_into("bench_post").from(bench_post(421, 42))),
+    )
+  })
   b.bench(name="morm/render/delete", fn() {
     b.keep(render_len(@morm.delete_from("bench_user").where_eq("id", 42)))
   })
@@ -160,6 +166,15 @@ test "morm sqlite latency benchmarks" (b : @bench.T) {
       b.keep(mapper.save({ ..bench_user(42), active: 1 }))
     })
   })
+  b.bench(name="morm/sqlite/nested_upsert", fn() {
+    @async.run_async_main(async fn() {
+      ignore(mapper.save({ ..bench_user(42), active: 1 }))
+      let res = engine.exec(
+        @morm.upsert_into("bench_post").from(bench_post(421, 42)),
+      )
+      b.keep(res.ok)
+    })
+  })
   b.bench(name="morm/sqlite/delete", fn() {
     delete_id += 1
     @async.run_async_main(async fn() {
@@ -167,5 +182,54 @@ test "morm sqlite latency benchmarks" (b : @bench.T) {
       b.keep(mapper.delete_by_id(delete_id))
     })
   })
+  engine.close()
+}
+
+///|
+async test "morm postgresql benchmark queries return expected rows" {
+  let engine = setup_postgres_engine()
+  let mapper = BenchUserMapperImpl::new(engine)
+
+  let find_all = engine.exec(@morm.select_from("bench_user"))
+  inspect(find_all.ok, content="true")
+  inspect(find_all.rows.length(), content="1000")
+
+  let nested_find_all = engine.exec(
+    @morm.select_from("bench_user u")
+    .join("LEFT JOIN bench_post p ON p.user_id = u.id")
+    .order_by(Asc("u.id"))
+    .limit(benchmark_size),
+  )
+  inspect(nested_find_all.ok, content="true")
+  inspect(nested_find_all.rows.length(), content="1000")
+
+  let find_first = engine.exec(
+    @morm.select_from("bench_user").order_by(Asc("id")).limit(1),
+  )
+  inspect(find_first.ok, content="true")
+  inspect(find_first.rows.length(), content="1")
+
+  let nested_find_first = engine.exec(
+    @morm.select_from("bench_user u")
+    .join("LEFT JOIN bench_post p ON p.user_id = u.id")
+    .order_by(Asc("u.id"))
+    .limit(1),
+  )
+  inspect(nested_find_first.ok, content="true")
+  inspect(nested_find_first.rows.length(), content="1")
+
+  let page = mapper.find_users_page_by_active(
+    1,
+    @morm.pageable_with_sort(2, 20, @morm.asc("id")),
+  )
+  let count_result = engine.exec_raw(
+    "SELECT COUNT(*) AS c FROM bench_user WHERE active = ?",
+    [@engine.Int(1)],
+  )
+  inspect(count_result.ok, content="true")
+  json_inspect(count_result.rows[0], content={ "c": 500 })
+  inspect(page.content.length(), content="20")
+  inspect(page.total_elements, content="500")
+
   engine.close()
 }

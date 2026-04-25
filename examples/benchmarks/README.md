@@ -10,13 +10,13 @@ Prisma's benchmark dashboard:
 - `find_unique` and `nested_find_unique`.
 - `create` and `nested_create`.
 - `update` and `nested_update`.
-- `upsert`.
+- `upsert` and `nested_upsert`.
 - `delete`.
 
 There are two groups:
 
 - `morm/render/*` measures morm query-builder and SQL rendering overhead.
-- `morm/sqlite/*` measures end-to-end in-memory SQLite latency through morm's
+- `morm/postgresql/*` measures end-to-end PostgreSQL latency through morm's
   query builder and generated-mapper style APIs.
 
 Run:
@@ -31,6 +31,9 @@ For a Prisma-dashboard-style JSON report with fixed 500-iteration sampling and
 ```bash
 moon run examples/benchmarks --target native --release
 ```
+
+The JSON report expects PostgreSQL at
+`postgres://postgres:postgres@127.0.0.1:15432/morm_benchmarks`.
 
 The MoonBit benchmark summary reports mean, standard deviation, min/max range,
 and run counts. For Prisma-style comparison, use the named benchmarks as row

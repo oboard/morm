@@ -53,26 +53,89 @@ pub fn BenchPost::table() -> @morm.Table {
 }
 
 ///|
+fn bench_row_param(
+  row : Map[String, @engine.Param],
+  key : String,
+) -> @engine.Param raise @engine.ParamDecodeError {
+  match row.get(key) {
+    Some(value) => value
+    None =>
+      raise @engine.ParamDecodeError(
+        "benchmark row decode: missing column \{key}",
+      )
+  }
+}
+
+///|
+fn bench_row_int(
+  row : Map[String, @engine.Param],
+  key : String,
+) -> Int raise @engine.ParamDecodeError {
+  match bench_row_param(row, key) {
+    Int(value) => value
+    Int16(value) => value.to_int()
+    Int64(value) => value.to_int()
+    BigInt(value) => value.to_int()
+    UInt16(value) => value.to_int()
+    Byte(value) => value.to_int()
+    Json(Number(value, ..)) => value.to_int()
+    _ =>
+      raise @engine.ParamDecodeError(
+        "benchmark row decode: expected Int-compatible column \{key}",
+      )
+  }
+}
+
+///|
+fn bench_row_string(
+  row : Map[String, @engine.Param],
+  key : String,
+) -> String raise @engine.ParamDecodeError {
+  match bench_row_param(row, key) {
+    String(value) => value
+    Json(String(value)) => value
+    _ =>
+      raise @engine.ParamDecodeError(
+        "benchmark row decode: expected String-compatible column \{key}",
+      )
+  }
+}
+
+///|
 pub fn BenchUser::_from(row : Map[String, @engine.Param]) -> BenchUser {
-  let id : Int = try! @engine.from_param(row.get("id").unwrap())
-  let email : String = try! @engine.from_param(row.get("email").unwrap())
-  let active : Int = try! @engine.from_param(row.get("active").unwrap())
+  try! BenchUser::decode_from(row)
+}
+
+///|
+fn BenchUser::decode_from(
+  row : Map[String, @engine.Param],
+) -> BenchUser raise @engine.ParamDecodeError {
+  let id = bench_row_int(row, "id")
+  let email = bench_row_string(row, "email")
+  let active = bench_row_int(row, "active")
   { id, email, active }
 }
 
 ///|
 pub fn BenchPost::_from(row : Map[String, @engine.Param]) -> BenchPost {
-  let id : Int = try! @engine.from_param(row.get("id").unwrap())
-  let user_id : Int = try! @engine.from_param(row.get("user_id").unwrap())
-  let title : String = try! @engine.from_param(row.get("title").unwrap())
-  let published : Int = try! @engine.from_param(row.get("published").unwrap())
+  try! BenchPost::decode_from(row)
+}
+
+///|
+fn BenchPost::decode_from(
+  row : Map[String, @engine.Param],
+) -> BenchPost raise @engine.ParamDecodeError {
+  let id = bench_row_int(row, "id")
+  let user_id = bench_row_int(row, "user_id")
+  let title = bench_row_string(row, "title")
+  let published = bench_row_int(row, "published")
   { id, user_id, title, published }
 }
 
 ///|
 pub impl @engine.FromParam for BenchUser with from_param(value) {
   match value {
-    @engine.Object(obj) => BenchUser::_from(obj)
+    @engine.Object(obj) => BenchUser::decode_from(obj)
     @engine.Json(Object(obj)) => {
       let row : Map[String, @engine.Param] = Map::new()
       for key in obj.keys() {
@@ -80,7 +143,7 @@ pub impl @engine.FromParam for BenchUser with from_param(value) {
           row.set(key, @engine.to_param(v))
         }
       }
-      BenchUser::_from(row)
+      BenchUser::decode_from(row)
     }
     _ =>
       raise @engine.ParamDecodeError(
@@ -92,7 +155,7 @@ pub impl @engine.FromParam for BenchUser with from_param(value) {
 ///|
 pub impl @engine.FromParam for BenchPost with from_param(value) {
   match value {
-    @engine.Object(obj) => BenchPost::_from(obj)
+    @engine.Object(obj) => BenchPost::decode_from(obj)
     @engine.Json(Object(obj)) => {
       let row : Map[String, @engine.Param] = Map::new()
       for key in obj.keys() {
@@ -100,7 +163,7 @@ pub impl @engine.FromParam for BenchPost with from_param(value) {
           row.set(key, @engine.to_param(v))
         }
       }
-      BenchPost::_from(row)
+      BenchPost::decode_from(row)
     }
     _ =>
       raise @engine.ParamDecodeError(

@@ -646,6 +646,30 @@ fn page_row_param(row : Map[String, @engine.Param]) -> @engine.Param {
 }
 
 ///|
+fn page_total_elements(row : Map[String, @engine.Param], fallback : Int) -> Int {
+  let first_key : String? = None
+  let mut key_opt = first_key
+  for key in row.keys() {
+    key_opt = Some(key)
+    break
+  }
+  match key_opt {
+    Some(k) =>
+      match row.get(k) {
+        Some(@engine.Int(n)) => n
+        Some(@engine.Int16(n)) => n.to_int()
+        Some(@engine.Int64(n)) => n.to_int()
+        Some(@engine.BigInt(n)) => n.to_int()
+        Some(@engine.UInt16(n)) => n.to_int()
+        Some(@engine.Byte(n)) => n.to_int()
+        Some(@engine.Json(Number(n, ..))) => n.to_int()
+        _ => fallback
+      }
+    None => fallback
+  }
+}
+
+///|
 fn[T : @engine.FromParam] decode_page_row(
   row : Map[String, @engine.Param],
 ) -> T {
@@ -1990,22 +2014,7 @@ pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate(
     @engine.render_query_sql(count_query).1,
   )
   let total_elements = match count_result.rows {
-    [row, ..] => {
-      let first_key : String? = None
-      let mut key_opt = first_key
-      for key in row.keys() {
-        key_opt = Some(key)
-        break
-      }
-      match key_opt {
-        Some(k) =>
-          match row.get(k) {
-            Some(@engine.Int(n)) => n
-            _ => items.length()
-          }
-        None => items.length()
-      }
-    }
+    [row, ..] => page_total_elements(row, items.length())
     _ => items.length()
   }
   let total_pages = if pageable.size > 0 {
