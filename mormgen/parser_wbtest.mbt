@@ -119,7 +119,7 @@ test "generate mapper code for set list and map returns" {
 }
 
 ///|
-test "generate save update delete with trait parameter name" {
+test "generate create save update delete with trait parameter name" {
   let source =
     #|///|
     #|#morm.entity
@@ -132,6 +132,7 @@ test "generate save update delete with trait parameter name" {
     #|///|
     #|#morm.mapper(table="user")
     #|pub trait UserMapper {
+    #|  async create(Self, user : User) -> Bool
     #|  async save(Self, user : User) -> Bool
     #|  async update(Self, user : User) -> Bool
     #|  async delete(Self, user : User) -> Bool
@@ -140,6 +141,10 @@ test "generate save update delete with trait parameter name" {
   let entity_specs = parse_entities_from_ast(ast)
   let mapper_specs = parse_mappers_from_ast(ast, source, entity_specs)
   let code = generate_mapper_code(mapper_specs[0], entity_specs, [])
+  inspect(
+    code.contains("@oboard/morm.insert_into(\"user\").from(user)"),
+    content="true",
+  )
   inspect(code.contains(".from(user)"), content="true")
   inspect(code.contains(".set(\"name\", user.name)"), content="true")
   inspect(code.contains(".where_eq(\"id\", user.id)"), content="true")

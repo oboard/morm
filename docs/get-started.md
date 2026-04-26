@@ -311,12 +311,17 @@ Mapper methods can also attach joins with:
 
 These are currently implemented as query builder `.join(...)` appends. They do not add a separate object graph identity map; they simply extend the SQL used for the generated method.
 
-## Save And Delete
+## Create, Save, And Delete
 
 Generated mappers recognize special methods:
 
+- `create(Self, entity : T)`
 - `save(Self, entity : T)`
 - `delete(Self, entity : T)`
+
+`create` is implemented with `@morm.insert_into(...).from(entity)`. Insert
+builders skip `auto_increment` columns, so this path is suitable for database
+generated ids.
 
 `save` is implemented with `@morm.upsert_into(...).from(entity)`.
 

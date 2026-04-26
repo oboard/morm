@@ -1264,7 +1264,80 @@ fn generate_mapper_code(
       $| pub impl \{trait_name} for \{impl_name} with \{m.name}(
       $|   \{param_sig}
       $| ) -> \{ret_type} {
-    let body = if m.name == "save" && m.params.length() == 1 {
+    let body = if m.name == "create" && m.params.length() == 1 {
+      let entity_param_name = m.params[0].0
+      let create_entity_spec = match entity_spec {
+        Some(spec) => Some(spec)
+        None =>
+          match find_entity_spec(entity_specs, m.params[0].1) {
+            Some(spec) => Some(spec)
+            None =>
+              match spec.table_name {
+                Some(table_name) =>
+                  find_entity_spec_by_table(entity_specs, table_name)
+                None => None
+              }
+          }
+      }
+      let auto_assigns : Array[String] = []
+      match create_entity_spec {
+        Some(create_spec) =>
+          for field in create_spec.fields {
+            if field_auto_create_time(field) || field_auto_update_time(field) {
+              match auto_time_value_expr(field) {
+                Some(expr) => auto_assigns.push(field.label + ": " + expr)
+                None => ()
+              }
+            }
+          }
+        None => ()
+      }
+      let auto_stamp_code = if auto_assigns.length() > 0 {
+        let assigns = auto_assigns.join(", ")
+        (
+          $|   let \{entity_param_name} = {
+          $|     ..\{entity_param_name},
+          $|     \{assigns},
+          $|   }
+        )
+      } else {
+        ""
+      }
+      if ret_type == "Bool" {
+        (
+          $|\{auto_stamp_code}
+          $|   let q = \{PKG_NAME}.insert_into(\{table_expr}).from(\{entity_param_name})
+          $|   self.engine.exec(q).ok
+          $| }
+          $|
+        )
+      } else if m.returns_option {
+        (
+          $|\{auto_stamp_code}
+          $|   let q = \{PKG_NAME}.insert_into(\{table_expr}).from(\{entity_param_name})
+          $|   let res = self.engine.exec(q)
+          $|   if res.rows is [result, ..] {
+          $|     return Some(\{option_decode_expr})
+          $|   }
+          $|   None
+          $| }
+          $|
+        )
+      } else {
+        let entity_ty = m.params[0].1
+        (
+          $|\{auto_stamp_code}
+          $|   let q = \{PKG_NAME}.insert_into(\{table_expr}).from(\{entity_param_name})
+          $|   let res = self.engine.exec(q)
+          $|   if res.rows is [result, ..] {
+          $|     return \{render_query_result_decode_expr(entity_ty, "result", entity_specs, enum_specs)}
+          $|   }
+          $|   panic()
+          $| }
+          $|
+        )
+      }
+    } else if m.name == "save" && m.params.length() == 1 {
       let entity_param_name = m.params[0].0
       let save_entity_spec = match entity_spec {
         Some(spec) => Some(spec)

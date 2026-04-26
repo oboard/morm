@@ -165,6 +165,25 @@ pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
 - 非实体标量返回值也需要满足 `FromParam`
 - 生成的实体 `_from(...)` 也是基于 `Map[String, Param]`
 
+## 特殊 `create` 方法
+
+`create` 是生成器识别的插入专用方法。
+
+```moonbit
+///|
+#morm.mapper(table="class")
+pub trait ClassMapper {
+  async create(Self, entity : Class) -> Bool
+}
+```
+
+生成行为是：
+
+- 如果命中了自动时间字段，先重写实体
+- 构建 `@morm.insert_into(...).from(entity)`
+- insert builder 会跳过 `auto_increment` 列，适合数据库生成 id
+- 通过引擎执行
+
 ## 特殊 `save` 方法
 
 `save` 是生成器识别的特殊方法。

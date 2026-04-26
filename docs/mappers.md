@@ -163,6 +163,25 @@ That means:
 - non-entity scalar return types must also satisfy `FromParam`
 - generated entity `_from(...)` functions are based on `Map[String, Param]`
 
+## Special `create` Method
+
+`create` is a recognized special method for insert-only writes.
+
+```moonbit
+///|
+#morm.mapper(table="class")
+pub trait ClassMapper {
+  async create(Self, entity : Class) -> Bool
+}
+```
+
+Generated behavior:
+
+- rewrites the entity first when auto timestamp rules apply
+- builds `@morm.insert_into(...).from(entity)`
+- skips `auto_increment` columns through the insert builder
+- executes through the engine
+
 ## Special `save` Method
 
 `save` is a recognized special method.

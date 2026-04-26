@@ -993,16 +993,28 @@ pub fn insert_into(table : String) -> InsertQuery {
 }
 
 ///|
+fn insertable_columns(table : Table) -> FixedArray[Column] {
+  let columns : Array[Column] = []
+  for col in table.columns {
+    if !col.auto_increment {
+      columns.push(col)
+    }
+  }
+  FixedArray::from_array(columns)
+}
+
+///|
 pub fn[E : Entity] InsertQuery::from(
   self : InsertQuery,
   entity : E,
 ) -> InsertQuery {
   let json = entity.to_json()
   let table = entity.table()
-  let columns = table.columns.map(c => c.name)
+  let insert_cols = insertable_columns(table)
+  let columns = insert_cols.map(c => c.name)
   let values = if json is Object(obj) {
     let encoded : Array[@engine.Param] = []
-    for col in table.columns {
+    for col in insert_cols {
       match obj.get(col.name) {
         Some(v) => encoded.push(json_to_param_for_column(v, col))
         None => encoded.push(@engine.Null)
@@ -1025,13 +1037,14 @@ pub fn[E : Entity] InsertQuery::from_many(
   }
   let first = entities[0]
   let table = first.table()
-  let columns = table.columns.map(c => c.name)
+  let insert_cols = insertable_columns(table)
+  let columns = insert_cols.map(c => c.name)
   let rows : Array[FixedArray[@engine.Param]] = []
   for entity in entities {
     let json = entity.to_json()
     if json is Object(obj) {
       let encoded : Array[@engine.Param] = []
-      for col in table.columns {
+      for col in insert_cols {
         match obj.get(col.name) {
           Some(v) => encoded.push(json_to_param_for_column(v, col))
           None => encoded.push(@engine.Null)

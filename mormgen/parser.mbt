@@ -598,7 +598,7 @@ fn infer_mapper_param_names(method_name : String, count : Int) -> Array[String] 
     return inferred
   }
 
-  if method_name is ("save" | "update" | "delete") {
+  if method_name is ("save" | "update" | "delete" | "create") {
     inferred.push("entity")
   } else if method_name.has_prefix("update_") {
     let (set_fields, where_fields) = derive_update_method_fields(method_name)
@@ -807,6 +807,7 @@ fn parse_mappers_from_ast(
 
               if sql_opt is None &&
                 builder_code_opt is None &&
+                mname != "create" &&
                 mname != "save" &&
                 mname != "update" &&
                 mname != "delete" {
