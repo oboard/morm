@@ -119,6 +119,35 @@ test "generate mapper code for set list and map returns" {
 }
 
 ///|
+test "generate save update delete with trait parameter name" {
+  let source =
+    #|///|
+    #|#morm.entity
+    #|pub(all) struct User {
+    #|  #morm.id
+    #|  id : Int
+    #|  name : String
+    #|} derive(ToJson, FromJson)
+    #|
+    #|///|
+    #|#morm.mapper(table="user")
+    #|pub trait UserMapper {
+    #|  async save(Self, user : User) -> Bool
+    #|  async update(Self, user : User) -> Bool
+    #|  async delete(Self, user : User) -> Bool
+    #|}
+  let (ast, _) = @parser.parse_string(source)
+  let entity_specs = parse_entities_from_ast(ast)
+  let mapper_specs = parse_mappers_from_ast(ast, source, entity_specs)
+  let code = generate_mapper_code(mapper_specs[0], entity_specs, [])
+  inspect(code.contains(".from(user)"), content="true")
+  inspect(code.contains(".set(\"name\", user.name)"), content="true")
+  inspect(code.contains(".where_eq(\"id\", user.id)"), content="true")
+  inspect(code.contains(".from(entity)"), content="false")
+  inspect(code.contains("entity."), content="false")
+}
+
+///|
 test "parse and generate mapper page return" {
   let source =
     #|///|

@@ -805,6 +805,7 @@ fn entity_primary_key_field_for_codegen(spec : EntitySpec) -> FieldSpec? {
 fn render_partial_update_expr(
   table_expr : String,
   entity_spec : EntitySpec,
+  param_name : String,
 ) -> String? {
   let set_fields : Array[String] = []
   let where_fields : Array[String] = []
@@ -824,10 +825,10 @@ fn render_partial_update_expr(
   let parts : Array[String] = []
   parts.push("\{PKG_NAME}.update(\{table_expr})")
   for label in set_fields {
-    parts.push(".set(\"\{label}\", entity.\{label})")
+    parts.push(".set(\"\{label}\", \{param_name}.\{label})")
   }
   for label in where_fields {
-    parts.push(".where_eq(\"\{label}\", entity.\{label})")
+    parts.push(".where_eq(\"\{label}\", \{param_name}.\{label})")
   }
   Some(parts.join(""))
 }
@@ -1264,6 +1265,7 @@ fn generate_mapper_code(
       $|   \{param_sig}
       $| ) -> \{ret_type} {
     let body = if m.name == "save" && m.params.length() == 1 {
+      let entity_param_name = m.params[0].0
       let save_entity_spec = match entity_spec {
         Some(spec) => Some(spec)
         None =>
@@ -1293,8 +1295,8 @@ fn generate_mapper_code(
       let auto_stamp_code = if auto_assigns.length() > 0 {
         let assigns = auto_assigns.join(", ")
         (
-          $|   let entity = {
-          $|     ..entity,
+          $|   let \{entity_param_name} = {
+          $|     ..\{entity_param_name},
           $|     \{assigns},
           $|   }
         )
@@ -1304,7 +1306,7 @@ fn generate_mapper_code(
       if ret_type == "Bool" {
         (
           $|\{auto_stamp_code}
-          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(entity)
+          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(\{entity_param_name})
           $|   self.engine.exec(q).ok
           $| }
           $|
@@ -1312,7 +1314,7 @@ fn generate_mapper_code(
       } else if m.returns_option {
         (
           $|\{auto_stamp_code}
-          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(entity)
+          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(\{entity_param_name})
           $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
           $|     return Some(\{option_decode_expr})
@@ -1325,7 +1327,7 @@ fn generate_mapper_code(
         let entity_ty = m.params[0].1
         (
           $|\{auto_stamp_code}
-          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(entity)
+          $|   let q = \{PKG_NAME}.upsert_into(\{table_expr}).from(\{entity_param_name})
           $|   let res = self.engine.exec(q)
           $|   if res.rows is [result, ..] {
           $|     return \{render_query_result_decode_expr(entity_ty, "result", entity_specs, enum_specs)}
@@ -1336,6 +1338,7 @@ fn generate_mapper_code(
         )
       }
     } else if m.name == "update" && m.params.length() == 1 {
+      let entity_param_name = m.params[0].0
       let update_entity_spec = match entity_spec {
         Some(spec) => Some(spec)
         None =>
@@ -1365,8 +1368,8 @@ fn generate_mapper_code(
       let auto_stamp_code = if auto_assigns.length() > 0 {
         let assigns = auto_assigns.join(", ")
         (
-          $|   let entity = {
-          $|     ..entity,
+          $|   let \{entity_param_name} = {
+          $|     ..\{entity_param_name},
           $|     \{assigns},
           $|   }
         )
@@ -1374,12 +1377,13 @@ fn generate_mapper_code(
         ""
       }
       let partial_update_code = match update_entity_spec {
-        Some(update_spec) => render_partial_update_expr(table_expr, update_spec)
+        Some(update_spec) =>
+          render_partial_update_expr(table_expr, update_spec, entity_param_name)
         None => None
       }
       let update_query_expr = match partial_update_code {
         Some(code) => code
-        None => "\{PKG_NAME}.update(\{table_expr}).from(entity)"
+        None => "\{PKG_NAME}.update(\{table_expr}).from(\{entity_param_name})"
       }
       if ret_type == "Bool" {
         (
@@ -1415,8 +1419,9 @@ fn generate_mapper_code(
         )
       }
     } else if m.name == "delete" && m.params.length() == 1 {
+      let entity_param_name = m.params[0].0
       (
-        $|   let q = \{PKG_NAME}.delete_from(\{table_expr}).from(entity)
+        $|   let q = \{PKG_NAME}.delete_from(\{table_expr}).from(\{entity_param_name})
         $|   self.engine.exec(q).ok
         $| }
         $|
