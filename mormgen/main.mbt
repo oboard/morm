@@ -1646,37 +1646,52 @@ fn generate_mapper_code(
 ///|
 fn main {
   let argv = @sys.get_cli_args()
-  let input_file = @ref.new("")
-  let output_file = @ref.new("")
-  let usage =
-    #| MoonBit ORM CLI tool for generating database schema from Moonbit files
-    #| usage: 
-    #|      mormgen <input_file> -o <output_file>
-    #|
-  @ArgParser.parse(
-    [
-      (
-        "--output-file",
-        "-o",
-        String(file => output_file.val = file),
-        "Output file",
+  let cli_args = if argv.length() > 0 { argv[1:] } else { [] }
+  let cmd = @argparse.Command(
+    "mormgen",
+    about="MoonBit ORM CLI tool for generating database schema from MoonBit files",
+    options=[
+      @argparse.OptionArg(
+        "output-file",
+        short='o',
+        about="Output file",
+        required=true,
       ),
     ],
-    file => input_file.val = file,
-    usage,
-    argv,
-  ) catch {
+    positionals=[
+      @argparse.PositionArg(
+        "input_file",
+        about="Input MoonBit source file",
+        num_args=@argparse.ValueRange::single(),
+      ),
+    ],
+  )
+  let matches = cmd.parse(argv=cli_args, env={}) catch {
     e => {
-      println("Error: \{e}")
+      println("\{e}")
+      return
+    }
+  }
+  let input_file = match matches.values.get("input_file") {
+    Some([file, ..]) => file
+    _ => {
+      println(cmd.render_help())
+      return
+    }
+  }
+  let output_file = match matches.values.get("output-file") {
+    Some([file, ..]) => file
+    _ => {
+      println(cmd.render_help())
       return
     }
   }
   try {
-    let (ast, _) = @parser.parse_file(input_file.val)
-    let source_content = @fs.read_file_to_string(input_file.val)
+    let (ast, _) = @parser.parse_file(input_file)
+    let source_content = @fs.read_file_to_string(input_file)
     let specs = parse_entities_from_ast(ast)
-    let all_entity_specs = collect_package_entity_specs(input_file.val)
-    let package_enum_specs = collect_package_enum_specs(input_file.val)
+    let all_entity_specs = collect_package_entity_specs(input_file)
+    let package_enum_specs = collect_package_enum_specs(input_file)
     let source_enum_specs = parse_enum_specs_from_source(source_content)
     let mapper_specs = parse_mappers_from_ast(
       ast, source_content, all_entity_specs,
@@ -1698,14 +1713,14 @@ fn main {
       codes.push(mcode)
     })
     let code = codes.join("\n\n")
-    @fs.write_string_to_file(output_file.val, code, encoding="utf8")
+    @fs.write_string_to_file(output_file, code, encoding="utf8")
     let entity_names = specs.map(spec => spec.name)
     let mapper_names = mapper_specs.map(ms => ms.trait_name)
     if entity_names.length() > 0 {
-      println("Generated \{output_file.val} for entities: \{entity_names}")
+      println("Generated \{output_file} for entities: \{entity_names}")
     }
     if mapper_names.length() > 0 {
-      println("Generated \{output_file.val} for mappers: \{mapper_names}")
+      println("Generated \{output_file} for mappers: \{mapper_names}")
     }
   } catch {
     @fs.IOError(e) => println("IOError: \{e}")

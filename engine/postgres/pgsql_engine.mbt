@@ -305,33 +305,39 @@ fn pg_param_from_text(type_oid : Int, text : String) -> @engine.Param {
   match type_oid {
     16 => @engine.Bool(text is ("t" | "true" | "TRUE"))
     20 =>
-      match (try? @string.parse_int(text)) {
-        Ok(value) => @engine.Int(value)
-        Err(_) =>
-          match (try? @string.parse_int64(text)) {
-            Ok(value) => @engine.Int64(value)
-            Err(_) => @engine.BigInt(BigInt::from_string(text))
+      try @string.parse_int(text) catch {
+        _ =>
+          try @string.parse_int64(text) catch {
+            _ => @engine.BigInt(BigInt::from_string(text))
+          } noraise {
+            value => @engine.Int64(value)
           }
+      } noraise {
+        value => @engine.Int(value)
       }
     21 =>
-      match (try? @string.parse_int(text)) {
-        Ok(value) => @engine.Int16(Int16::from_int(value))
-        Err(_) => @engine.String(text)
+      try @string.parse_int(text) catch {
+        _ => @engine.String(text)
+      } noraise {
+        value => @engine.Int16(Int16::from_int(value))
       }
     23 =>
-      match (try? @string.parse_int(text)) {
-        Ok(value) => @engine.Int(value)
-        Err(_) => @engine.String(text)
+      try @string.parse_int(text) catch {
+        _ => @engine.String(text)
+      } noraise {
+        value => @engine.Int(value)
       }
     700 =>
-      match (try? @string.parse_double(text)) {
-        Ok(value) => @engine.Float(Float::from_double(value))
-        Err(_) => @engine.String(text)
+      try @string.parse_double(text) catch {
+        _ => @engine.String(text)
+      } noraise {
+        value => @engine.Float(Float::from_double(value))
       }
     701 =>
-      match (try? @string.parse_double(text)) {
-        Ok(value) => @engine.Double(value)
-        Err(_) => @engine.String(text)
+      try @string.parse_double(text) catch {
+        _ => @engine.String(text)
+      } noraise {
+        value => @engine.Double(value)
       }
     1700 => @engine.Decimal(text)
     114 | 3802 => @engine.Json(json_from_text(text))
