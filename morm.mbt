@@ -37,12 +37,13 @@ pub fn add_column_engine_option(
   key : String,
   value : String,
 ) -> Column {
-  let options = Array::new()
-  for option in col.engine_options {
-    options.push(option)
+  let options = col.engine_options.copy()
+  let values = match options.get(key) {
+    Some(existing) => existing + [value]
+    None => [value]
   }
-  options.push({ key, value })
-  { ..col, engine_options: FixedArray::from_array(options) }
+  options.set(key, values)
+  { ..col, engine_options: options }
 }
 
 ///|
@@ -106,12 +107,13 @@ pub fn add_table_engine_option(
   key : String,
   value : String,
 ) -> Table {
-  let options = Array::new()
-  for option in table.engine_options {
-    options.push(option)
+  let options = table.engine_options.copy()
+  let values = match options.get(key) {
+    Some(existing) => existing + [value]
+    None => [value]
   }
-  options.push({ key, value })
-  { ..table, engine_options: FixedArray::from_array(options) }
+  options.set(key, values)
+  { ..table, engine_options: options }
 }
 
 ///|
@@ -436,12 +438,10 @@ fn json_to_param(value : Json) -> @engine.Param {
 
 ///|
 fn json_storage_for_column(col : Column) -> String {
-  for option in col.engine_options {
-    if option.key == "json.storage" {
-      return option.value
-    }
+  match col.engine_options.get("json.storage") {
+    Some([value, ..]) => value
+    _ => ""
   }
-  ""
 }
 
 ///|
@@ -1696,7 +1696,7 @@ pub(all) struct ColumnDiff {
   added : FixedArray[Column]
   removed : FixedArray[Column]
   changed : FixedArray[(String, Column, Column)]
-} derive(ToJson, FromJson, Eq)
+} derive(ToJson, Eq)
 
 ///|
 pub impl Show for ColumnDiff with output(self : ColumnDiff, logger : &Logger) {
@@ -1735,7 +1735,7 @@ pub(all) struct TableDiff {
   columns : ColumnDiff
   indexes : IndexDiff
   foreign_keys : ForeignKeyDiff
-} derive(ToJson, FromJson, Eq)
+} derive(ToJson, Eq)
 
 ///|
 pub impl Show for TableDiff with output(self : TableDiff, logger : &Logger) {

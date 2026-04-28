@@ -41,7 +41,7 @@ fn transform_entity_to_table(
       comment: "",
       charset: None,
       collation: None,
-      engine_options: [],
+      engine_options: {},
     }
     let parsed_attrs = collect_orm_attributes_from_source(f.attrs, source)
     for attr in parsed_attrs {
@@ -66,13 +66,7 @@ fn transform_entity_to_table(
       }
     }
     if primary_key_strategy is Some(strategy) {
-      let mut has_pk_strategy_opt = false
-      for opt in col.engine_options {
-        if opt.key == "pk.strategy" {
-          has_pk_strategy_opt = true
-        }
-      }
-      if !has_pk_strategy_opt {
+      if !col.engine_options.contains("pk.strategy") {
         col = @morm.add_column_engine_option(col, "pk.strategy", strategy)
       }
     }
@@ -465,17 +459,25 @@ fn render_index_type(ty : @morm.IndexType) -> String {
 }
 
 ///|
+fn render_string_array(values : Array[String]) -> String {
+  values.map(mbt_string).join(", ")
+}
+
+///|
+fn render_engine_options(options : Map[String, Array[String]]) -> String {
+  let entries = options.to_array()
+  entries.sort_by_key(entry => entry.0)
+  entries
+  .map(entry => {
+    let (key, values) = entry
+    "        \{mbt_string(key)}: [\{render_string_array(values)}]"
+  })
+  .join(",\n")
+}
+
+///|
 fn render_column(col : @morm.Column) -> String {
-  let engine_options = col.engine_options
-    .map(option => {
-      (
-        $|          {
-        $|            key: \{mbt_string(option.key)},
-        $|            value: \{mbt_string(option.value)},
-        $|          }
-      )
-    })
-    .join(",\n")
+  let engine_options = render_engine_options(col.engine_options)
   (
     $|      {
     $|        name: \{mbt_string(col.name)},
@@ -489,9 +491,9 @@ fn render_column(col : @morm.Column) -> String {
     $|        charset: \{mbt_opt_string(col.charset)},
     $|        collation: \{mbt_opt_string(col.collation)},
     $|        default_value: \{mbt_opt_string(col.default_value)},
-    $|        engine_options: [
+    $|        engine_options: {
     $|\{engine_options}
-    $|        ],
+    $|        },
     $|      }
   )
 }
@@ -524,23 +526,11 @@ fn render_foreign_key(fk : @morm.ForeignKey) -> String {
 }
 
 ///|
-fn render_table_engine_option(option : @morm.TableEngineOption) -> String {
-  (
-    $|      {
-    $|        key: \{mbt_string(option.key)},
-    $|        value: \{mbt_string(option.value)},
-    $|      }
-  )
-}
-
-///|
 fn render_table_literal(table : @morm.Table) -> String {
   let columns = table.columns.map(render_column).join(",\n")
   let indexes = table.indexes.map(render_index).join(",\n")
   let foreign_keys = table.foreign_keys.map(render_foreign_key).join(",\n")
-  let engine_options = table.engine_options
-    .map(render_table_engine_option)
-    .join(",\n")
+  let engine_options = render_engine_options(table.engine_options)
   (
     $| \{PKG_NAME}.Table::{
     $|   name: \{mbt_string(table.name)},
@@ -563,9 +553,9 @@ fn render_table_literal(table : @morm.Table) -> String {
     $|   tablespace: \{mbt_opt_string(table.tablespace)},
     $|   comment: \{mbt_string(table.comment)},
     $|   auto_increment: \{mbt_opt_int(table.auto_increment)},
-    $|   engine_options: [
+    $|   engine_options: {
     $|\{engine_options}
-    $|   ],
+    $|   },
     $| }
   )
 }

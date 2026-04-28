@@ -17,7 +17,7 @@ fn enum_test_table() -> @table.Table {
         comment: "",
         charset: None,
         collation: None,
-        engine_options: [],
+        engine_options: {},
       },
     ],
     indexes: [],
@@ -30,7 +30,7 @@ fn enum_test_table() -> @table.Table {
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: [],
+    engine_options: {},
   }
 }
 

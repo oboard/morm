@@ -687,12 +687,10 @@ fn pg_table_engine_option(
   key : String,
   default : String,
 ) -> String {
-  for option in table_schema.engine_options {
-    if option.key == key {
-      return option.value
-    }
+  match table_schema.engine_options.get(key) {
+    Some([value, ..]) => value
+    _ => default
   }
-  default
 }
 
 ///|
@@ -701,12 +699,10 @@ fn pg_column_engine_option(
   key : String,
   default : String,
 ) -> String {
-  for option in column.engine_options {
-    if option.key == key {
-      return option.value
-    }
+  match column.engine_options.get(key) {
+    Some([value, ..]) => value
+    _ => default
   }
-  default
 }
 
 ///|
@@ -850,9 +846,12 @@ fn pg_schema_sqls(table_schema : @table.Table) -> Array[String] {
     create_sql = create_sql + " AUTHORIZATION " + authorization
   }
   sqls.push(create_sql)
-  for option in table_schema.engine_options {
-    if option.key == "pgsql.grant.schema" &&
-      parse_pg_grant_spec(option.value) is Some(grant) {
+  for
+    payload in table_schema.engine_options.get_or_default(
+      "pgsql.grant.schema",
+      [],
+    ) {
+    if parse_pg_grant_spec(payload) is Some(grant) {
       let mut sql = "GRANT " +
         grant.privileges +
         " ON SCHEMA " +
@@ -1027,9 +1026,9 @@ fn pg_post_create_sqls(table_schema : @table.Table) -> Array[String] {
   if owner != "" {
     sqls.push("ALTER TABLE " + table_name + " OWNER TO " + owner)
   }
-  for option in table_schema.engine_options {
-    if option.key == "pgsql.grant.table" &&
-      parse_pg_grant_spec(option.value) is Some(grant) {
+  for
+    payload in table_schema.engine_options.get_or_default("pgsql.grant.table", []) {
+    if parse_pg_grant_spec(payload) is Some(grant) {
       let mut sql = "GRANT " +
         grant.privileges +
         " ON TABLE " +
@@ -1041,21 +1040,13 @@ fn pg_post_create_sqls(table_schema : @table.Table) -> Array[String] {
       }
       sqls.push(sql)
     }
-    if option.key == "pgsql.grant.sequence" &&
-      parse_pg_grant_spec(option.value) is Some(grant) {
-      let mut sql = "GRANT " +
-        grant.privileges +
-        " ON ALL SEQUENCES IN SCHEMA " +
-        schema_name +
-        " TO " +
-        grant.role
-      if grant.with_grant_option {
-        sql = sql + " WITH GRANT OPTION"
-      }
-      sqls.push(sql)
-    }
-    if option.key == "pgsql.grant.table_sequence" &&
-      parse_pg_grant_spec(option.value) is Some(grant) {
+  }
+  for
+    payload in table_schema.engine_options.get_or_default(
+      "pgsql.grant.table_sequence",
+      [],
+    ) {
+    if parse_pg_grant_spec(payload) is Some(grant) {
       for column in table_schema.columns {
         if !column.auto_increment {
           continue
@@ -1079,8 +1070,31 @@ fn pg_post_create_sqls(table_schema : @table.Table) -> Array[String] {
         sqls.push(sql)
       }
     }
-    if option.key == "pgsql.default_grant.table" &&
-      parse_pg_grant_spec(option.value) is Some(grant) {
+  }
+  for
+    payload in table_schema.engine_options.get_or_default(
+      "pgsql.grant.sequence",
+      [],
+    ) {
+    if parse_pg_grant_spec(payload) is Some(grant) {
+      let mut sql = "GRANT " +
+        grant.privileges +
+        " ON ALL SEQUENCES IN SCHEMA " +
+        schema_name +
+        " TO " +
+        grant.role
+      if grant.with_grant_option {
+        sql = sql + " WITH GRANT OPTION"
+      }
+      sqls.push(sql)
+    }
+  }
+  for
+    payload in table_schema.engine_options.get_or_default(
+      "pgsql.default_grant.table",
+      [],
+    ) {
+    if parse_pg_grant_spec(payload) is Some(grant) {
       let mut sql = "ALTER DEFAULT PRIVILEGES"
       if grant.for_role is Some(owner_role) {
         sql = sql + " FOR ROLE " + owner_role
@@ -1097,8 +1111,13 @@ fn pg_post_create_sqls(table_schema : @table.Table) -> Array[String] {
       }
       sqls.push(sql)
     }
-    if option.key == "pgsql.default_grant.sequence" &&
-      parse_pg_grant_spec(option.value) is Some(grant) {
+  }
+  for
+    payload in table_schema.engine_options.get_or_default(
+      "pgsql.default_grant.sequence",
+      [],
+    ) {
+    if parse_pg_grant_spec(payload) is Some(grant) {
       let mut sql = "ALTER DEFAULT PRIVILEGES"
       if grant.for_role is Some(owner_role) {
         sql = sql + " FOR ROLE " + owner_role

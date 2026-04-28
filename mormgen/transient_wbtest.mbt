@@ -20,23 +20,18 @@ test "transient field is not emitted as table column" {
 
 ///|
 fn column_option_value(col : @morm.Column, key : String) -> String? {
-  for opt in col.engine_options {
-    if opt.key == key {
-      return Some(opt.value)
-    }
+  match col.engine_options.get(key) {
+    Some([value, ..]) => Some(value)
+    _ => None
   }
-  None
 }
 
 ///|
 fn table_option_values(table : @morm.Table, key : String) -> Array[String] {
-  let values : Array[String] = []
-  for opt in table.engine_options {
-    if opt.key == key {
-      values.push(opt.value)
-    }
+  match table.engine_options.get(key) {
+    Some(values) => values
+    None => []
   }
-  values
 }
 
 ///|

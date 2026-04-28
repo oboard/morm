@@ -22,15 +22,9 @@ pub(all) struct Column {
   comment : String
   charset : String?
   collation : String?
-  engine_options : FixedArray[ColumnEngineOption]
-} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+  engine_options : Map[String, Array[String]]
+} derive(Eq, ToJson)
 pub impl Show for Column
-
-pub(all) struct ColumnEngineOption {
-  key : String
-  value : String
-} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
-pub impl Show for ColumnEngineOption
 
 pub(all) enum ColumnType {
   TinyInt
@@ -105,15 +99,9 @@ pub(all) struct Table {
   tablespace : String?
   comment : String
   auto_increment : Int?
-  engine_options : FixedArray[TableEngineOption]
-} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+  engine_options : Map[String, Array[String]]
+} derive(Eq, ToJson)
 pub impl Show for Table
-
-pub(all) struct TableEngineOption {
-  key : String
-  value : String
-} derive(Compare, Eq, Hash, ToJson, @json.FromJson)
-pub impl Show for TableEngineOption
 
 // Type aliases
 

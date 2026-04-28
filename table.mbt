@@ -1,7 +1,4 @@
 ///|
-pub type TableEngineOption = @table.TableEngineOption
-
-///|
 pub type Table = @table.Table
 
 ///|
@@ -28,7 +25,7 @@ pub fn new_table(
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: [],
+    engine_options: {},
   }
 }
 

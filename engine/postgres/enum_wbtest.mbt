@@ -17,7 +17,7 @@ fn enum_test_table() -> @table.Table {
         comment: "",
         charset: None,
         collation: None,
-        engine_options: [],
+        engine_options: {},
       },
     ],
     indexes: [],
@@ -30,7 +30,7 @@ fn enum_test_table() -> @table.Table {
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: [],
+    engine_options: {},
   }
 }
 
@@ -70,7 +70,7 @@ fn privilege_test_table() -> @table.Table {
         comment: "",
         charset: None,
         collation: None,
-        engine_options: [],
+        engine_options: {},
       },
     ],
     indexes: [],
@@ -83,34 +83,28 @@ fn privilege_test_table() -> @table.Table {
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: [
-      { key: "pgsql.schema.authorization", value: "app_owner" },
-      { key: "pgsql.table.owner", value: "app_owner" },
-      {
-        key: "pgsql.grant.schema",
-        value: "role=app_reader;privileges=USAGE;grant_option=false",
-      },
-      {
-        key: "pgsql.grant.table",
-        value: "role=app_reader;privileges=SELECT;grant_option=false",
-      },
-      {
-        key: "pgsql.grant.table_sequence",
-        value: "role=app_writer;privileges=USAGE, SELECT;grant_option=true",
-      },
-      {
-        key: "pgsql.grant.sequence",
-        value: "role=app_reader;privileges=USAGE;grant_option=false",
-      },
-      {
-        key: "pgsql.default_grant.table",
-        value: "role=app_reader;privileges=SELECT;grant_option=false;for_role=app_owner",
-      },
-      {
-        key: "pgsql.default_grant.sequence",
-        value: "role=app_writer;privileges=USAGE, SELECT;grant_option=true;for_role=app_owner",
-      },
-    ],
+    engine_options: {
+      "pgsql.schema.authorization": ["app_owner"],
+      "pgsql.table.owner": ["app_owner"],
+      "pgsql.grant.schema": [
+        "role=app_reader;privileges=USAGE;grant_option=false",
+      ],
+      "pgsql.grant.table": [
+        "role=app_reader;privileges=SELECT;grant_option=false",
+      ],
+      "pgsql.grant.table_sequence": [
+        "role=app_writer;privileges=USAGE, SELECT;grant_option=true",
+      ],
+      "pgsql.grant.sequence": [
+        "role=app_reader;privileges=USAGE;grant_option=false",
+      ],
+      "pgsql.default_grant.table": [
+        "role=app_reader;privileges=SELECT;grant_option=false;for_role=app_owner",
+      ],
+      "pgsql.default_grant.sequence": [
+        "role=app_writer;privileges=USAGE, SELECT;grant_option=true;for_role=app_owner",
+      ],
+    },
   }
 }
 

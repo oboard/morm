@@ -40,20 +40,6 @@ pub impl Show for ColumnType with output(self : ColumnType, logger : &Logger) {
 }
 
 ///|
-pub(all) struct ColumnEngineOption {
-  key : String
-  value : String
-} derive(ToJson, FromJson, Eq, Compare, Hash)
-
-///|
-pub impl Show for ColumnEngineOption with output(
-  self : ColumnEngineOption,
-  logger : &Logger,
-) {
-  write_json_show(self, logger)
-}
-
-///|
 pub(all) struct Column {
   name : String
   column_type : ColumnType
@@ -66,8 +52,8 @@ pub(all) struct Column {
   comment : String
   charset : String?
   collation : String?
-  engine_options : FixedArray[ColumnEngineOption]
-} derive(ToJson, FromJson, Eq, Compare, Hash)
+  engine_options : Map[String, Array[String]]
+} derive(ToJson, Eq)
 
 ///|
 pub impl Show for Column with output(self : Column, logger : &Logger) {
@@ -117,20 +103,6 @@ pub impl Show for ForeignKey with output(self : ForeignKey, logger : &Logger) {
 }
 
 ///|
-pub(all) struct TableEngineOption {
-  key : String
-  value : String
-} derive(ToJson, FromJson, Eq, Compare, Hash)
-
-///|
-pub impl Show for TableEngineOption with output(
-  self : TableEngineOption,
-  logger : &Logger,
-) {
-  write_json_show(self, logger)
-}
-
-///|
 pub(all) struct Table {
   name : String
   schema : String?
@@ -146,8 +118,8 @@ pub(all) struct Table {
   tablespace : String?
   comment : String
   auto_increment : Int?
-  engine_options : FixedArray[TableEngineOption]
-} derive(ToJson, FromJson, Eq, Compare, Hash)
+  engine_options : Map[String, Array[String]]
+} derive(ToJson, Eq)
 
 ///|
 pub impl Show for Table with output(self : Table, logger : &Logger) {

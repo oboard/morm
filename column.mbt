@@ -2,9 +2,6 @@
 pub type ColumnType = @table.ColumnType
 
 ///|
-pub type ColumnEngineOption = @table.ColumnEngineOption
-
-///|
 pub type Column = @table.Column
 
 ///|
@@ -27,6 +24,6 @@ pub fn new_column(name : String, column_type : ColumnType) -> Column {
     comment: "",
     charset: None,
     collation: None,
-    engine_options: [],
+    engine_options: {},
   }
 }

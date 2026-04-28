@@ -220,7 +220,7 @@ pub(all) struct ColumnDiff {
   added : FixedArray[@table.Column]
   removed : FixedArray[@table.Column]
   changed : FixedArray[(String, @table.Column, @table.Column)]
-} derive(Eq, ToJson, @json.FromJson)
+} derive(Eq, ToJson)
 pub impl Show for ColumnDiff
 
 pub(all) struct DbError {
@@ -294,7 +294,7 @@ pub(all) struct TableDiff {
   columns : ColumnDiff
   indexes : IndexDiff
   foreign_keys : ForeignKeyDiff
-} derive(Eq, ToJson, @json.FromJson)
+} derive(Eq, ToJson)
 pub impl Show for TableDiff
 
 pub struct TxBatch[E] {
@@ -340,8 +340,6 @@ pub impl @engine.QueryBuilder for UpsertQuery
 // Type aliases
 pub using @table {type Column}
 
-pub using @table {type ColumnEngineOption}
-
 pub using @table {type ColumnType}
 
 pub type DbResult[T] = Result[T, DbError]
@@ -357,8 +355,6 @@ pub using @engine {type OrderBy}
 pub using @engine {type Set}
 
 pub using @table {type Table}
-
-pub using @table {type TableEngineOption}
 
 pub using @engine {type Where}
 

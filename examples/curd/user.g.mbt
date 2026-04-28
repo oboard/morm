@@ -4,8 +4,8 @@ pub impl @oboard/morm.Entity for User with table(_self) -> @oboard/morm.Table {
 }
 
 ///|
-pub fn User::table() -> @morm.Table {
-  @morm.Table::{
+pub fn User::table() -> @oboard/morm.Table {
+  @oboard/morm.Table::{
     name: "user",
     schema: None,
     catalog: None,
@@ -22,7 +22,7 @@ pub fn User::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: [],
+        engine_options: {},
       },
       {
         name: "email",
@@ -36,7 +36,7 @@ pub fn User::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: [],
+        engine_options: {},
       },
       {
         name: "active",
@@ -50,7 +50,7 @@ pub fn User::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: [],
+        engine_options: {},
       },
     ],
     indexes: [],
@@ -63,7 +63,7 @@ pub fn User::table() -> @morm.Table {
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: [],
+    engine_options: {},
   }
 }
 
@@ -84,17 +84,17 @@ pub fn User::_from(row : Map[String, @engine.Param]) -> User {
     None => panic()
   }
   let active : Int = (try! @engine.from_param(active_param) : Int)
-  User::{ id, email, active }
+  return User::{ id, email, active }
 }
 
 ///|
 pub impl @engine.FromParam for User with from_param(value) {
   match value {
-    @engine.Json(Object(obj)) => {
+    @engine.Object(obj) => {
       let row : Map[String, @engine.Param] = Map::new()
       for key in obj.keys() {
         if obj.get(key) is Some(value) {
-          row.set(key, @engine.to_param(value))
+          row.set(key, value)
         }
       }
       User::_from(row)

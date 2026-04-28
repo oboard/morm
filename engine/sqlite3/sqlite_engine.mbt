@@ -68,12 +68,10 @@ fn sqlite_table_engine_option(
   key : String,
   default : String,
 ) -> String {
-  for option in table_schema.engine_options {
-    if option.key == key {
-      return option.value
-    }
+  match table_schema.engine_options.get(key) {
+    Some([value, ..]) => value
+    _ => default
   }
-  default
 }
 
 ///|
@@ -82,12 +80,10 @@ fn sqlite_column_engine_option(
   key : String,
   default : String,
 ) -> String {
-  for option in column.engine_options {
-    if option.key == key {
-      return option.value
-    }
+  match column.engine_options.get(key) {
+    Some([value, ..]) => value
+    _ => default
   }
-  default
 }
 
 ///|

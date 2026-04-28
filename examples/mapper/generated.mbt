@@ -22,7 +22,7 @@ pub fn User::table() -> @oboard/morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: [{ key: "pk.strategy", value: "auto_increment" }],
+        engine_options: { "pk.strategy": ["auto_increment"] },
       },
       {
         name: "email",
@@ -36,7 +36,7 @@ pub fn User::table() -> @oboard/morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: [],
+        engine_options: {},
       },
       {
         name: "active",
@@ -50,7 +50,7 @@ pub fn User::table() -> @oboard/morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: [],
+        engine_options: {},
       },
     ],
     indexes: [],
@@ -63,7 +63,7 @@ pub fn User::table() -> @oboard/morm.Table {
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: [],
+    engine_options: {},
   }
 }
 
