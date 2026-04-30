@@ -13,7 +13,7 @@ pub struct PgSQLEngine {
 fn first_part(input : String, sep : String) -> String {
   let parts = input.split(sep).collect()
   if parts.length() > 0 {
-    parts[0].to_string()
+    parts[0].to_owned()
   } else {
     input
   }
@@ -22,8 +22,8 @@ fn first_part(input : String, sep : String) -> String {
 ///|
 fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
   if input.find(":") is Some(i) {
-    let host = input[:i].to_string()
-    let port_text = input[i + 1:].to_string()
+    let host = input[:i].to_owned()
+    let port_text = input[i + 1:].to_owned()
     let port = @string.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
@@ -34,32 +34,32 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 ///|
 fn parse_pg_dsn(dsn : String) -> PgSQLEngine? {
   let dsn = if dsn.strip_prefix("jdbc:") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     dsn
   }
   let raw = if dsn.strip_prefix("postgres://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("postgresql://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("gaussdb://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("cockroachdb://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("opengauss://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("mogdb://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("kingbase://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("kingbase8://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("highgo://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("vastbase://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("ivorysql://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     return None
   }
@@ -67,19 +67,19 @@ fn parse_pg_dsn(dsn : String) -> PgSQLEngine? {
   let mut auth_host = main
   let mut database = "postgres"
   if main.find("/") is Some(i) {
-    auth_host = main[:i].to_string()
-    database = main[i + 1:].to_string()
+    auth_host = main[:i].to_owned()
+    database = main[i + 1:].to_owned()
   }
 
   let mut user = "postgres"
   let mut password = ""
   let mut host_port = auth_host
   if auth_host.find("@") is Some(i) {
-    let auth = auth_host[:i].to_string()
-    host_port = auth_host[i + 1:].to_string()
+    let auth = auth_host[:i].to_owned()
+    host_port = auth_host[i + 1:].to_owned()
     if auth.find(":") is Some(ci) {
-      user = auth[:ci].to_string()
-      password = auth[ci + 1:].to_string()
+      user = auth[:ci].to_owned()
+      password = auth[ci + 1:].to_owned()
     } else if auth != "" {
       user = auth
     }
@@ -228,7 +228,7 @@ fn cstring(data : Bytes, start : Int) -> (String, Int)? {
   if i >= data.length() {
     return None
   }
-  Some((@utf8.decode_lossy(data[start:i].to_bytes()), i + 1))
+  Some((@utf8.decode_lossy(data[start:i].to_owned()), i + 1))
 }
 
 ///|
@@ -352,7 +352,7 @@ fn parse_rows_affected(command_complete : String) -> Int {
   if parts.length() == 0 {
     return 0
   }
-  let last = parts[parts.length() - 1].to_string()
+  let last = parts[parts.length() - 1].to_owned()
   @string.parse_int(last) catch {
     _ => 0
   }
@@ -465,7 +465,7 @@ async fn open_pg_connection(cfg : PgSQLEngine) -> Result[@socket.Tcp, String] {
           conn.close()
           return Err("pgsql bad md5 auth payload")
         }
-        let salt = payload[4:8].to_bytes()
+        let salt = payload[4:8].to_owned()
         let md5_pass = pg_md5_password(cfg.user, cfg.password, salt)
         let p = @buffer.new()
         p.write_bytes(@utf8.encode(md5_pass))
@@ -584,7 +584,7 @@ async fn pg_query_on_conn(
           if pos + len > payload.length() {
             return (fail("pgsql truncated data value"), false)
           }
-          let text = @utf8.decode_lossy(payload[pos:pos + len].to_bytes())
+          let text = @utf8.decode_lossy(payload[pos:pos + len].to_owned())
           let type_oid = if i < col_type_oids.length() {
             col_type_oids[i]
           } else {
@@ -717,11 +717,11 @@ priv struct PgGrantSpec {
 fn pg_option_payload_value(payload : String, key : String) -> String? {
   let parts = payload.split(";").collect()
   for part in parts {
-    let text = part.to_string()
+    let text = part.to_owned()
     if text.find("=") is Some(eq_idx) {
-      let current_key = text[:eq_idx].to_string()
+      let current_key = text[:eq_idx].to_owned()
       if current_key == key {
-        return Some(text[eq_idx + 1:].to_string())
+        return Some(text[eq_idx + 1:].to_owned())
       }
     }
   }

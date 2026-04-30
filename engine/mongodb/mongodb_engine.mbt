@@ -32,7 +32,7 @@ fn fail_result(msg : String) -> @engine.QueryResult {
 fn first_part(input : String, sep : String) -> String {
   let parts = input.split(sep).collect()
   if parts.length() > 0 {
-    parts[0].to_string()
+    parts[0].to_owned()
   } else {
     input
   }
@@ -42,9 +42,9 @@ fn first_part(input : String, sep : String) -> String {
 fn find_query_param(raw_query : String, key : String) -> String? {
   for part in raw_query.split("&") {
     if part.find("=") is Some(idx) {
-      let name = part[:idx].to_string()
+      let name = part[:idx].to_owned()
       if name == key {
-        return Some(part[idx + 1:].to_string())
+        return Some(part[idx + 1:].to_owned())
       }
     } else if part == key {
       return Some("")
@@ -56,8 +56,8 @@ fn find_query_param(raw_query : String, key : String) -> String? {
 ///|
 fn parse_host_port(text : String, default_port : Int) -> (String, Int) {
   if text.rev_find(":") is Some(idx) {
-    let host = text[:idx].to_string()
-    let port_text = text[idx + 1:].to_string()
+    let host = text[:idx].to_owned()
+    let port_text = text[idx + 1:].to_owned()
     let port = @string.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
@@ -69,7 +69,7 @@ fn parse_host_port(text : String, default_port : Int) -> (String, Int) {
 fn parse_seed_list(hosts : String, default_port : Int) -> FixedArray[String] {
   let out : Array[String] = []
   for part in hosts.split(",") {
-    let item = part.trim().to_string()
+    let item = part.trim().to_owned()
     if item != "" {
       let (host, port) = parse_host_port(item, default_port)
       out.push("\{host}:\{port}")
@@ -84,15 +84,15 @@ fn parse_seed_list(hosts : String, default_port : Int) -> FixedArray[String] {
 ///|
 fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
   let (raw, is_srv) = if dsn.strip_prefix("mongodb://") is Some(rest) {
-    (rest.to_string(), false)
+    (rest.to_owned(), false)
   } else if dsn.strip_prefix("mongodb+srv://") is Some(rest) {
-    (rest.to_string(), true)
+    (rest.to_owned(), true)
   } else {
     return None
   }
   let main = first_part(raw, "?")
   let raw_query = if raw.find("?") is Some(idx) {
-    raw[idx + 1:].to_string()
+    raw[idx + 1:].to_owned()
   } else {
     ""
   }
@@ -100,8 +100,8 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
   let mut database = "test"
   let mut has_database = false
   if main.find("/") is Some(i) {
-    auth_host = main[:i].to_string()
-    database = main[i + 1:].to_string()
+    auth_host = main[:i].to_owned()
+    database = main[i + 1:].to_owned()
     has_database = database != ""
   }
 
@@ -109,11 +109,11 @@ fn parse_mongodb_dsn(dsn : String) -> MongoDBEngine? {
   let mut password = ""
   let mut host_port = auth_host
   if auth_host.find("@") is Some(i) {
-    let auth = auth_host[:i].to_string()
-    host_port = auth_host[i + 1:].to_string()
+    let auth = auth_host[:i].to_owned()
+    host_port = auth_host[i + 1:].to_owned()
     if auth.find(":") is Some(ci) {
-      user = auth[:ci].to_string()
-      password = auth[ci + 1:].to_string()
+      user = auth[:ci].to_owned()
+      password = auth[ci + 1:].to_owned()
     } else {
       user = auth
     }
@@ -268,7 +268,7 @@ async fn read_op_msg(conn : @socket.Tcp) -> Json? {
   guard body.length() >= 5 && body[4].to_int() == 0 else { return None }
   let doc_len = read_i32(body, 5).unwrap_or(0)
   guard doc_len >= 5 && 5 + doc_len <= body.length() else { return None }
-  Some(@bson.from_document_bytes(body[5:5 + doc_len].to_bytes())) catch {
+  Some(@bson.from_document_bytes(body[5:5 + doc_len].to_owned())) catch {
     _ => None
   }
 }
@@ -412,8 +412,8 @@ fn parse_scram_fields(message : String) -> Map[String, String] {
   let out : Map[String, String] = {}
   for part in message.split(",") {
     if part.find("=") is Some(idx) {
-      let key = part[:idx].to_string()
-      let value = part[idx + 1:].to_string()
+      let key = part[:idx].to_owned()
+      let value = part[idx + 1:].to_owned()
       out[key] = value
     }
   }
@@ -820,7 +820,7 @@ fn parse_projection(select : String) -> FixedArray[String]? {
       FixedArray::from_iter(
         text
         .split(",")
-        .map(part => part.trim().to_string())
+        .map(part => part.trim().to_owned())
         .filter(name => name != ""),
       ),
     )

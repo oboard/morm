@@ -66,15 +66,15 @@ fn Weekday::value(self : Weekday) -> Int {
 
 ///|
 test "new" {
-  inspect(Weekday::new(0), content="None")
-  inspect(Weekday::new(1), content="Some(Monday)")
-  inspect(Weekday::new(2), content="Some(Tuesday)")
-  inspect(Weekday::new(3), content="Some(Wednesday)")
-  inspect(Weekday::new(4), content="Some(Thursday)")
-  inspect(Weekday::new(5), content="Some(Friday)")
-  inspect(Weekday::new(6), content="Some(Saturday)")
-  inspect(Weekday::new(7), content="Some(Sunday)")
-  inspect(Weekday::new(8), content="None")
+  assert_true(Weekday::new(0) is None)
+  assert_true(Weekday::new(1) is Some(Monday))
+  assert_true(Weekday::new(2) is Some(Tuesday))
+  assert_true(Weekday::new(3) is Some(Wednesday))
+  assert_true(Weekday::new(4) is Some(Thursday))
+  assert_true(Weekday::new(5) is Some(Friday))
+  assert_true(Weekday::new(6) is Some(Saturday))
+  assert_true(Weekday::new(7) is Some(Sunday))
+  assert_true(Weekday::new(8) is None)
 }
 
 ///|

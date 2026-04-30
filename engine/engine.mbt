@@ -6,24 +6,19 @@ fn[T : ToJson] write_json_show(value : T, logger : &Logger) -> Unit {
 ///|
 pub fn bytes_to_hex(data : Bytes) -> String {
   let out = @buffer.new(size_hint=data.length() * 2)
+  let digit = fn(v : Int) -> Char {
+    if v < 10 {
+      (48 + v).unsafe_to_char()
+    } else {
+      (87 + v).unsafe_to_char()
+    }
+  }
   for b in data {
     let v = b.to_int()
     let hi = (v >> 4) & 0x0f
     let lo = v & 0x0f
-    out.write_string(
-      if hi < 10 {
-        "\{hi}"
-      } else {
-        "\{('a'.to_int() + hi - 10).to_char()}"
-      },
-    )
-    out.write_string(
-      if lo < 10 {
-        "\{lo}"
-      } else {
-        "\{('a'.to_int() + lo - 10).to_char()}"
-      },
-    )
+    out.write_char(digit(hi))
+    out.write_char(digit(lo))
   }
   out.to_string()
 }

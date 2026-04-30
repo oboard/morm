@@ -143,7 +143,7 @@ fn read_cstring(data : Bytes, offset : Int) -> (String, Int) raise BsonError {
     i = i + 1
   }
   guard i < data.length() else { return error("unterminated cstring") }
-  (@utf8.decode_lossy(data[offset:i].to_bytes()), i + 1)
+  (@utf8.decode_lossy(data[offset:i].to_owned()), i + 1)
 }
 
 ///|
@@ -215,7 +215,7 @@ fn decode_value(
         return error("string is not null-terminated")
       }
       (
-        Json::string(@utf8.decode_lossy(data[start:end].to_bytes())),
+        Json::string(@utf8.decode_lossy(data[start:end].to_owned())),
         start + len,
       )
     }
@@ -226,14 +226,14 @@ fn decode_value(
       guard len >= 0 && offset + 5 + len <= data.length() else {
         return error("bad binary length")
       }
-      (data[offset + 5:offset + 5 + len].to_bytes().to_json(), offset + 5 + len)
+      (data[offset + 5:offset + 5 + len].to_owned().to_json(), offset + 5 + len)
     }
     0x07 => {
       guard offset >= 0 && offset + 12 <= data.length() else {
         return error("short objectid")
       }
       (
-        Json::string(bytes_hex(data[offset:offset + 12].to_bytes())),
+        Json::string(bytes_hex(data[offset:offset + 12].to_owned())),
         offset + 12,
       )
     }
@@ -262,7 +262,7 @@ fn decode_value(
         return error("javascript is not null-terminated")
       }
       (
-        Json::string(@utf8.decode_lossy(data[start:end].to_bytes())),
+        Json::string(@utf8.decode_lossy(data[start:end].to_owned())),
         start + len,
       )
     }
@@ -283,7 +283,7 @@ fn decode_value(
         return error("short decimal128")
       }
       (
-        Json::string(bytes_hex(data[offset:offset + 16].to_bytes())),
+        Json::string(bytes_hex(data[offset:offset + 16].to_owned())),
         offset + 16,
       )
     }

@@ -33,7 +33,7 @@ fn trim_key(s : String) -> String {
   let mut t = s
   // 去除前缀空白
   while t.has_prefix(" ") || t.has_prefix("\t") {
-    t = t[1:].to_string()
+    t = t[1:].to_owned()
   }
   // 去除后缀空白
   while t.has_suffix(" ") || t.has_suffix("\t") {
@@ -41,7 +41,7 @@ fn trim_key(s : String) -> String {
     if n == 0 {
       break
     }
-    t = t[0:n - 1].to_string()
+    t = t[0:n - 1].to_owned()
   }
   t
 }
@@ -64,7 +64,7 @@ fn parse_plain_enum_case_name(text : String) -> String? {
     return None
   }
   let name = if trimmed.find("//") is Some(idx) {
-    trim_key(trimmed[0:idx].to_string())
+    trim_key(trimmed[0:idx].to_owned())
   } else {
     trimmed
   }
@@ -86,7 +86,7 @@ fn parse_enum_case_segments(
 ) -> Bool {
   let segments = segment_text.split(",").collect()
   for segment in segments {
-    let trimmed = trim_key(segment.to_string())
+    let trimmed = trim_key(segment.to_owned())
     if trimmed == "" {
       continue
     }
@@ -102,7 +102,7 @@ fn parse_enum_case_segments(
 ///|
 fn parse_enum_name_from_decl(line : String) -> String? {
   guard line.find("enum ") is Some(enum_idx) else { return None }
-  let mut rest = line[enum_idx + 5:].to_string()
+  let mut rest = line[enum_idx + 5:].to_owned()
   rest = trim_key(rest)
   if rest == "" {
     return None
@@ -128,14 +128,14 @@ fn parse_enum_specs_from_source(source : String) -> Array[EnumSpec] {
   let lines = source.split("\n").collect()
   let mut i = 0
   while i < lines.length() {
-    let line = lines[i].to_string()
+    let line = lines[i].to_owned()
     if line.contains("enum ") &&
       line.contains("{") &&
       parse_enum_name_from_decl(line) is Some(name) {
       let values : Array[String] = []
       let mut supported = true
       let mut block = if line.find("{") is Some(open_idx) {
-        line[open_idx + 1:].to_string()
+        line[open_idx + 1:].to_owned()
       } else {
         ""
       }
@@ -143,7 +143,7 @@ fn parse_enum_specs_from_source(source : String) -> Array[EnumSpec] {
         let mut current = block
         let mut reached_end = false
         if current.find("}") is Some(close_idx) {
-          current = current[0:close_idx].to_string()
+          current = current[0:close_idx].to_owned()
           reached_end = true
         }
         if !parse_enum_case_segments(current, values) {
@@ -157,7 +157,7 @@ fn parse_enum_specs_from_source(source : String) -> Array[EnumSpec] {
           supported = false
           break
         }
-        block = lines[i].to_string()
+        block = lines[i].to_owned()
       }
       if supported && values.length() > 0 {
         specs.push({ name, values: FixedArray::from_array(values) })
@@ -189,7 +189,7 @@ fn split_attr_params(params_part : String) -> Array[String] {
     if ch == '"' && (i == 0 || params_part[i - 1] != '\\') {
       in_string = !in_string
     } else if ch == ',' && !in_string {
-      let part = trim_key(params_part[start:i].to_string())
+      let part = trim_key(params_part[start:i].to_owned())
       if part != "" {
         parts.push(part)
       }
@@ -197,7 +197,7 @@ fn split_attr_params(params_part : String) -> Array[String] {
     }
     i = i + 1
   }
-  let tail = trim_key(params_part[start:].to_string())
+  let tail = trim_key(params_part[start:].to_owned())
   if tail != "" {
     parts.push(tail)
   }
@@ -221,10 +221,10 @@ fn parse_attr_param_map(
   }
   for pair in split_attr_params(params_part) {
     if pair.find("=") is Some(eq_idx) {
-      let k = trim_key(pair[0:eq_idx].to_string())
-      let vrest = trim_key(pair[eq_idx + 1:].to_string())
+      let k = trim_key(pair[0:eq_idx].to_owned())
+      let vrest = trim_key(pair[eq_idx + 1:].to_owned())
       if vrest.has_prefix("\"") && vrest.has_suffix("\"") && vrest.length() >= 2 {
-        m.set(k, vrest[1:vrest.length() - 1].to_string())
+        m.set(k, vrest[1:vrest.length() - 1].to_owned())
       } else if vrest != "" {
         m.set(k, vrest)
       }
@@ -247,11 +247,11 @@ fn collect_orm_attributes(
       let mut name = raw
       let mut params_part = ""
       if raw.find("(") is Some(open_idx) {
-        name = raw[0:open_idx].to_string()
+        name = raw[0:open_idx].to_owned()
         if raw.has_suffix(")") && raw.length() > open_idx + 1 {
-          params_part = raw[open_idx + 1:raw.length() - 1].to_string()
+          params_part = raw[open_idx + 1:raw.length() - 1].to_owned()
         } else if raw.find(")") is Some(close_idx) {
-          params_part = raw[open_idx + 1:close_idx].to_string()
+          params_part = raw[open_idx + 1:close_idx].to_owned()
         }
       }
       let m = parse_attr_param_map(name, params_part)
@@ -280,11 +280,11 @@ fn collect_orm_attributes_from_source(
       let mut name = raw
       let mut params_part = ""
       if raw.find("(") is Some(open_idx) {
-        name = raw[0:open_idx].to_string()
+        name = raw[0:open_idx].to_owned()
         if raw.has_suffix(")") && raw.length() > open_idx + 1 {
-          params_part = raw[open_idx + 1:raw.length() - 1].to_string()
+          params_part = raw[open_idx + 1:raw.length() - 1].to_owned()
         } else if raw.find(")") is Some(close_idx) {
-          params_part = raw[open_idx + 1:close_idx].to_string()
+          params_part = raw[open_idx + 1:close_idx].to_owned()
         }
       }
       let m = parse_attr_param_map(name, params_part)
@@ -421,7 +421,7 @@ struct MapperSpec {
 /// 提取 attribute 括号中的内容（不含引号处理）
 fn extract_text_inside_parens(raw : String) -> String? {
   if raw.find("(") is Some(open_idx) && raw.find(")") is Some(close_idx) {
-    return Some(raw[open_idx + 1:close_idx].to_string())
+    return Some(raw[open_idx + 1:close_idx].to_owned())
   }
   None
 }
@@ -430,9 +430,9 @@ fn extract_text_inside_parens(raw : String) -> String? {
 /// 提取 attribute 中首个引号包裹的字符串
 fn extract_quoted_string_in_parens(raw : String) -> String? {
   if raw.find("\"") is Some(start_idx) {
-    let tail = raw[start_idx + 1:].to_string()
+    let tail = raw[start_idx + 1:].to_owned()
     if tail.find("\"") is Some(end_rel) {
-      return Some(raw[start_idx + 1:start_idx + 1 + end_rel].to_string())
+      return Some(raw[start_idx + 1:start_idx + 1 + end_rel].to_owned())
     }
   }
   None
@@ -484,10 +484,10 @@ fn recover_attr_raw(
   let parse_pos = fn(s : String) -> (Int, Int) {
     let mut s = s
     if s.has_prefix("\"") && s.length() >= 2 {
-      s = s[1:s.length()].to_string()
+      s = s[1:s.length()].to_owned()
     }
     if s.has_suffix("\"") && s.length() >= 1 {
-      s = s[0:s.length() - 1].to_string()
+      s = s[0:s.length() - 1].to_owned()
     }
 
     let parts = s.split(":").collect()
@@ -514,7 +514,7 @@ fn recover_attr_raw(
     let line = lines[start_line]
     let len = line.length()
     if start_col >= 0 && end_col <= len && start_col <= end_col {
-      let res = line[start_col:end_col].to_string()
+      let res = line[start_col:end_col].to_owned()
       return res
     }
   }
@@ -528,7 +528,7 @@ fn derive_method_condition_fields(method_name : String) -> Array[String] {
     let fields : Array[String] = []
     for field in part.split("_and_") {
       if field != "" {
-        fields.push(field.to_string())
+        fields.push(field.to_owned())
       }
     }
     fields
@@ -539,23 +539,23 @@ fn derive_method_condition_fields(method_name : String) -> Array[String] {
   if method_name.strip_prefix("find_") is Some(rest) {
     let parts = rest.split("_by_").collect()
     if parts.length() >= 2 {
-      condition_part = parts[1].to_string()
+      condition_part = parts[1].to_owned()
     } else if rest.strip_prefix("by_") is Some(by_rest) {
-      condition_part = by_rest.to_string()
+      condition_part = by_rest.to_owned()
     }
   } else if method_name.strip_prefix("count_") is Some(rest) {
     let parts = rest.split("_by_").collect()
     if parts.length() >= 2 {
-      condition_part = parts[1].to_string()
+      condition_part = parts[1].to_owned()
     } else if rest.strip_prefix("by_") is Some(by_rest) {
-      condition_part = by_rest.to_string()
+      condition_part = by_rest.to_owned()
     }
   } else if method_name.strip_prefix("delete_by_") is Some(rest) {
-    condition_part = rest.to_string()
+    condition_part = rest.to_owned()
   } else if method_name.strip_prefix("update_") is Some(rest) {
     let parts = rest.split("_by_").collect()
     if parts.length() >= 2 {
-      condition_part = parts[1].to_string()
+      condition_part = parts[1].to_owned()
     }
   }
 
@@ -573,7 +573,7 @@ fn derive_update_method_fields(
     let fields : Array[String] = []
     for field in part.split("_and_") {
       if field != "" {
-        fields.push(field.to_string())
+        fields.push(field.to_owned())
       }
     }
     fields
@@ -581,8 +581,8 @@ fn derive_update_method_fields(
   if method_name.strip_prefix("update_") is Some(rest) {
     let parts = rest.split("_by_").collect()
     if parts.length() >= 2 {
-      let set_fields = split_fields(parts[0].to_string())
-      let where_fields = split_fields(parts[1].to_string())
+      let set_fields = split_fields(parts[0].to_owned())
+      let where_fields = split_fields(parts[1].to_owned())
       return (set_fields, where_fields)
     }
   }
@@ -727,15 +727,11 @@ fn parse_mappers_from_ast(
             if raw_text.has_prefix("#morm.mapper") {
               if extract_text_inside_parens(raw_text) is Some(inner) {
                 if inner.contains("=") {
-                  lexmatch inner {
-                    (_before, "entity=\"" ("[^\"]*" as entity) "\"", _after) =>
-                      entity_name_opt = Some(entity.to_string())
-                    _ => ()
+                  if inner =~ (re"entity=\"" + (re"[^\"]*" as entity) + re"\"") {
+                    entity_name_opt = Some(entity.to_owned())
                   }
-                  lexmatch inner {
-                    (_before, "table=\"" ("[^\"]*" as table) "\"", _after) =>
-                      table_name_opt = Some(table.to_string())
-                    _ => ()
+                  if inner =~ (re"table=\"" + (re"[^\"]*" as table) + re"\"") {
+                    table_name_opt = Some(table.to_owned())
                   }
                 } else {
                   let plain = trim_key(inner)
@@ -782,12 +778,18 @@ fn parse_mappers_from_ast(
                   if extract_quoted_string_in_parens(raw_text) is Some(join_sql) {
                     fetch_join_opt = Some(join_sql)
                   } else if extract_text_inside_parens(raw_text) is Some(inner) {
-                    lexmatch inner {
-                      (_before, "join=\"" ("[^\"]*" as join_sql) "\"", _after) =>
-                        fetch_join_opt = Some(join_sql.to_string())
-                      (_before, "joins=\"" ("[^\"]*" as join_sql) "\"", _after) =>
-                        fetch_join_opt = Some(join_sql.to_string())
-                      _ => ()
+                    if inner =~ (
+                        re"join=\"" +
+                        (re"[^\"]*" as join_sql) +
+                        re"\""
+                      ) {
+                      fetch_join_opt = Some(join_sql.to_owned())
+                    } else if inner =~ (
+                        re"joins=\"" +
+                        (re"[^\"]*" as join_sql) +
+                        re"\""
+                      ) {
+                      fetch_join_opt = Some(join_sql.to_owned())
                     }
                   }
                 }
@@ -992,8 +994,8 @@ fn parse_foreign_key_for_field(
   let mut referenced_column = ""
   if fkargs_refs is Some(r) && r.find(".") is Some(dot_index) {
     let dot = dot_index
-    referenced_table = r[0:dot].to_string()
-    referenced_column = r[dot + 1:].to_string()
+    referenced_table = r[0:dot].to_owned()
+    referenced_column = r[dot + 1:].to_owned()
   }
   if referenced_table == "" && fkargs_table is Some(t) {
     referenced_table = t
@@ -1005,7 +1007,7 @@ fn parse_foreign_key_for_field(
   // 兜底：仅声明 #foreign_key 时，按常见命名推断 <name>_id -> <name>.id
   if referenced_table == "" && referenced_column == "" {
     if field_label.has_suffix("_id") && field_label.length() > 3 {
-      referenced_table = field_label[0:field_label.length() - 3].to_string()
+      referenced_table = field_label[0:field_label.length() - 3].to_owned()
       referenced_column = "id"
     } else {
       referenced_table = field_type.to_lower()

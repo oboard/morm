@@ -1876,12 +1876,12 @@ let driver_registry : Map[String, String] = default_driver_registry()
 ///|
 fn dsn_scheme(dsn : String) -> String? {
   let core = if dsn.strip_prefix("jdbc:") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     dsn
   }
   if core.find("://") is Some(i) {
-    let scheme = core[:i].to_string()
+    let scheme = core[:i].to_owned()
     Some(scheme.to_lower())
   } else {
     None
@@ -2013,7 +2013,7 @@ pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate(
   let upper = base_sql.to_upper()
   let count_sql = if upper.contains(" FROM ") {
     let from_idx = upper.find(" FROM ").unwrap()
-    "SELECT COUNT(*) " + base_sql[from_idx:].to_string()
+    "SELECT COUNT(*) " + base_sql[from_idx:].to_owned()
   } else {
     "SELECT COUNT(*)"
   }
@@ -2058,7 +2058,7 @@ pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate_raw(
   let upper = sql.to_upper()
   let count_sql = if upper.contains(" FROM ") {
     let from_idx = upper.find(" FROM ").unwrap()
-    "SELECT COUNT(*) " + sql[from_idx:].to_string()
+    "SELECT COUNT(*) " + sql[from_idx:].to_owned()
   } else {
     "SELECT COUNT(*)"
   }

@@ -158,25 +158,9 @@ fn orm_attr_name_or_value(attr : ORMAttribute) -> String? {
 }
 
 ///|
-fn trim_space_text(s : String) -> String {
-  let mut t = s
-  while t.has_prefix(" ") || t.has_prefix("\t") {
-    t = t[1:].to_string()
-  }
-  while t.has_suffix(" ") || t.has_suffix("\t") {
-    let n = t.length()
-    if n == 0 {
-      break
-    }
-    t = t[0:n - 1].to_string()
-  }
-  t
-}
-
-///|
 fn unquote_string_literal(text : String) -> String {
   if text.length() >= 2 && text.has_prefix("\"") && text.has_suffix("\"") {
-    text[1:text.length() - 1].to_string()
+    text[1:text.length() - 1].to_owned()
   } else {
     text
   }
@@ -189,7 +173,7 @@ fn single_quote_sql_string(text : String) -> String {
 
 ///|
 fn normalize_default_expr(raw_expr : String) -> String? {
-  let expr = trim_space_text(raw_expr)
+  let expr = raw_expr.trim().to_owned()
   if expr == "" {
     return None
   }
@@ -827,7 +811,7 @@ fn render_partial_update_expr(
 fn option_inner_type(type_name : String) -> String? {
   if type_name.has_suffix("?") {
     let n = type_name.length()
-    return Some(type_name[0:n - 1].to_string())
+    return Some(type_name[0:n - 1].to_owned())
   }
   None
 }
@@ -1055,7 +1039,7 @@ fn path_dirname(path : String) -> String {
   }
   match cut {
     Some(0) => "/"
-    Some(idx) => path[0:idx].to_string()
+    Some(idx) => path[0:idx].to_owned()
     None => "."
   }
 }

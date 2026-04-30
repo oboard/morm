@@ -11,7 +11,7 @@ pub struct OracleEngine {
 fn first_part(input : String, sep : String) -> String {
   let parts = input.split(sep).collect()
   if parts.length() > 0 {
-    parts[0].to_string()
+    parts[0].to_owned()
   } else {
     input
   }
@@ -20,8 +20,8 @@ fn first_part(input : String, sep : String) -> String {
 ///|
 fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
   if input.find(":") is Some(i) {
-    let host = input[:i].to_string()
-    let port_text = input[i + 1:].to_string()
+    let host = input[:i].to_owned()
+    let port_text = input[i + 1:].to_owned()
     let port = @string.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
@@ -32,12 +32,12 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 ///|
 fn parse_oracle_dsn(dsn : String) -> OracleEngine? {
   let dsn = if dsn.strip_prefix("jdbc:") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     dsn
   }
   let raw = if dsn.strip_prefix("oracle://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     return None
   }
@@ -45,19 +45,19 @@ fn parse_oracle_dsn(dsn : String) -> OracleEngine? {
   let mut auth_host = main
   let mut service = "XEPDB1"
   if main.find("/") is Some(i) {
-    auth_host = main[:i].to_string()
-    service = main[i + 1:].to_string()
+    auth_host = main[:i].to_owned()
+    service = main[i + 1:].to_owned()
   }
 
   let mut user = "system"
   let mut password = "oracle"
   let mut host_port = auth_host
   if auth_host.find("@") is Some(i) {
-    let auth = auth_host[:i].to_string()
-    host_port = auth_host[i + 1:].to_string()
+    let auth = auth_host[:i].to_owned()
+    host_port = auth_host[i + 1:].to_owned()
     if auth.find(":") is Some(ci) {
-      user = auth[:ci].to_string()
-      password = auth[ci + 1:].to_string()
+      user = auth[:ci].to_owned()
+      password = auth[ci + 1:].to_owned()
     } else if auth != "" {
       user = auth
     }

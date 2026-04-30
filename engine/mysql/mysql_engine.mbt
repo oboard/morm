@@ -13,7 +13,7 @@ pub struct MySQLEngine {
 fn first_part(input : String, sep : String) -> String {
   let parts = input.split(sep).collect()
   if parts.length() > 0 {
-    parts[0].to_string()
+    parts[0].to_owned()
   } else {
     input
   }
@@ -22,8 +22,8 @@ fn first_part(input : String, sep : String) -> String {
 ///|
 fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
   if input.find(":") is Some(i) {
-    let host = input[:i].to_string()
-    let port_text = input[i + 1:].to_string()
+    let host = input[:i].to_owned()
+    let port_text = input[i + 1:].to_owned()
     let port = @string.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
@@ -34,26 +34,26 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 ///|
 fn parse_mysql_dsn(dsn : String) -> MySQLEngine? {
   let dsn = if dsn.strip_prefix("jdbc:") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     dsn
   }
   let raw = if dsn.strip_prefix("mysql://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("mariadb://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("tidb://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("oceanbase://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("polardb://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("doris://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("starrocks://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("selectdb://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     return None
   }
@@ -61,19 +61,19 @@ fn parse_mysql_dsn(dsn : String) -> MySQLEngine? {
   let mut auth_host = main
   let mut database = ""
   if main.find("/") is Some(i) {
-    auth_host = main[:i].to_string()
-    database = main[i + 1:].to_string()
+    auth_host = main[:i].to_owned()
+    database = main[i + 1:].to_owned()
   }
 
   let mut user = "root"
   let mut password = ""
   let mut host_port = auth_host
   if auth_host.find("@") is Some(i) {
-    let auth = auth_host[:i].to_string()
-    host_port = auth_host[i + 1:].to_string()
+    let auth = auth_host[:i].to_owned()
+    host_port = auth_host[i + 1:].to_owned()
     if auth.find(":") is Some(ci) {
-      user = auth[:ci].to_string()
-      password = auth[ci + 1:].to_string()
+      user = auth[:ci].to_owned()
+      password = auth[ci + 1:].to_owned()
     } else if auth != "" {
       user = auth
     }
@@ -158,14 +158,14 @@ fn fail(message : String) -> @engine.QueryResult {
 fn le_u24(v : Int) -> Bytes {
   let b = @buffer.new()
   b.write_uint_le(v.reinterpret_as_uint())
-  b.to_bytes()[:3].to_bytes()
+  b.to_bytes()[:3].to_owned()
 }
 
 ///|
 fn le_u32(v : Int) -> Bytes {
   let b = @buffer.new()
   b.write_uint_le(v.reinterpret_as_uint())
-  b.to_bytes()[:4].to_bytes()
+  b.to_bytes()[:4].to_owned()
 }
 
 ///|
@@ -257,7 +257,7 @@ fn lenenc_str(data : Bytes, pos : Int) -> (String?, Int)? {
       } else {
         Some(
           (
-            Some(@utf8.decode_lossy(data[next:next + len].to_bytes())),
+            Some(@utf8.decode_lossy(data[next:next + len].to_owned())),
             next + len,
           ),
         )
@@ -284,11 +284,11 @@ fn parse_error_packet(payload : Bytes) -> String {
   }
   let code = payload[1].to_int() | (payload[2].to_int() << 8)
   if payload.length() > 9 && payload[3] == b'#' {
-    let msg = @utf8.decode_lossy(payload[9:payload.length()].to_bytes())
+    let msg = @utf8.decode_lossy(payload[9:payload.length()].to_owned())
     "mysql error \{code}: " + msg
   } else {
     let msg = if payload.length() > 3 {
-      @utf8.decode_lossy(payload[3:payload.length()].to_bytes())
+      @utf8.decode_lossy(payload[3:payload.length()].to_owned())
     } else {
       ""
     }
@@ -403,7 +403,7 @@ fn plugin_name_from_handshake(payload : Bytes) -> String {
     k = k + 1
   }
   if k > j {
-    @utf8.decode_lossy(payload[j:k].to_bytes())
+    @utf8.decode_lossy(payload[j:k].to_owned())
   } else {
     "mysql_native_password"
   }
@@ -421,7 +421,7 @@ fn seed_from_handshake(payload : Bytes) -> Bytes {
     return b""
   }
   i = i + 4
-  out.write_bytes(payload[i:i + 8].to_bytes())
+  out.write_bytes(payload[i:i + 8].to_owned())
   i = i + 8 + 1
   if i + 2 + 1 + 2 + 2 + 1 + 10 > payload.length() {
     return out.to_bytes()
@@ -551,12 +551,12 @@ async fn mysql_query_async(cfg : MySQLEngine) -> Result[@socket.Tcp, String] {
       i = i + 1
     }
     let switch_plugin = if i > 1 {
-      @utf8.decode_lossy(auth_payload[1:i].to_bytes())
+      @utf8.decode_lossy(auth_payload[1:i].to_owned())
     } else {
       "mysql_native_password"
     }
     let switch_seed = if i + 1 < auth_payload.length() {
-      auth_payload[i + 1:auth_payload.length()].to_bytes()
+      auth_payload[i + 1:auth_payload.length()].to_owned()
     } else {
       b""
     }

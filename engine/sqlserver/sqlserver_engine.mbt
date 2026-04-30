@@ -11,7 +11,7 @@ pub struct SQLServerEngine {
 fn first_part(input : String, sep : String) -> String {
   let parts = input.split(sep).collect()
   if parts.length() > 0 {
-    parts[0].to_string()
+    parts[0].to_owned()
   } else {
     input
   }
@@ -20,8 +20,8 @@ fn first_part(input : String, sep : String) -> String {
 ///|
 fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
   if input.find(":") is Some(i) {
-    let host = input[:i].to_string()
-    let port_text = input[i + 1:].to_string()
+    let host = input[:i].to_owned()
+    let port_text = input[i + 1:].to_owned()
     let port = @string.parse_int(port_text) catch { _ => default_port }
     (if host == "" { "127.0.0.1" } else { host }, port)
   } else {
@@ -32,16 +32,16 @@ fn parse_host_port(input : String, default_port : Int) -> (String, Int) {
 ///|
 fn parse_sqlserver_dsn(dsn : String) -> SQLServerEngine? {
   let dsn = if dsn.strip_prefix("jdbc:") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     dsn
   }
   let raw = if dsn.strip_prefix("sqlserver://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("mssql://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else if dsn.strip_prefix("jtds:sqlserver://") is Some(rest) {
-    rest.to_string()
+    rest.to_owned()
   } else {
     return None
   }
@@ -49,19 +49,19 @@ fn parse_sqlserver_dsn(dsn : String) -> SQLServerEngine? {
   let mut auth_host = main
   let mut database = "master"
   if main.find("/") is Some(i) {
-    auth_host = main[:i].to_string()
-    database = main[i + 1:].to_string()
+    auth_host = main[:i].to_owned()
+    database = main[i + 1:].to_owned()
   }
 
   let mut user = "sa"
   let mut password = ""
   let mut host_port = auth_host
   if auth_host.find("@") is Some(i) {
-    let auth = auth_host[:i].to_string()
-    host_port = auth_host[i + 1:].to_string()
+    let auth = auth_host[:i].to_owned()
+    host_port = auth_host[i + 1:].to_owned()
     if auth.find(":") is Some(ci) {
-      user = auth[:ci].to_string()
-      password = auth[ci + 1:].to_string()
+      user = auth[:ci].to_owned()
+      password = auth[ci + 1:].to_owned()
     } else if auth != "" {
       user = auth
     }
@@ -139,7 +139,7 @@ fn split_go_batches(sql : String) -> Array[String] {
   let batches : Array[String] = []
   let mut curr = ""
   for line in sql.split("\n").collect() {
-    let s = line.to_string()
+    let s = line.to_owned()
     if s.trim() is ("GO" | "go" | "Go" | "gO") {
       if curr.trim() != "" {
         batches.push(curr)
@@ -230,7 +230,7 @@ async fn[IO : @io.Writer] write_tds_message(
     conn.write(hdr.to_bytes()) catch {
       _ => return false
     }
-    conn.write(payload[pos:pos + chunk_len].to_bytes()) catch {
+    conn.write(payload[pos:pos + chunk_len].to_owned()) catch {
       _ => return false
     }
 
@@ -439,7 +439,7 @@ fn parse_tds_reply(data : Bytes) -> (Bool, String, Int) {
         if pos + 2 + n > data.length() {
           return (false, "bad error token", rows)
         }
-        let body = data[pos + 2:pos + 2 + n].to_bytes()
+        let body = data[pos + 2:pos + 2 + n].to_owned()
         if body.length() >= 8 {
           let mlen = read_u16_le_at(body, 6)
           let start = 8
@@ -599,7 +599,7 @@ async fn tds_exec(cfg : SQLServerEngine, sql : String) -> @engine.QueryResult {
       error: None,
     }
     for batch in split_go_batches(sql) {
-      let stmt = batch.trim().to_string()
+      let stmt = batch.trim().to_owned()
       if stmt == "" {
         continue
       }
@@ -659,7 +659,7 @@ async fn tds_exec(cfg : SQLServerEngine, sql : String) -> @engine.QueryResult {
       error: None,
     }
     for batch in split_go_batches(sql) {
-      let stmt = batch.trim().to_string()
+      let stmt = batch.trim().to_owned()
       if stmt == "" {
         continue
       }
