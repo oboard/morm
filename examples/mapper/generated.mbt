@@ -91,7 +91,7 @@ pub fn User::_from(row : Map[String, @engine.Param]) -> User {
 pub impl @engine.FromParam for User with from_param(value) {
   match value {
     @engine.Object(obj) => {
-      let row : Map[String, @engine.Param] = Map::new()
+      let row : Map[String, @engine.Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(value) {
           row.set(key, value)

@@ -209,7 +209,7 @@ fn parse_attr_param_map(
   name : String,
   params_part : String,
 ) -> Map[String, String] {
-  let m : Map[String, String] = Map::new()
+  let m : Map[String, String] = Map([])
   let trimmed = trim_key(params_part)
   if name == "#morm.default" && trimmed != "" {
     m.set("value", trimmed)
@@ -710,7 +710,7 @@ fn parse_mappers_from_ast(
   let specs : Array[MapperSpec] = []
 
   // 建立实体名到表名的映射
-  let entity_table_map : Map[String, String] = Map::new()
+  let entity_table_map : Map[String, String] = Map([])
   entities.each(e => entity_table_map.set(e.name, e.table_name))
 
   ast.each(item => {

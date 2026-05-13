@@ -15,10 +15,12 @@ test {
   let zone = @time.fixed_zone("Asia/Shanghai", 8 * 60 * 60)
 
   // creates a ZonedDateTime from unix second and time zone.
-  let date_time = try? @time.unix(1714227729L, nanosecond=1000, zone~)
+  let date_time = @time.unix(1714227729L, nanosecond=1000, zone~) catch {
+    _ => fail("expected unix time to parse")
+  }
   inspect(
-    date_time,
-    content="Ok(2024-04-27T22:22:09.000001+08:00[Asia/Shanghai])",
+    date_time.to_string(),
+    content="2024-04-27T22:22:09.000001+08:00[Asia/Shanghai]",
   )
 }
 ```

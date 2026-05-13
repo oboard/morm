@@ -1,19 +1,19 @@
 ///|
 test "infer unnamed mapper params from method name" {
-  inspect(
+  debug_inspect(
     infer_mapper_param_names("find_by_peer_id", 1),
     content="[\"peer_id\"]",
   )
-  inspect(
+  debug_inspect(
     infer_mapper_param_names("find_messages_by_sender_id_and_peer_id", 2),
     content="[\"sender_id\", \"peer_id\"]",
   )
-  inspect(infer_mapper_param_names("save", 1), content="[\"entity\"]")
-  inspect(
+  debug_inspect(infer_mapper_param_names("save", 1), content="[\"entity\"]")
+  debug_inspect(
     infer_mapper_param_names("delete_by_id_and_tenant_id", 2),
     content="[\"id\", \"tenant_id\"]",
   )
-  inspect(
+  debug_inspect(
     infer_mapper_param_names("update_status_and_name_by_id", 3),
     content="[\"status\", \"name\", \"id\"]",
   )
@@ -114,7 +114,7 @@ test "generate mapper code for set list and map returns" {
     content="true",
   )
   inspect(code.contains("@list.List::from_array(out)"), content="true")
-  inspect(code.contains("let out : Map[Int,User] = Map::new()"), content="true")
+  inspect(code.contains("let out : Map[Int,User] = Map([])"), content="true")
   inspect(code.contains("let key : Int = value.id"), content="true")
 }
 

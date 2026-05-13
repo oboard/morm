@@ -44,7 +44,7 @@ pub fn decode_json_column(
 
 ///|
 pub fn param_row_from_json(row : Json) -> Map[String, Param] {
-  let out : Map[String, Param] = Map::new()
+  let out : Map[String, Param] = Map([])
   if row is Object(obj) {
     for key in obj.keys() {
       if obj.get(key) is Some(value) {

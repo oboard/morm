@@ -462,7 +462,7 @@ fn[O : ToJson] collect_owner_key_params(
   owners : FixedArray[O],
   owner_key : String,
 ) -> FixedArray[@engine.Param] {
-  let seen : Map[String, Bool] = Map::new()
+  let seen : Map[String, Bool] = Map([])
   let params : Array[@engine.Param] = []
   for owner in owners {
     if owner.to_json() is Object(obj) {
@@ -614,7 +614,7 @@ async fn[E : @engine.Engine] select_by_eq(
 
 ///|
 fn row_param(row : Map[String, @engine.Param]) -> @engine.Param {
-  let obj : Map[String, @engine.Param] = Map::new()
+  let obj : Map[String, @engine.Param] = Map([])
   for key in row.keys() {
     if row.get(key) is Some(value) {
       obj.set(key.to_lower(), value)
@@ -689,7 +689,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_belo
   target_key : String,
 ) -> Map[String, T] {
   let key_params = collect_owner_key_params(owners, owner_key)
-  let out : Map[String, T] = Map::new()
+  let out : Map[String, T] = Map([])
   for key_param in key_params {
     let key = key_param.to_json().stringify()
     let rows = select_by_eq(engine, target_table, target_key, key_param)
@@ -711,7 +711,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_
   target_key : String,
 ) -> Map[String, T] {
   let key_params = collect_owner_key_params(owners, owner_key)
-  let out : Map[String, T] = Map::new()
+  let out : Map[String, T] = Map([])
   for key_param in key_params {
     let key = key_param.to_json().stringify()
     let rows = select_by_eq(engine, target_table, target_key, key_param)
@@ -733,7 +733,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_
   target_key : String,
 ) -> Map[String, Array[T]] {
   let key_params = collect_owner_key_params(owners, owner_key)
-  let out : Map[String, Array[T]] = Map::new()
+  let out : Map[String, Array[T]] = Map([])
   for key_param in key_params {
     let key = key_param.to_json().stringify()
     let rows = select_by_eq(engine, target_table, target_key, key_param)
@@ -760,7 +760,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_many
   join_target_key : String,
 ) -> Map[String, Array[T]] {
   let key_params = collect_owner_key_params(owners, owner_key)
-  let out : Map[String, Array[T]] = Map::new()
+  let out : Map[String, Array[T]] = Map([])
   for owner_param in key_params {
     let key = owner_param.to_json().stringify()
     let join_rows = select_by_eq(
@@ -1744,8 +1744,8 @@ pub impl Show for TableDiff with output(self : TableDiff, logger : &Logger) {
 
 ///|
 fn diff_columns(old_table : Table, new_table : Table) -> ColumnDiff {
-  let old_map : Map[String, Column] = Map::new()
-  let new_map : Map[String, Column] = Map::new()
+  let old_map : Map[String, Column] = Map([])
+  let new_map : Map[String, Column] = Map([])
   for c in old_table.columns {
     old_map.set(c.name, c)
   }
@@ -1778,8 +1778,8 @@ fn diff_columns(old_table : Table, new_table : Table) -> ColumnDiff {
 
 ///|
 fn diff_indexes(old_table : Table, new_table : Table) -> IndexDiff {
-  let old_map : Map[String, Index] = Map::new()
-  let new_map : Map[String, Index] = Map::new()
+  let old_map : Map[String, Index] = Map([])
+  let new_map : Map[String, Index] = Map([])
   for i in old_table.indexes {
     old_map.set(i.name, i)
   }
@@ -1812,8 +1812,8 @@ fn diff_indexes(old_table : Table, new_table : Table) -> IndexDiff {
 
 ///|
 fn diff_foreign_keys(old_table : Table, new_table : Table) -> ForeignKeyDiff {
-  let old_map : Map[String, ForeignKey] = Map::new()
-  let new_map : Map[String, ForeignKey] = Map::new()
+  let old_map : Map[String, ForeignKey] = Map([])
+  let new_map : Map[String, ForeignKey] = Map([])
   for fk in old_table.foreign_keys {
     old_map.set(fk.name, fk)
   }
@@ -1855,7 +1855,7 @@ pub fn diff_table(old_table : Table, new_table : Table) -> TableDiff {
 
 ///|
 fn default_driver_registry() -> Map[String, String] {
-  let m : Map[String, String] = Map::new()
+  let m : Map[String, String] = Map([])
   m.set("mysql", "mysql")
   m.set("mariadb", "mysql")
   m.set("tidb", "mysql")

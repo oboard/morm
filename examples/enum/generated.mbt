@@ -101,7 +101,7 @@ pub fn Post::_from(row : Map[String, @engine.Param]) -> Post {
 pub impl @engine.FromParam for Post with from_param(value) {
   match value {
     @engine.Object(obj) => {
-      let row : Map[String, @engine.Param] = Map::new()
+      let row : Map[String, @engine.Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(value) {
           row.set(key, value)

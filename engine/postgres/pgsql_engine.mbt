@@ -808,7 +808,7 @@ fn pg_escape_sql_literal(text : String) -> String {
 ///|
 fn pg_enum_type_sqls(table_schema : @table.Table) -> Array[String] {
   let sqls : Array[String] = []
-  let seen : Map[String, Bool] = Map::new()
+  let seen : Map[String, Bool] = Map([])
   for column in table_schema.columns {
     if column.column_type is @table.Enum(name, values) {
       let type_name = pg_enum_type_name(table_schema, name)

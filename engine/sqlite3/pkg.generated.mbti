@@ -2,6 +2,7 @@
 package "oboard/morm/engine/sqlite3"
 
 import {
+  "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "oboard/morm/engine",
   "oboard/morm/table",
@@ -88,7 +89,8 @@ pub const SQLITE_WARNING : Int = 28
 pub suberror SqliteError {
   SqliteError((Int, SourceLoc))
 }
-pub impl Show for SqliteError
+pub fn SqliteError::message(Self) -> String
+pub impl @debug.Debug for SqliteError
 
 // Types and methods
 #external

@@ -236,7 +236,7 @@ pub impl ToJson for Param with to_json(self) -> Json {
     Timestamp(v, format) => Json::string(format_zoned_date_time(v, format))
     Uuid(v) => Json::string(v)
     Object(v) => {
-      let obj : Map[String, Json] = Map::new()
+      let obj : Map[String, Json] = Map([])
       for key in v.keys() {
         if v.get(key) is Some(value) {
           obj.set(key, value.to_json())
@@ -265,7 +265,7 @@ pub fn param_from_json_value(json : Json) -> Param {
     String(s) => String(s)
     Array(_) => Json(json)
     Object(obj) => {
-      let out : Map[String, Param] = Map::new()
+      let out : Map[String, Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(value) {
           out.set(key, param_from_json_value(value))

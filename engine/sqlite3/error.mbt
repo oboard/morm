@@ -4,9 +4,17 @@ pub suberror SqliteError {
 }
 
 ///|
-pub impl Show for SqliteError with output(self : SqliteError, logger : &Logger) {
+pub impl Debug for SqliteError with to_repr(self) {
   match self {
-    SqliteError((code, _)) => logger.write_string("SqliteError(\{code})")
+    SqliteError((code, _)) =>
+      Repr::ctor("SqliteError", [(None, Repr::integer(code.to_string()))])
+  }
+}
+
+///|
+pub fn SqliteError::message(self : SqliteError) -> String {
+  match self {
+    SqliteError((code, _)) => "SqliteError(\{code})"
   }
 }
 

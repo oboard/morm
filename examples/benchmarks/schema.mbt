@@ -137,7 +137,7 @@ pub impl @engine.FromParam for BenchUser with from_param(value) {
   match value {
     @engine.Object(obj) => BenchUser::decode_from(obj)
     @engine.Json(Object(obj)) => {
-      let row : Map[String, @engine.Param] = Map::new()
+      let row : Map[String, @engine.Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(v) {
           row.set(key, @engine.to_param(v))
@@ -157,7 +157,7 @@ pub impl @engine.FromParam for BenchPost with from_param(value) {
   match value {
     @engine.Object(obj) => BenchPost::decode_from(obj)
     @engine.Json(Object(obj)) => {
-      let row : Map[String, @engine.Param] = Map::new()
+      let row : Map[String, @engine.Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(v) {
           row.set(key, @engine.to_param(v))

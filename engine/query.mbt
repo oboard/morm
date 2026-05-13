@@ -105,7 +105,7 @@ pub async fn[E : Engine] preload_belongs_to_default(
   target_key : String,
   key_params : FixedArray[Param],
 ) -> Map[String, Json] {
-  let out : Map[String, Json] = Map::new()
+  let out : Map[String, Json] = Map([])
   if key_params.is_empty() {
     return out
   }
@@ -128,7 +128,7 @@ pub async fn[E : Engine] preload_has_many_default(
   target_key : String,
   key_params : FixedArray[Param],
 ) -> Map[String, Array[Json]] {
-  let out : Map[String, Array[Json]] = Map::new()
+  let out : Map[String, Array[Json]] = Map([])
   if key_params.is_empty() {
     return out
   }
@@ -150,7 +150,7 @@ pub async fn[E : Engine] preload_many_to_many_default(
   sql : String,
   key_params : FixedArray[Param],
 ) -> Map[String, Array[Json]] {
-  let out : Map[String, Array[Json]] = Map::new()
+  let out : Map[String, Array[Json]] = Map([])
   if key_params.is_empty() {
     return out
   }

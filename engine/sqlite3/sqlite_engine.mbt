@@ -509,9 +509,10 @@ fn SQLiteEngine::exec_sql(
     }
     stmt.finalize()
   } catch {
-    SqliteError(err) => {
-      println(err)
-      error = Some(err.to_string())
+    SqliteError(payload) => {
+      let err = SqliteError(payload)
+      debug(err)
+      error = Some(err.message())
     }
   }
   {

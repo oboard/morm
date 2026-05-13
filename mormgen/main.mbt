@@ -694,7 +694,7 @@ fn generate_entity_impl(
       $| pub impl @engine.FromParam for \{name} with from_param(value) {
       $|   match value {
       $|     @engine.Object(obj) => {
-      $|       let row : Map[String, @engine.Param] = Map::new()
+      $|       let row : Map[String, @engine.Param] = Map([])
       $|       for key in obj.keys() {
       $|         if obj.get(key) is Some(value) {
       $|           row.set(key, value)
@@ -932,7 +932,7 @@ fn render_collection_decode_code(
             key_type, value_type, "row", "value", entity_specs,
           )
           (
-            $|   let out : \{ret_type} = Map::new()
+            $|   let out : \{ret_type} = Map([])
             $|   for row in \{query_expr}.rows {
             $|     let value : \{value_type} = \{row_decode_expr}
             $|     let key : \{key_type} = \{key_expr}
@@ -1069,7 +1069,7 @@ fn collect_package_entity_specs(
 ) -> Array[EntitySpec] raise @fs.IOError {
   let dir = path_dirname(input_file)
   let merged : Array[EntitySpec] = []
-  let seen : Map[String, Bool] = Map::new()
+  let seen : Map[String, Bool] = Map([])
   for entry in @fs.read_dir(dir) {
     if !is_source_mbt_file(entry) {
       continue
@@ -1094,7 +1094,7 @@ fn collect_package_enum_specs(
 ) -> Array[EnumSpec] raise @fs.IOError {
   let dir = path_dirname(input_file)
   let merged : Array[EnumSpec] = []
-  let seen : Map[String, Bool] = Map::new()
+  let seen : Map[String, Bool] = Map([])
   for entry in @fs.read_dir(dir) {
     if !is_source_mbt_file(entry) {
       continue
@@ -1691,10 +1691,10 @@ fn main {
     let entity_names = specs.map(spec => spec.name)
     let mapper_names = mapper_specs.map(ms => ms.trait_name)
     if entity_names.length() > 0 {
-      println("Generated \{output_file} for entities: \{entity_names}")
+      println("Generated \{output_file} for entities: \{to_repr(entity_names)}")
     }
     if mapper_names.length() > 0 {
-      println("Generated \{output_file} for mappers: \{mapper_names}")
+      println("Generated \{output_file} for mappers: \{to_repr(mapper_names)}")
     }
   } catch {
     @fs.IOError(e) => println("IOError: \{e}")

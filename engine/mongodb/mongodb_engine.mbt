@@ -865,7 +865,7 @@ fn append_condition(
           tmp["$eq"] = existing
           tmp
         }
-        None => Map::new()
+        None => Map([])
       }
       next[name] = value
       filter[col] = next.to_json()
