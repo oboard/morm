@@ -30,8 +30,7 @@ pub fn preload_in_sql_qmark(
   key_col : String,
   count : Int,
 ) -> String {
-  let marks = placeholders_with("?", count)
-  "SELECT * FROM \{table} WHERE \{key_col} IN (\{marks})"
+  "SELECT * FROM \{table} WHERE \{key_col} IN (\{placeholders_with("?", count)})"
 }
 
 ///|
@@ -40,8 +39,7 @@ pub fn preload_in_sql_dollar(
   key_col : String,
   count : Int,
 ) -> String {
-  let marks = placeholders_with("$", count)
-  "SELECT * FROM \{table} WHERE \{key_col} IN (\{marks})"
+  "SELECT * FROM \{table} WHERE \{key_col} IN (\{placeholders_with("$", count)})"
 }
 
 ///|
@@ -53,8 +51,7 @@ pub fn preload_many_to_many_sql_qmark(
   join_target_key : String,
   count : Int,
 ) -> String {
-  let marks = placeholders_with("?", count)
-  "SELECT t.*, j.\{join_owner_key} AS __morm_owner_key FROM \{target_table} t INNER JOIN \{join_table} j ON j.\{join_target_key} = t.\{target_key} WHERE j.\{join_owner_key} IN (\{marks})"
+  "SELECT t.*, j.\{join_owner_key} AS __morm_owner_key FROM \{target_table} t INNER JOIN \{join_table} j ON j.\{join_target_key} = t.\{target_key} WHERE j.\{join_owner_key} IN (\{placeholders_with("?", count)})"
 }
 
 ///|
@@ -66,8 +63,7 @@ pub fn preload_many_to_many_sql_dollar(
   join_target_key : String,
   count : Int,
 ) -> String {
-  let marks = placeholders_with("$", count)
-  "SELECT t.*, j.\{join_owner_key} AS __morm_owner_key FROM \{target_table} t INNER JOIN \{join_table} j ON j.\{join_target_key} = t.\{target_key} WHERE j.\{join_owner_key} IN (\{marks})"
+  "SELECT t.*, j.\{join_owner_key} AS __morm_owner_key FROM \{target_table} t INNER JOIN \{join_table} j ON j.\{join_target_key} = t.\{target_key} WHERE j.\{join_owner_key} IN (\{placeholders_with("$", count)})"
 }
 
 ///|
@@ -214,61 +210,45 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
     Select(select_stmt) => {
       let { select, from, joins, where_, order_by, limit, offset } = select_stmt
       let buf = StringBuilder()
-      buf.write_string("SELECT ")
-      if select.is_empty() {
-        buf.write_string("*")
-      } else {
-        buf.write_string(select)
-      }
-      buf.write_string(" FROM ")
-      buf.write_string(from)
+      buf <+
+        "SELECT \{if select.is_empty() { "*" } else { select }} FROM \{from}"
       if !joins.is_empty() {
-        buf.write_string(" ")
-        buf.write_string(joins.join(" "))
+        buf <+ " \{joins.join(" ")}"
       }
       if !where_.is_empty() {
-        buf.write_string(" WHERE ")
-        buf.write_string(format_where_sql(where_))
+        buf <+ " WHERE \{format_where_sql(where_)}"
       }
       if !order_by.is_empty() {
-        buf.write_string(" ORDER BY ")
-        buf.write_string(
-          order_by
+        let order_sql = order_by
           .map(ob => {
             match ob {
               Asc(col) => "\{col} ASC"
               Desc(col) => "\{col} DESC"
             }
           })
-          .join(", "),
-        )
+          .join(", ")
+        buf <+ " ORDER BY \{order_sql}"
       }
       if limit is Some(v) {
-        buf.write_string(" LIMIT ")
-        buf.write_string(v.to_string())
+        buf <+ " LIMIT \{v}"
       }
       if offset is Some(v) {
-        buf.write_string(" OFFSET ")
-        buf.write_string(v.to_string())
+        buf <+ " OFFSET \{v}"
       }
       (buf.to_string(), where_params(where_))
     }
     Insert(insert_stmt) => {
       let { into, columns, values, rows } = insert_stmt
       let buf = StringBuilder()
-      buf.write_string("INSERT INTO ")
-      buf.write_string(into)
+      buf <+ "INSERT INTO \{into}"
       if !columns.is_empty() {
-        buf.write_string(" (")
-        buf.write_string(columns.join(", "))
-        buf.write_string(")")
+        buf <+ " (\{columns.join(", ")})"
       }
       let effective_rows = if !rows.is_empty() { rows } else { [values] }
       let row_sql = effective_rows.map(row => {
         "(" + placeholders(row.length()) + ")"
       })
-      buf.write_string(" VALUES ")
-      buf.write_string(row_sql.join(", "))
+      buf <+ " VALUES \{row_sql.join(", ")}"
       let out_params : Array[Param] = []
       for row in effective_rows {
         for value in row {
@@ -280,16 +260,10 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
     Upsert(upsert_stmt) => {
       let { table, sets, conflict_target: _, update_sets } = upsert_stmt
       let buf = StringBuilder()
-      buf.write_string("INSERT INTO ")
-      buf.write_string(table)
-      buf.write_string(" (")
-      buf.write_string(sets.map(s => s.col).join(", "))
-      buf.write_string(") VALUES (")
-      buf.write_string(placeholders(sets.length()))
-      buf.write_string(")")
+      buf <+
+        "INSERT INTO \{table} (\{sets.map(s => s.col).join(", ")}) VALUES (\{placeholders(sets.length())})"
       if !update_sets.is_empty() {
-        buf.write_string(" ON DUPLICATE KEY UPDATE ")
-        buf.write_string(format_set_sql(update_sets))
+        buf <+ " ON DUPLICATE KEY UPDATE \{format_set_sql(update_sets)}"
       }
       let mut args = sets.map(s => s.value)
       if !update_sets.is_empty() {
@@ -300,24 +274,18 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
     Update(update_stmt) => {
       let { table, sets, where_ } = update_stmt
       let buf = StringBuilder()
-      buf.write_string("UPDATE ")
-      buf.write_string(table)
-      buf.write_string(" SET ")
-      buf.write_string(format_set_sql(sets))
+      buf <+ "UPDATE \{table} SET \{format_set_sql(sets)}"
       if !where_.is_empty() {
-        buf.write_string(" WHERE ")
-        buf.write_string(format_where_sql(where_))
+        buf <+ " WHERE \{format_where_sql(where_)}"
       }
       (buf.to_string(), sets.map(s => s.value) + where_params(where_))
     }
     Delete(delete_stmt) => {
       let { from, where_ } = delete_stmt
       let buf = StringBuilder()
-      buf.write_string("DELETE FROM ")
-      buf.write_string(from)
+      buf <+ "DELETE FROM \{from}"
       if !where_.is_empty() {
-        buf.write_string(" WHERE ")
-        buf.write_string(format_where_sql(where_))
+        buf <+ " WHERE \{format_where_sql(where_)}"
       }
       (buf.to_string(), where_params(where_))
     }
