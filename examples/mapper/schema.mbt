@@ -21,6 +21,6 @@ pub trait UserMapper {
   async fn find_users_page_by_active(
     Self,
     active : Int,
-    pageable : @engine.Pageable,
-  ) -> @engine.Page[User]
+    pageable : @morm/engine.Pageable,
+  ) -> @morm/engine.Page[User]
 }

@@ -91,7 +91,7 @@ pub trait EnrollmentMapper {
 - `@set.Set[T]`
 - `@list.List[T]`
 - `Map[K, T]`
-- `@engine.Page[T]`（需要方法参数里包含 `Pageable`）
+- `@morm/engine.Page[T]`（需要方法参数里包含 `Pageable`）
 
 其中：
 
@@ -121,8 +121,8 @@ pub trait UserMapper {
   async find_users_page_by_active(
     Self,
     active : Int,
-    pageable : @engine.Pageable,
-  ) -> @engine.Page[User]
+    pageable : @morm/engine.Pageable,
+  ) -> @morm/engine.Page[User]
 }
 ```
 
@@ -132,8 +132,8 @@ pub trait UserMapper {
 pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
   self,
   active : Int,
-  pageable : @engine.Pageable,
-) -> @engine.Page[User] {
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.Page[User] {
   let q = @morm.select_from("user").where_eq("active", active)
   @morm.paginate(
     self.engine,
@@ -157,7 +157,7 @@ pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
 
 当前生成的 mapper 不再依赖 `FromJson`。
 
-查询结果会先以 `Map[String, @engine.Param]` 的行模型进入生成代码，再按字段或返回类型调用 `@engine.from_param(...)` 解码。
+查询结果会先以 `Map[String, @morm/engine.Param]` 的行模型进入生成代码，再按字段或返回类型调用 `@morm/engine.from_param(...)` 解码。
 
 这意味着：
 

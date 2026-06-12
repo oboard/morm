@@ -33,7 +33,7 @@ let q = @morm.select_from("student")
 
 ## Fetch A Typed Page
 
-Use `paginate` directly (it decodes rows via `T : @engine.FromParam`):
+Use `paginate` directly (it decodes rows via `T : @morm/engine.FromParam`):
 
 ```moonbit
 let page = @morm.paginate(

@@ -39,7 +39,24 @@ If you use generated code, configure your package build to run `morm-gen` before
 
 ## Configure Code Generation
 
-In your package `moon.pkg`, add `pre-build` rules so source files generate their companion `.g.mbt` files:
+In your package `moon.pkg`, import `morm` and generated-code dependencies with
+the aliases emitted by `mormgen`:
+
+```moonbit
+import {
+  "oboard/morm",
+  "oboard/morm/engine" @morm/engine,
+}
+```
+
+Add concrete engine packages, such as `"oboard/morm/engine/sqlite3"`, when your
+hand-written code uses them.
+
+This is a breaking generated-code alias change. Regenerated `.g.mbt` files use
+`@morm` and `@morm/engine`, so update package aliases before regenerating.
+
+Then add `pre-build` rules so source files generate their companion `.g.mbt`
+files:
 
 ```moonbit
 options(
@@ -388,11 +405,11 @@ Available builders:
 - `@morm.update(table)`
 - `@morm.delete_from(table)`
 
-These build `@engine.Statement` values and defer SQL rendering to the engine layer.
+These build `@morm/engine.Statement` values and defer SQL rendering to the engine layer.
 
 ## Params And Time Values
 
-Parameters are converted through the `@engine.ToParam` trait.
+Parameters are converted through the `@morm/engine.ToParam` trait.
 
 Out of the box, `morm` supports:
 
@@ -409,16 +426,16 @@ Out of the box, `morm` supports:
 Example:
 
 ```moonbit
-let params : FixedArray[@engine.Param] = [
-  @engine.to_param(1),
-  @engine.to_param("Alice"),
-  @engine.to_param(@morm.current_plain_date_time_utc()),
+let params : FixedArray[@morm/engine.Param] = [
+  @morm/engine.to_param(1),
+  @morm/engine.to_param("Alice"),
+  @morm/engine.to_param(@morm.current_plain_date_time_utc()),
 ]
 ```
 
 ## Implement Or Use An Engine
 
-`morm` does not hide database connectivity behind runtime magic. Execution happens through `@engine.Engine`.
+`morm` does not hide database connectivity behind runtime magic. Execution happens through `@morm/engine.Engine`.
 
 An engine implementation is responsible for:
 

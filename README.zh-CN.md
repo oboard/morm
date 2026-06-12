@@ -17,7 +17,19 @@ MoonBit 生态下的轻量级 ORM。目标很直接：
   },
 ```
 
-2. 在你的 `moon.pkg` 添加
+2. 在你的 `moon.pkg` 添加生成代码需要的包别名与 `pre-build`
+
+```moonbit nocheck
+import {
+  "oboard/morm",
+  "oboard/morm/engine" @morm/engine,
+}
+```
+
+如果手写运行时代码还需要具体引擎，再按需导入例如 `"oboard/morm/engine/sqlite3"`。
+
+这是生成代码包别名的 breaking change；重新生成 `.g.mbt` 前，需要先把旧的隐式
+`@engine` alias 切到 `@morm/engine`。
 
 ```moonbit nocheck
 options(
@@ -64,7 +76,7 @@ pub(all) struct MyEntity {
 - `impl @morm.Entity` 与 `table()` 元数据
 - 各数据库方言下的建表 / 迁移 SQL
 - 基于 `#morm.query` 的类型安全 Mapper 方法（含 `save` / `delete`）
-- 统一返回 `(String, FixedArray[@engine.Param])` 的参数化 SQL 构造器
+- 生成代码统一使用 `@morm` / `@morm/engine` 包别名
 
 核心设计取舍：
 
@@ -82,7 +94,7 @@ pub(all) struct MyEntity {
 
 业务层的查询依然以显式 SQL 为主，由用户自己控制每一条语句。
 
-你还需要自己实现一个满足 `@oboard/morm/engine.Engine` 的驱动，用来真正连到 MySQL / PostgreSQL / Sqlite 等数据库。`example/generator_test.mbt` 里有一个简化版的 `MySQLEngine` 示例。
+你还需要自己实现一个满足 `@morm/engine.Engine` 的驱动，用来真正连到 MySQL / PostgreSQL / Sqlite 等数据库。`example/generator_test.mbt` 里有一个简化版的 `MySQLEngine` 示例。
 
 ## 实体建模与可空性
 
@@ -215,9 +227,9 @@ pub trait EnrollmentMapper {
 
 生成器会为你生成：
 
-- `pub struct StudentMapperImpl { engine : &@engine.Engine }`
-- `pub fn StudentMapperImpl::new(engine : &@engine.Engine) -> StudentMapperImpl`
-- 对应的 `impl StudentMapper for StudentMapperImpl`，内部用参数化 SQL 调用 `@engine.exec_query(...)` 或 `engine.exec_raw(...)`
+- `pub struct StudentMapperImpl { engine : &@morm/engine.Engine }`
+- `pub fn StudentMapperImpl::new(engine : &@morm/engine.Engine) -> StudentMapperImpl`
+- 对应的 `impl StudentMapper for StudentMapperImpl`，内部通过 `self.engine.exec(...)` / `self.engine.exec_raw(...)` 执行，并用 `@morm/engine.to_param(...)` 转换参数
 - 额外的通用方法：`save` 和 `delete`，直接基于实体的主键和唯一索引做 UPSERT / DELETE
 
 使用方式示例（简化）：

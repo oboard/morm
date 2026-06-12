@@ -156,8 +156,8 @@ pub(all) struct Post {
 
 `mormgen` will:
 
-- generate `impl @engine.ToParam for PostStatus`
-- generate `impl @engine.FromParam for PostStatus`
+- generate `impl @morm/engine.ToParam for PostStatus`
+- generate `impl @morm/engine.FromParam for PostStatus`
 - emit the field as `ColumnType::Enum("PostStatus", ["Draft", ...])`
 
 Engine behavior:

@@ -1,10 +1,10 @@
 ///|
-pub impl @oboard/morm.Entity for User with fn table(_self) -> @oboard/morm.Table {
+pub impl @morm.Entity for User with fn table(_self) -> @morm.Table {
   User::table()
 }
 
 ///|
-pub fn User::table() -> @oboard/morm.Table {
+pub fn User::table() -> @morm.Table {
   {
     name: "user",
     schema: None,
@@ -68,30 +68,30 @@ pub fn User::table() -> @oboard/morm.Table {
 }
 
 ///|
-pub fn User::_from(row : Map[String, @engine.Param]) -> User {
+pub fn User::_from(row : Map[String, @morm/engine.Param]) -> User {
   let id_param = match row.get("id") {
     Some(value) => value
     None => panic()
   }
-  let id : Int = (try! @engine.from_param(id_param) : Int)
+  let id : Int = (try! @morm/engine.from_param(id_param) : Int)
   let email_param = match row.get("email") {
     Some(value) => value
     None => panic()
   }
-  let email : String = (try! @engine.from_param(email_param) : String)
+  let email : String = (try! @morm/engine.from_param(email_param) : String)
   let active_param = match row.get("active") {
     Some(value) => value
     None => panic()
   }
-  let active : Int = (try! @engine.from_param(active_param) : Int)
+  let active : Int = (try! @morm/engine.from_param(active_param) : Int)
   return { id, email, active }
 }
 
 ///|
-pub impl @engine.FromParam for User with fn from_param(value) {
+pub impl @morm/engine.FromParam for User with fn from_param(value) {
   match value {
     Object(obj) => {
-      let row : Map[String, @engine.Param] = Map([])
+      let row : Map[String, @morm/engine.Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(value) {
           row.set(key, value)
@@ -105,12 +105,12 @@ pub impl @engine.FromParam for User with fn from_param(value) {
 
 ///|
 pub struct UserMapperImpl {
-  engine : &@engine.Engine
+  engine : &@morm/engine.Engine
 }
 
 ///|
 pub fn UserMapperImpl::UserMapperImpl(
-  engine : &@engine.Engine,
+  engine : &@morm/engine.Engine,
 ) -> UserMapperImpl {
   { engine, }
 }
@@ -139,8 +139,8 @@ pub impl UserMapper for UserMapperImpl with fn find_users_by_active(
 pub impl UserMapper for UserMapperImpl with fn find_users_page_by_active(
   self,
   active : Int,
-  pageable : @engine.Pageable,
-) -> @engine.Page[User] {
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.Page[User] {
   @morm.paginate(
     self.engine,
     @morm.select_from("user").where_eq("active", active),

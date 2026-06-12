@@ -1,5 +1,8 @@
 ///|
-const PKG_NAME = "@oboard/morm"
+const PKG_NAME = "@morm"
+
+///|
+const ENGINE_PKG = "@morm/engine"
 
 ///|
 /// 变换阶段：从 EntitySpec 构建 @morm.Table，不接触解析细节
@@ -605,13 +608,13 @@ fn render_from_param_expr(
   if nullable {
     return "match " +
       value_expr +
-      " { Null => None; _ => Some((try! @engine.from_param(" +
+      " { Null => None; _ => Some((try! \{ENGINE_PKG}.from_param(" +
       value_expr +
       ") : " +
       type_name +
       ")) }"
   }
-  "(try! @engine.from_param(\{value_expr}) : \{type_name})"
+  "(try! \{ENGINE_PKG}.from_param(\{value_expr}) : \{type_name})"
 }
 
 ///|
@@ -630,9 +633,9 @@ fn render_field__from_expr(field : FieldSpec, value_expr : String) -> String {
   if field.field_type == "Json" {
     if field_json_storage(field) is Some(storage) {
       if field.nullable {
-        return "match \{value_expr} { Null => None; _ => Some(try! @engine.decode_json_column(\{value_expr}, \{mbt_string(storage)})) }"
+        return "match \{value_expr} { Null => None; _ => Some(try! \{ENGINE_PKG}.decode_json_column(\{value_expr}, \{mbt_string(storage)})) }"
       }
-      return "(try! @engine.decode_json_column(\{value_expr}, \{mbt_string(storage)}))"
+      return "(try! \{ENGINE_PKG}.decode_json_column(\{value_expr}, \{mbt_string(storage)}))"
     }
   }
   render_from_param_expr(field.field_type, value_expr, field.nullable)
@@ -669,7 +672,7 @@ fn render_entity__from(spec : EntitySpec) -> String {
   let fields_code = field_lines.join("\n")
   let ctor_code = ctor_lines.join("\n")
   (
-    $| pub fn \{spec.name}::_from(row : Map[String, @engine.Param]) -> \{spec.name} {
+    $| pub fn \{spec.name}::_from(row : Map[String, \{ENGINE_PKG}.Param]) -> \{spec.name} {
     $|\{fields_code}
     $|     return {
     $|\{ctor_code}
@@ -691,10 +694,10 @@ fn generate_entity_impl(
     render_entity__from(spec) +
     "\n" +
     (
-      $| pub impl @engine.FromParam for \{name} with fn from_param(value) {
+      $| pub impl \{ENGINE_PKG}.FromParam for \{name} with fn from_param(value) {
       $|   match value {
       $|     Object(obj) => {
-      $|       let row : Map[String, @engine.Param] = Map([])
+      $|       let row : Map[String, \{ENGINE_PKG}.Param] = Map([])
       $|       for key in obj.keys() {
       $|         if obj.get(key) is Some(value) {
       $|           row.set(key, value)
@@ -818,11 +821,7 @@ fn option_inner_type(type_name : String) -> String? {
 
 ///|
 fn is_pageable_type_name(type_name : String) -> Bool {
-  type_name
-  is ("Pageable"
-  | "@morm.Pageable"
-  | "@oboard/morm.Pageable"
-  | "@engine.Pageable")
+  type_name is ("Pageable" | "@morm/engine.Pageable")
 }
 
 ///|
@@ -971,21 +970,21 @@ fn render_query_result_decode_expr(
       if entity_supports_row_decoder(spec, enum_specs) {
         "\{type_name}::_from(\{value_expr})"
       } else {
-        "(try! @engine.from_param(\{value_expr}) : \{type_name})"
+        "(try! \{ENGINE_PKG}.from_param(\{value_expr}) : \{type_name})"
       }
-    None => "(try! @engine.from_param(\{value_expr}) : \{type_name})"
+    None => "(try! \{ENGINE_PKG}.from_param(\{value_expr}) : \{type_name})"
   }
 }
 
 ///|
 fn render_enum_codec_impl(enum_spec : EnumSpec) -> String {
   (
-    $| pub impl @engine.ToParam for \{enum_spec.name} with fn to_param(self) -> @engine.Param {
-    $|   try! @engine.enum_to_param(self)
+    $| pub impl \{ENGINE_PKG}.ToParam for \{enum_spec.name} with fn to_param(self) -> \{ENGINE_PKG}.Param {
+    $|   try! \{ENGINE_PKG}.enum_to_param(self)
     $| }
     $|
-    $| pub impl @engine.FromParam for \{enum_spec.name} with fn from_param(value) {
-    $|   try! @engine.enum_from_param(value)
+    $| pub impl \{ENGINE_PKG}.FromParam for \{enum_spec.name} with fn from_param(value) {
+    $|   try! \{ENGINE_PKG}.enum_from_param(value)
     $| }
   )
 }
@@ -1137,11 +1136,11 @@ fn generate_mapper_code(
   }
   let struct_def =
     $| pub struct \{impl_name} {
-    $|   engine : &@engine.Engine
+    $|   engine : &\{ENGINE_PKG}.Engine
     $| }
     $|
   let mapper_fn =
-    $| pub fn \{impl_name}::\{impl_name}(engine : &@engine.Engine) -> \{impl_name} {
+    $| pub fn \{impl_name}::\{impl_name}(engine : &\{ENGINE_PKG}.Engine) -> \{impl_name} {
     $|   { engine, }
     $| }
     $|
@@ -1153,11 +1152,11 @@ fn generate_mapper_code(
   }
   let mapper_helpers = if has_sync_methods {
     (
-      $| pub fn[Q : @engine.QueryBuilder] \{impl_name}::exec_query_sync(
+      $| pub fn[Q : \{ENGINE_PKG}.QueryBuilder] \{impl_name}::exec_query_sync(
       $|   self : \{impl_name},
       $|   q : Q,
-      $| ) -> @engine.QueryResult {
-      $|   let mut res : @engine.QueryResult = {
+      $| ) -> \{ENGINE_PKG}.QueryResult {
+      $|   let mut res : \{ENGINE_PKG}.QueryResult = {
       $|     ok: false,
       $|     rows_affected: 0,
       $|     rows: [],
@@ -1172,9 +1171,9 @@ fn generate_mapper_code(
       $| pub fn \{impl_name}::exec_raw_sync(
       $|   self : \{impl_name},
       $|   sql : String,
-      $|   params : FixedArray[@engine.Param],
-      $| ) -> @engine.QueryResult {
-      $|   let mut res : @engine.QueryResult = {
+      $|   params : FixedArray[\{ENGINE_PKG}.Param],
+      $| ) -> \{ENGINE_PKG}.QueryResult {
+      $|   let mut res : \{ENGINE_PKG}.QueryResult = {
       $|     ok: false,
       $|     rows_affected: 0,
       $|     rows: [],
@@ -1199,7 +1198,7 @@ fn generate_mapper_code(
       let (pname, ptype) = p
       param_sig_parts.push("\{pname} : \{ptype}")
       if pageable_param_name != Some(pname) {
-        sql_args_parts.push("@engine.to_param(\{pname})")
+        sql_args_parts.push("\{ENGINE_PKG}.to_param(\{pname})")
       }
     }
     let param_sig = if param_sig_parts.length() == 0 {
@@ -1505,7 +1504,7 @@ fn generate_mapper_code(
                 match pageable_param_name {
                   Some(pageable_name) =>
                     (
-                      $|   @morm.paginate(self.engine, \{code}, \{pageable_name})
+                      $|   \{PKG_NAME}.paginate(self.engine, \{code}, \{pageable_name})
                       $| }
                       $|
                     )
@@ -1565,7 +1564,7 @@ fn generate_mapper_code(
             match pageable_param_name {
               Some(pageable_name) =>
                 (
-                  $|   @morm.paginate_raw(self.engine, "\{sql}", \{query_args}, \{pageable_name})
+                  $|   \{PKG_NAME}.paginate_raw(self.engine, "\{sql}", \{query_args}, \{pageable_name})
                   $| }
                   $|
                 )

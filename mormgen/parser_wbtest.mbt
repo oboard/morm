@@ -142,7 +142,7 @@ test "generate create save update delete with trait parameter name" {
   let mapper_specs = parse_mappers_from_ast(ast, source, entity_specs)
   let code = generate_mapper_code(mapper_specs[0], entity_specs, [])
   inspect(
-    code.contains("@oboard/morm.insert_into(\"user\").from(user)"),
+    code.contains("@morm.insert_into(\"user\").from(user)"),
     content="true",
   )
   inspect(code.contains(".from(user)"), content="true")
@@ -167,9 +167,9 @@ test "parse and generate mapper page return" {
     #|///|
     #|#morm.mapper(table="user")
     #|pub trait UserMapper {
-    #|  async find_users_by_active(Self, active : Int, pageable : @engine.Pageable) -> @engine.Page[User]
+    #|  async find_users_by_active(Self, active : Int, pageable : @morm/engine.Pageable) -> @morm/engine.Page[User]
     #|  #morm.query("SELECT id, name, active FROM user WHERE active = ?")
-    #|  async find_users_page_raw(Self, active : Int, pageable : @engine.Pageable) -> @engine.Page[User]
+    #|  async find_users_page_raw(Self, active : Int, pageable : @morm/engine.Pageable) -> @morm/engine.Page[User]
     #|}
   let (ast, _) = @parser.parse_string(source)
   let entity_specs = parse_entities_from_ast(ast)
@@ -183,6 +183,8 @@ test "parse and generate mapper page return" {
   let code = generate_mapper_code(mapper_specs[0], entity_specs, [])
   inspect(code.contains("@morm.paginate(self.engine"), content="true")
   inspect(code.contains("@morm.paginate_raw(self.engine"), content="true")
+  inspect(code.contains("pageable : @morm/engine.Pageable"), content="true")
+  inspect(code.contains(") -> @morm/engine.Page[User]"), content="true")
 }
 
 ///|
@@ -231,13 +233,16 @@ test "generate enum codec impls for mapper package types" {
       [],
       parse_enum_specs_from_source(source),
     )
-  inspect(code.contains("pub impl @engine.ToParam for Status"), content="true")
   inspect(
-    code.contains("pub impl @engine.FromParam for Status"),
+    code.contains("pub impl @morm/engine.ToParam for Status"),
     content="true",
   )
   inspect(
-    code.contains("(try! @engine.from_param(result) : Status)"),
+    code.contains("pub impl @morm/engine.FromParam for Status"),
+    content="true",
+  )
+  inspect(
+    code.contains("(try! @morm/engine.from_param(result) : Status)"),
     content="true",
   )
 }

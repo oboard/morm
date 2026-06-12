@@ -1,20 +1,20 @@
 ///|
-pub impl @engine.ToParam for PostStatus with fn to_param(self) -> @engine.Param {
-  try! @engine.enum_to_param(self)
+pub impl @morm/engine.ToParam for PostStatus with fn to_param(self) -> @morm/engine.Param {
+  try! @morm/engine.enum_to_param(self)
 }
 
 ///|
-pub impl @engine.FromParam for PostStatus with fn from_param(value) {
-  try! @engine.enum_from_param(value)
+pub impl @morm/engine.FromParam for PostStatus with fn from_param(value) {
+  try! @morm/engine.enum_from_param(value)
 }
 
 ///|
-pub impl @oboard/morm.Entity for Post with fn table(_self) -> @oboard/morm.Table {
+pub impl @morm.Entity for Post with fn table(_self) -> @morm.Table {
   Post::table()
 }
 
 ///|
-pub fn Post::table() -> @oboard/morm.Table {
+pub fn Post::table() -> @morm.Table {
   {
     name: "post",
     schema: None,
@@ -78,30 +78,31 @@ pub fn Post::table() -> @oboard/morm.Table {
 }
 
 ///|
-pub fn Post::_from(row : Map[String, @engine.Param]) -> Post {
+pub fn Post::_from(row : Map[String, @morm/engine.Param]) -> Post {
   let id_param = match row.get("id") {
     Some(value) => value
     None => panic()
   }
-  let id : Int = (try! @engine.from_param(id_param) : Int)
+  let id : Int = (try! @morm/engine.from_param(id_param) : Int)
   let title_param = match row.get("title") {
     Some(value) => value
     None => panic()
   }
-  let title : String = (try! @engine.from_param(title_param) : String)
+  let title : String = (try! @morm/engine.from_param(title_param) : String)
   let status_param = match row.get("status") {
     Some(value) => value
     None => panic()
   }
-  let status : PostStatus = (try! @engine.from_param(status_param) : PostStatus)
+  let status : PostStatus = (
+    try! @morm/engine.from_param(status_param) : PostStatus)
   return { id, title, status }
 }
 
 ///|
-pub impl @engine.FromParam for Post with fn from_param(value) {
+pub impl @morm/engine.FromParam for Post with fn from_param(value) {
   match value {
     Object(obj) => {
-      let row : Map[String, @engine.Param] = Map([])
+      let row : Map[String, @morm/engine.Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(value) {
           row.set(key, value)

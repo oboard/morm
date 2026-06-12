@@ -91,7 +91,7 @@ Mapper read methods currently support these return shapes:
 - `@set.Set[T]`
 - `@list.List[T]`
 - `Map[K, T]`
-- `@engine.Page[T]` (requires a `Pageable` parameter)
+- `@morm/engine.Page[T]` (requires a `Pageable` parameter)
 
 Behavior:
 
@@ -121,8 +121,8 @@ pub trait UserMapper {
   async find_users_page_by_active(
     Self,
     active : Int,
-    pageable : @engine.Pageable,
-  ) -> @engine.Page[User]
+    pageable : @morm/engine.Pageable,
+  ) -> @morm/engine.Page[User]
 }
 ```
 
@@ -132,8 +132,8 @@ Generated implementation shape:
 pub impl UserMapper for UserMapperImpl with find_users_page_by_active(
   self,
   active : Int,
-  pageable : @engine.Pageable,
-) -> @engine.Page[User] {
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.Page[User] {
   let q = @morm.select_from("user").where_eq("active", active)
   @morm.paginate(
     self.engine,
@@ -155,7 +155,7 @@ A full runnable sample is available in:
 
 Generated mappers no longer depend on `FromJson`.
 
-Query rows now enter generated code as `Map[String, @engine.Param]`, and decoding is performed through `@engine.from_param(...)` at the field or return-type level.
+Query rows now enter generated code as `Map[String, @morm/engine.Param]`, and decoding is performed through `@morm/engine.from_param(...)` at the field or return-type level.
 
 That means:
 

@@ -1,11 +1,11 @@
 ///|
 pub struct UserMapperImpl {
-  engine : &@engine.Engine
+  engine : &@morm/engine.Engine
 }
 
 ///|
 pub fn UserMapperImpl::UserMapperImpl(
-  engine : &@engine.Engine,
+  engine : &@morm/engine.Engine,
 ) -> UserMapperImpl {
   { engine, }
 }

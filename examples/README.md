@@ -19,7 +19,8 @@ moon run examples/curd
 - `basic`: create tables in SQLite `:memory:`, insert rows, and query results.
   This example focuses on Query Builder (`insert_into/select_from/update/delete_from`).
 - `enum`: use a MoonBit enum in an entity, inspect the generated enum column metadata,
-  and round-trip enum values through `@engine.to_param` / `@engine.from_param`.
+  and round-trip enum values through the generated `@morm/engine.ToParam` /
+  `@morm/engine.FromParam` impls.
 - `exec_raw`: use `exec_raw` with bound params and print query output.
 - `preload`: preload `belongs_to`, `has_many`, and `many_to_many` maps.
 - `mapper`: mormgen-based mapper flow (`schema.mbt` -> `generated.mbt` -> runtime call).

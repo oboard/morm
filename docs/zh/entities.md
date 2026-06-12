@@ -44,8 +44,8 @@ pub(all) struct Post {
 
 `mormgen` 会自动生成：
 
-- `impl @engine.ToParam for PostStatus`
-- `impl @engine.FromParam for PostStatus`
+- `impl @morm/engine.ToParam for PostStatus`
+- `impl @morm/engine.FromParam for PostStatus`
 - `ColumnType::Enum("PostStatus", [...])`
 
 当前各引擎行为：

@@ -40,6 +40,23 @@ Add the package to your application's `moon.mod.json`:
 
 ## Generate Code
 
+A typical package imports `morm` and the generated-code dependencies with the
+aliases that `mormgen` emits:
+
+```moonbit
+import {
+  "oboard/morm",
+  "oboard/morm/engine" @morm/engine,
+}
+```
+
+Add engine packages such as `"oboard/morm/engine/sqlite3"` as needed by your
+hand-written runtime code.
+
+This is a breaking generated-code alias change. If your package still imports
+`"oboard/morm/engine"` as the old implicit `@engine` alias, update the alias
+before regenerating code.
+
 A typical package uses `pre-build` to generate `.g.mbt` files:
 
 ```moonbit

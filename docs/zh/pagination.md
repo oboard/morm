@@ -33,7 +33,7 @@ let q = @morm.select_from("student")
 
 ## 获取分页结果
 
-使用 `paginate`（通过 `T : @engine.FromParam` 自动解码）：
+使用 `paginate`（通过 `T : @morm/engine.FromParam` 自动解码）：
 
 ```moonbit
 let page = @morm.paginate(
