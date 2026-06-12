@@ -1,6 +1,6 @@
 name = "oboard/morm"
 
-version = "0.3.14"
+version = "0.4.0"
 
 import {
   "moonbitlang/x@0.4.43",
@@ -14,8 +14,15 @@ repository = "https://github.com/oboard/morm"
 
 license = "Apache-2.0"
 
-keywords = [ ]
+keywords = [
+  "orm",
+  "database",
+  "sql",
+  "query builder",
+  "code generation",
+  "moonbit",
+]
 
-description = ""
+description = "A lightweight MoonBit ORM with typed queries, code generation, and multi-database engines"
 
 preferred_target = "native"
