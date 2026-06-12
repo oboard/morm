@@ -1,8 +1,8 @@
 ///|
 fn where_clause(
-  ty : @engine.WhereType,
-  value : @engine.Param,
-) -> FixedArray[@engine.Where] {
+  ty : @morm/engine.WhereType,
+  value : @morm/engine.Param,
+) -> FixedArray[@morm/engine.Where] {
   [{ col: "status", value, ty }]
 }
 

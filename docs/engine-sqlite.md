@@ -27,7 +27,7 @@ Use file-backed mode for persistent local apps and tests that need state between
 
 - Uses `?` placeholders
 - Binds parameters in positional order
-- Works with the shared `@engine.Param` value model
+- Works with the shared `@morm/engine.Param` value model
 
 ```moonbit
 let create_res = engine.exec_raw(
@@ -36,7 +36,7 @@ let create_res = engine.exec_raw(
 )
 let query_res = engine.exec_raw(
   "SELECT * FROM user WHERE id = ?",
-  [@engine.Int(1)],
+  [@morm/engine.Int(1)],
 )
 ```
 

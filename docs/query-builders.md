@@ -79,8 +79,8 @@ Explicit insert:
 let q = @morm.insert_into("student")
   .columns(["name", "age"])
   .values([
-    @engine.to_param("Alice"),
-    @engine.to_param(18),
+    @morm/engine.to_param("Alice"),
+    @morm/engine.to_param(18),
   ])
 ```
 
@@ -98,8 +98,8 @@ Batch insert (single SQL with multi-row values):
 let q = @morm.insert_into("student")
   .columns(["id", "name"])
   .values_many([
-    [@engine.Int(1), @engine.String("Alice")],
-    [@engine.Int(2), @engine.String("Bob")],
+    [@morm/engine.Int(1), @morm/engine.String("Alice")],
+    [@morm/engine.Int(2), @morm/engine.String("Bob")],
   ])
 ```
 
@@ -158,7 +158,7 @@ let q = @morm.update("student")
   .where_eq("id", 1)
 ```
 
-`UpdateQuery::set` accepts any value that implements `@engine.ToParam`.
+`UpdateQuery::set` accepts any value that implements `@morm/engine.ToParam`.
 
 The same applies to:
 
@@ -168,7 +168,7 @@ The same applies to:
 - `UpsertQuery::set`
 - `UpsertQuery::do_update_set`
 
-By contrast, APIs like `InsertQuery::values(...)` and `engine.exec_raw(..., params)` expect `FixedArray[@engine.Param]`.
+By contrast, APIs like `InsertQuery::values(...)` and `engine.exec_raw(..., params)` expect `FixedArray[@morm/engine.Param]`.
 When the element type can be inferred, literals such as `[1, "Alice"]` can be used directly.
 
 Entity-based update:
@@ -209,7 +209,7 @@ This adds the implicit predicate `deleted = false`.
 
 ## Rendering And Execution
 
-All builders implement `@engine.QueryBuilder`, so they can be passed to:
+All builders implement `@morm/engine.QueryBuilder`, so they can be passed to:
 
 ```moonbit
 let res = engine.exec(q)

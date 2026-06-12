@@ -1,8 +1,8 @@
 ///|
 fn select_stmt_with_null(
-  where_ty : @engine.WhereType,
-  value : @engine.Param,
-) -> @engine.Statement {
+  where_ty : @morm/engine.WhereType,
+  value : @morm/engine.Param,
+) -> @morm/engine.Statement {
   Select({
     select: "*",
     from: "users",
@@ -16,7 +16,7 @@ fn select_stmt_with_null(
 
 ///|
 test "sqlserver null where renders is null/is not null" {
-  let (sql_eq, params_eq) = @engine.render_default_sql(
+  let (sql_eq, params_eq) = @morm/engine.render_default_sql(
     select_stmt_with_null(Eq, Null),
   )
   assert_eq(sql_eq, "SELECT * FROM users WHERE status IS NULL")
@@ -26,7 +26,7 @@ test "sqlserver null where renders is null/is not null" {
     "SELECT * FROM users WHERE status IS NULL",
   )
 
-  let (sql_ne, params_ne) = @engine.render_default_sql(
+  let (sql_ne, params_ne) = @morm/engine.render_default_sql(
     select_stmt_with_null(Ne, Json(Json::null())),
   )
   assert_eq(sql_ne, "SELECT * FROM users WHERE status IS NOT NULL")

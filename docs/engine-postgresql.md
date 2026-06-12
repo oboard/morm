@@ -27,7 +27,7 @@ For production, use dedicated users and explicit SSL settings that match your en
 ## Placeholders and Parameters
 
 - Uses `$1`, `$2`, `$3` positional placeholders
-- Parameter values are represented via `@engine.Param`
+- Parameter values are represented via `@morm/engine.Param`
 - Safe parameter binding avoids SQL injection from dynamic values
 
 ## Transactions and Savepoints

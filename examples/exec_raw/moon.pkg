@@ -1,6 +1,5 @@
 import {
   "moonbitlang/async",
-  "oboard/morm/engine",
   "oboard/morm/engine/sqlite3",
 }
 

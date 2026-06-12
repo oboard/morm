@@ -1,6 +1,6 @@
 ///|
-fn render_len(query : &@engine.QueryBuilder) -> Int {
-  let (sql, params) = @engine.render_query_sql(query)
+fn render_len(query : &@morm/engine.QueryBuilder) -> Int {
+  let (sql, params) = @morm/engine.render_query_sql(query)
   sql.length() + params.length()
 }
 

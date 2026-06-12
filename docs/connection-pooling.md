@@ -32,7 +32,7 @@ With pooling, idle connections are reused and only bad or excess connections are
 
 ## Pool Model
 
-The shared pool lives in `@engine.ConnectionPool`.
+The shared pool lives in `@morm/engine.ConnectionPool`.
 
 Internally it uses:
 
@@ -64,9 +64,9 @@ For `MySQL` and `PostgreSQL`, an active transaction is pinned to one borrowed co
 
 That means:
 
-1. `engine.exec(@engine.Tx(@engine.Begin))` borrows one connection and keeps it.
+1. `engine.exec(@morm/engine.Tx(@morm/engine.Begin))` borrows one connection and keeps it.
 2. All later `exec_raw` / `exec_query` calls on that same engine instance run on the same socket.
-3. `engine.exec(@engine.Tx(@engine.Commit))` or `engine.exec(@engine.Tx(@engine.Rollback))` returns the connection to the pool.
+3. `engine.exec(@morm/engine.Tx(@morm/engine.Commit))` or `engine.exec(@morm/engine.Tx(@morm/engine.Rollback))` returns the connection to the pool.
 
 This is the minimum requirement for correct transaction behavior.
 

@@ -27,7 +27,7 @@ Use dedicated application users and avoid administrative accounts in normal runt
 ## Parameter Handling
 
 - Oracle-compatible rendering strategy is handled by the engine
-- All values use typed `@engine.Param` binding
+- All values use typed `@morm/engine.Param` binding
 - Runtime values should never be inlined into SQL strings
 
 ## Transactions

@@ -20,7 +20,7 @@ oracle://system:password@127.0.0.1:1521/XEPDB1
 
 ## 参数与事务
 
-- 参数统一走 `@engine.Param`
+- 参数统一走 `@morm/engine.Param`
 - 支持事务提交与回滚
 
 ## 使用建议

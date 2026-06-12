@@ -68,8 +68,8 @@ let q = @morm.select_raw("student", "count(*)")
 let q = @morm.insert_into("student")
   .columns(["name", "age"])
   .values([
-    @engine.to_param("Alice"),
-    @engine.to_param(18),
+    @morm/engine.to_param("Alice"),
+    @morm/engine.to_param(18),
   ])
 ```
 
@@ -106,7 +106,7 @@ let q = @morm.delete_from("student")
 
 ## 渲染与执行
 
-所有构建器都实现了 `@engine.QueryBuilder`，可以直接传给：
+所有构建器都实现了 `@morm/engine.QueryBuilder`，可以直接传给：
 
 ```moonbit
 let res = engine.exec(q)

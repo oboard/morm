@@ -59,7 +59,7 @@ async fn run_metric(name : String, op : async () -> Unit) -> String {
 }
 
 ///|
-fn metric_select_count(result : @engine.QueryResult) -> Int {
+fn metric_select_count(result : @morm/engine.QueryResult) -> Int {
   if !result.ok {
     panic()
   }
@@ -68,7 +68,7 @@ fn metric_select_count(result : @engine.QueryResult) -> Int {
 
 ///|
 async fn run_main_metrics(
-  engine : &@engine.Engine,
+  engine : &@morm/engine.Engine,
   mapper : BenchUserMapperImpl,
 ) -> Array[String] {
   let rows : Array[String] = []

@@ -264,7 +264,7 @@ let deleted = mapper.delete(stu)
 - `delete_from(table)`
 - `upsert_into(table)`
 
-通过 `to_query()` + `@engine.render_query_sql(...)` 得到 SQL 和参数：
+通过 `to_query()` + `@morm/engine.render_query_sql(...)` 得到 SQL 和参数：
 
 ```moonbit nocheck
 let q = @morm.select_from("student")
@@ -273,7 +273,7 @@ let q = @morm.select_from("student")
   .order_by(@morm.desc("id"))
   .offset(5)
   .limit(5)
-let (sql, params) = @engine.render_query_sql(q)
+let (sql, params) = @morm/engine.render_query_sql(q)
 ```
 
 `sql` 会是：

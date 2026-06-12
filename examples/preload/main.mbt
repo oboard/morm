@@ -70,32 +70,32 @@ async fn main {
     return
   }
 
-  let owner_params : FixedArray[@engine.Param] = [Int(1), Int(2)]
+  let owner_params : FixedArray[@morm/engine.Param] = [Int(1), Int(2)]
 
-  let belongs_to_sql = @engine.preload_in_sql_qmark(
+  let belongs_to_sql = @morm/engine.preload_in_sql_qmark(
     "user",
     "id",
     owner_params.length(),
   )
-  let user_map = @engine.preload_belongs_to_default(
+  let user_map = @morm/engine.preload_belongs_to_default(
     engine, belongs_to_sql, "id", owner_params,
   )
   println("preload: belongs_to keys=\{user_map.length()}")
 
-  let has_many_sql = @engine.preload_in_sql_qmark(
+  let has_many_sql = @morm/engine.preload_in_sql_qmark(
     "post",
     "author_id",
     owner_params.length(),
   )
-  let post_map = @engine.preload_has_many_default(
+  let post_map = @morm/engine.preload_has_many_default(
     engine, has_many_sql, "author_id", owner_params,
   )
   println("preload: has_many keys=\{post_map.length()}")
 
-  let mtm_sql = @engine.preload_many_to_many_sql_qmark(
+  let mtm_sql = @morm/engine.preload_many_to_many_sql_qmark(
     "tag", "id", "post_tag", "post_id", "tag_id", 2,
   )
-  let mtm_map = @engine.preload_many_to_many_default(engine, mtm_sql, [
+  let mtm_map = @morm/engine.preload_many_to_many_default(engine, mtm_sql, [
     Int(10),
     Int(11),
   ])

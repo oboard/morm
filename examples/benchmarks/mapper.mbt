@@ -6,20 +6,20 @@ pub trait BenchUserMapper {
   async fn find_users_page_by_active(
     Self,
     active : Int,
-    pageable : @engine.Pageable,
-  ) -> @engine.Page[BenchUser]
+    pageable : @morm/engine.Pageable,
+  ) -> @morm/engine.Page[BenchUser]
   async fn update_active_by_id(Self, active : Int, id : Int) -> Bool
   async fn delete_by_id(Self, id : Int) -> Bool
 }
 
 ///|
 pub struct BenchUserMapperImpl {
-  engine : &@engine.Engine
+  engine : &@morm/engine.Engine
 }
 
 ///|
 pub fn BenchUserMapperImpl::BenchUserMapperImpl(
-  engine : &@engine.Engine,
+  engine : &@morm/engine.Engine,
 ) -> BenchUserMapperImpl {
   { engine, }
 }

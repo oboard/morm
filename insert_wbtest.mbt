@@ -15,14 +15,14 @@ impl Entity for InsertAutoUser with fn table(_self) -> Table {
 }
 
 ///|
-impl @engine.FromParam for InsertAutoUser with fn from_param(_value) {
+impl @morm/engine.FromParam for InsertAutoUser with fn from_param(_value) {
   raise ParamDecodeError("InsertAutoUser::from_param is unused")
 }
 
 ///|
 test "insert from skips auto increment columns" {
   let user = { id: 42, name: "Alice", active: true }
-  let (sql, params) = @engine.render_query_sql(
+  let (sql, params) = @morm/engine.render_query_sql(
     insert_into("insert_auto_user").from(user),
   )
   inspect(
@@ -38,7 +38,7 @@ test "insert from many skips auto increment columns" {
     { id: 42, name: "Alice", active: true },
     { id: 43, name: "Bob", active: false },
   ]
-  let (sql, params) = @engine.render_query_sql(
+  let (sql, params) = @morm/engine.render_query_sql(
     insert_into("insert_auto_user").from_many(users),
   )
   inspect(

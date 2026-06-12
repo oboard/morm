@@ -29,7 +29,7 @@ fn bench_post(id : Int, user_id : Int) -> BenchPost {
 let benchmark_size = 1000
 
 ///|
-async fn seed_database(engine : &@engine.Engine) -> Unit {
+async fn seed_database(engine : &@morm/engine.Engine) -> Unit {
   ignore(engine.migrate_table(BenchUser::table()))
   ignore(engine.migrate_table(BenchPost::table()))
   let users : Array[BenchUser] = []

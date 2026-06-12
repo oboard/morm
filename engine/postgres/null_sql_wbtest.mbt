@@ -1,8 +1,8 @@
 ///|
 fn select_stmt_with_null(
-  where_ty : @engine.WhereType,
-  value : @engine.Param,
-) -> @engine.Statement {
+  where_ty : @morm/engine.WhereType,
+  value : @morm/engine.Param,
+) -> @morm/engine.Statement {
   Select({
     select: "*",
     from: "users",

@@ -12,7 +12,7 @@ Typical code imports look like:
 
 ```moonbit
 using @oboard/morm as @morm
-using @oboard/morm/engine as @engine
+using @oboard/morm/engine as @morm/engine
 using @oboard/morm/time as @time
 ```
 
@@ -140,8 +140,8 @@ let q = @morm.select_from("enrollment")
 let q = @morm.insert_into("student")
   .columns(["name", "age"])
   .values([
-    @engine.to_param("Alice"),
-    @engine.to_param(18),
+    @morm/engine.to_param("Alice"),
+    @morm/engine.to_param(18),
   ])
 ```
 
@@ -227,9 +227,9 @@ This helper applies the built-in boolean convention `deleted = false` before add
 ### Primitive Params
 
 ```moonbit
-let p1 = @engine.to_param(1)
-let p2 = @engine.to_param(true)
-let p3 = @engine.to_param("Alice")
+let p1 = @morm/engine.to_param(1)
+let p2 = @morm/engine.to_param(true)
+let p3 = @morm/engine.to_param("Alice")
 ```
 
 ### JSON Param
@@ -240,7 +240,7 @@ let payload = {
   "age": 18.to_json(),
 }.to_json()
 
-let p = @engine.to_param(payload)
+let p = @morm/engine.to_param(payload)
 ```
 
 ### Time Params
@@ -249,8 +249,8 @@ let p = @engine.to_param(payload)
 let created_at = @morm.current_plain_date_time_utc()
 let published_at = @morm.current_timestamp_utc()
 
-let p1 = @engine.to_param(created_at)
-let p2 = @engine.to_param(published_at)
+let p1 = @morm/engine.to_param(created_at)
+let p2 = @morm/engine.to_param(published_at)
 ```
 
 These become:
@@ -389,7 +389,7 @@ let student = mapper.find_student_by_id(1)
 let adults = mapper.find_students_by_age(18)
 ```
 
-The concrete `engine` value must satisfy the `@engine.Engine` trait.
+The concrete `engine` value must satisfy the `@morm/engine.Engine` trait.
 
 ## Raw Engine Execution
 
@@ -398,7 +398,7 @@ If you do not want the query builder path, call raw SQL directly on the engine.
 ```moonbit
 let res = engine.exec_raw(
   "SELECT * FROM student WHERE id = ?",
-  [@engine.to_param(1)],
+  [@morm/engine.to_param(1)],
 )
 ```
 
@@ -468,7 +468,7 @@ let entity : Class = {
 
 let saved = class_mapper.save(entity)
 
-let res = @engine.exec_query(
+let res = @morm/engine.exec_query(
   engine,
   @morm.select_from("class").where_eq("id", saved.id),
 )

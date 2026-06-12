@@ -20,7 +20,7 @@ fn placeholders(count : Int) -> String {
 }
 
 ///|
-fn format_where_sql(where_ : FixedArray[@engine.Where]) -> String {
+fn format_where_sql(where_ : FixedArray[@morm/engine.Where]) -> String {
   where_
   .map(w => {
     match (w.ty, w.value) {
@@ -45,9 +45,9 @@ fn format_where_sql(where_ : FixedArray[@engine.Where]) -> String {
 
 ///|
 fn where_params(
-  where_ : FixedArray[@engine.Where],
-) -> FixedArray[@engine.Param] {
-  let out : Array[@engine.Param] = []
+  where_ : FixedArray[@morm/engine.Where],
+) -> FixedArray[@morm/engine.Param] {
+  let out : Array[@morm/engine.Param] = []
   for w in where_ {
     if w.ty is (Eq | Ne) && w.value is (Null | Json(Null)) {
       continue
@@ -58,7 +58,7 @@ fn where_params(
 }
 
 ///|
-fn format_set_sql(sets : FixedArray[@engine.Set]) -> String {
+fn format_set_sql(sets : FixedArray[@morm/engine.Set]) -> String {
   sets.map(s => [s.col, "=", "?"].join(" ")).join(", ")
 }
 
@@ -257,8 +257,8 @@ fn render_index_sqls(table_schema : @table.Table) -> Array[String] {
 
 ///|
 fn render_sqlite(
-  stmt : @engine.Statement,
-) -> (String, FixedArray[@engine.Param]) {
+  stmt : @morm/engine.Statement,
+) -> (String, FixedArray[@morm/engine.Param]) {
   match stmt {
     Select(select_stmt) => {
       let { select, from, joins, where_, order_by, limit, offset } = select_stmt
@@ -318,7 +318,7 @@ fn render_sqlite(
       })
       buf.write_string(" VALUES ")
       buf.write_string(row_sql.join(", "))
-      let out_params : Array[@engine.Param] = []
+      let out_params : Array[@morm/engine.Param] = []
       for row in effective_rows {
         for value in row {
           out_params.push(value)
@@ -382,7 +382,7 @@ fn render_sqlite(
 }
 
 ///|
-fn sqlite_tx_sql(op : @engine.TxOp) -> String {
+fn sqlite_tx_sql(op : @morm/engine.TxOp) -> String {
   match op {
     Begin => "BEGIN"
     Commit => "COMMIT"
@@ -393,10 +393,10 @@ fn sqlite_tx_sql(op : @engine.TxOp) -> String {
 }
 
 ///|
-pub impl @engine.Engine for SQLiteEngine with fn migrate_table(
+pub impl @morm/engine.Engine for SQLiteEngine with fn migrate_table(
   self,
   table_schema : @table.Table,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   let create_sql = render_create_table_sql(table_schema)
   if create_sql == "" {
     return {
@@ -406,12 +406,12 @@ pub impl @engine.Engine for SQLiteEngine with fn migrate_table(
       error: Some("invalid table schema"),
     }
   }
-  let create_res = self.exec(@engine.Raw(create_sql, []))
+  let create_res = self.exec(@morm/engine.Raw(create_sql, []))
   if !create_res.ok {
     return create_res
   }
   for sql in render_index_sqls(table_schema) {
-    let res = self.exec(@engine.Raw(sql, []))
+    let res = self.exec(@morm/engine.Raw(sql, []))
     if !res.ok {
       return res
     }
@@ -423,10 +423,10 @@ pub impl @engine.Engine for SQLiteEngine with fn migrate_table(
 fn SQLiteEngine::exec_sql(
   self : SQLiteEngine,
   sql : String,
-  params : FixedArray[@engine.Param],
-) -> @engine.QueryResult {
+  params : FixedArray[@morm/engine.Param],
+) -> @morm/engine.QueryResult {
   let mut error = None
-  let rows : Array[Map[String, @engine.Param]] = []
+  let rows : Array[Map[String, @morm/engine.Param]] = []
   try {
     let stmt = self.conn.prepare(sql + ";")
     params.eachi((index, val) => {
@@ -443,13 +443,13 @@ fn SQLiteEngine::exec_sql(
         BigInt(v) => stmt.bind(index~, val=v.to_string())
         Decimal(v) => stmt.bind(index~, val=v)
         Date(v, format) =>
-          stmt.bind(index~, val=@engine.format_plain_date(v, format))
+          stmt.bind(index~, val=@morm/engine.format_plain_date(v, format))
         Time(v, format) =>
-          stmt.bind(index~, val=@engine.format_plain_time(v, format))
+          stmt.bind(index~, val=@morm/engine.format_plain_time(v, format))
         DateTime(v, format) =>
-          stmt.bind(index~, val=@engine.format_plain_date_time(v, format))
+          stmt.bind(index~, val=@morm/engine.format_plain_date_time(v, format))
         Timestamp(v, format) =>
-          stmt.bind(index~, val=@engine.format_zoned_date_time(v, format))
+          stmt.bind(index~, val=@morm/engine.format_zoned_date_time(v, format))
         Uuid(v) => stmt.bind(index~, val=v)
         Object(v) => stmt.bind(index~, val=v.to_json().stringify())
         Json(v) => stmt.bind(index~, val=v.stringify())
@@ -462,7 +462,7 @@ fn SQLiteEngine::exec_sql(
     // 构造第一行的 Json（按列名 -> 值）
 
     while stmt.step() == true {
-      let obj : Map[String, @engine.Param] = {}
+      let obj : Map[String, @morm/engine.Param] = {}
       let col_cnt = stmt.column_count()
       let mut index = 0
       while index < col_cnt {
@@ -511,10 +511,10 @@ fn SQLiteEngine::exec_sql(
 }
 
 ///|
-pub impl @engine.Engine for SQLiteEngine with fn exec(
+pub impl @morm/engine.Engine for SQLiteEngine with fn exec(
   self,
-  query : &@engine.QueryBuilder,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+) -> @morm/engine.QueryResult {
   let (sql, params) = match query.to_query() {
     Statement(stmt) => render_sqlite(stmt)
     Raw(sql, params) => (sql, params)
@@ -524,11 +524,11 @@ pub impl @engine.Engine for SQLiteEngine with fn exec(
 }
 
 ///|
-pub impl @engine.Engine for SQLiteEngine with fn page(
+pub impl @morm/engine.Engine for SQLiteEngine with fn page(
   self,
-  query : &@engine.QueryBuilder,
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
   let normalized_page = if pageable.page < 1 { 1 } else { pageable.page }
   let offset = (normalized_page - 1) * pageable.size
   let page_query = match query.to_query() {
@@ -546,7 +546,7 @@ pub impl @engine.Engine for SQLiteEngine with fn page(
               ]
             None => sel.order_by
           }
-          @engine.Statement(
+          @morm/engine.Statement(
             Select({
               ..sel,
               order_by,
@@ -565,25 +565,25 @@ pub impl @engine.Engine for SQLiteEngine with fn page(
 }
 
 ///|
-pub impl @engine.Engine for SQLiteEngine with fn page_raw(
+pub impl @morm/engine.Engine for SQLiteEngine with fn page_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
-  self.page(@engine.Raw(sql, params), pageable)
+  params : FixedArray[@morm/engine.Param],
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
+  self.page(@morm/engine.Raw(sql, params), pageable)
 }
 
 ///|
-pub impl @engine.Engine for SQLiteEngine with fn exec_raw(
+pub impl @morm/engine.Engine for SQLiteEngine with fn exec_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-) -> @engine.QueryResult {
-  self.exec(@engine.Raw(sql, params))
+  params : FixedArray[@morm/engine.Param],
+) -> @morm/engine.QueryResult {
+  self.exec(@morm/engine.Raw(sql, params))
 }
 
 ///|
-pub impl @engine.Engine for SQLiteEngine with fn close(self) -> Unit {
+pub impl @morm/engine.Engine for SQLiteEngine with fn close(self) -> Unit {
   try! self.conn.close()
 }

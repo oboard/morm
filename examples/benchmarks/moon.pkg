@@ -3,7 +3,7 @@ import {
   "moonbitlang/core/bench",
   "moonbitlang/core/json",
   "oboard/morm",
-  "oboard/morm/engine",
+  "oboard/morm/engine" @morm/engine,
   "oboard/morm/engine/postgres",
   "oboard/morm/engine/sqlite3",
 }

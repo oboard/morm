@@ -62,15 +62,15 @@ let res = engine.exec(q)
 
 Where:
 
-- `engine` implements `@engine.Engine`
-- `q` implements `@engine.QueryBuilder`
+- `engine` implements `@morm/engine.Engine`
+- `q` implements `@morm/engine.QueryBuilder`
 
 There is also raw execution:
 
 ```moonbit
 let res = engine.exec_raw(
   "SELECT * FROM student WHERE id = ?",
-  [@engine.to_param(1)],
+  [@morm/engine.to_param(1)],
 )
 ```
 

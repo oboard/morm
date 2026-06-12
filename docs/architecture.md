@@ -109,7 +109,7 @@ The builder layer is not responsible for:
 
 The engine layer is the real database boundary.
 
-An `@engine.Engine` implementation owns:
+An `@morm/engine.Engine` implementation owns:
 
 - statement execution
 - raw SQL execution
@@ -128,7 +128,7 @@ That is especially important for time values:
 
 ## Parameter System
 
-Parameters are represented by `@engine.Param`.
+Parameters are represented by `@morm/engine.Param`.
 
 The enum includes:
 
@@ -143,7 +143,7 @@ The enum includes:
 - `String`
 - `Bytes`
 
-User values become params via the `@engine.ToParam` trait. This keeps parameter conversion type-driven and explicit.
+User values become params via the `@morm/engine.ToParam` trait. This keeps parameter conversion type-driven and explicit.
 
 Notable built-in conversions:
 

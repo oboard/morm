@@ -28,7 +28,7 @@ Use dedicated application credentials instead of root in production.
 
 - Uses `?` placeholders
 - Parameter order must match placeholder position
-- Parameter values flow through `@engine.Param`
+- Parameter values flow through `@morm/engine.Param`
 
 ## Transactions
 

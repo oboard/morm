@@ -24,7 +24,7 @@
   - [ ] Add public helper API and tests for `skipDuplicates` strategy without regressing hot path.
 
 ## Completed
-- [x] Added transaction SQL abstraction to `@engine.Engine`:
+- [x] Added transaction SQL abstraction to `@morm/engine.Engine`:
   - `tx_begin_sql`
   - `tx_commit_sql`
   - `tx_rollback_sql`

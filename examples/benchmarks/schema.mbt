@@ -54,9 +54,9 @@ pub fn BenchPost::table() -> @morm.Table {
 
 ///|
 fn bench_row_param(
-  row : Map[String, @engine.Param],
+  row : Map[String, @morm/engine.Param],
   key : String,
-) -> @engine.Param raise @engine.ParamDecodeError {
+) -> @morm/engine.Param raise @morm/engine.ParamDecodeError {
   match row.get(key) {
     Some(value) => value
     None =>
@@ -66,9 +66,9 @@ fn bench_row_param(
 
 ///|
 fn bench_row_int(
-  row : Map[String, @engine.Param],
+  row : Map[String, @morm/engine.Param],
   key : String,
-) -> Int raise @engine.ParamDecodeError {
+) -> Int raise @morm/engine.ParamDecodeError {
   match bench_row_param(row, key) {
     Int(value) => value
     Int16(value) => value.to_int()
@@ -86,9 +86,9 @@ fn bench_row_int(
 
 ///|
 fn bench_row_string(
-  row : Map[String, @engine.Param],
+  row : Map[String, @morm/engine.Param],
   key : String,
-) -> String raise @engine.ParamDecodeError {
+) -> String raise @morm/engine.ParamDecodeError {
   match bench_row_param(row, key) {
     String(value) => value
     Json(String(value)) => value
@@ -100,14 +100,14 @@ fn bench_row_string(
 }
 
 ///|
-pub fn BenchUser::_from(row : Map[String, @engine.Param]) -> BenchUser {
+pub fn BenchUser::_from(row : Map[String, @morm/engine.Param]) -> BenchUser {
   try! BenchUser::decode_from(row)
 }
 
 ///|
 fn BenchUser::decode_from(
-  row : Map[String, @engine.Param],
-) -> BenchUser raise @engine.ParamDecodeError {
+  row : Map[String, @morm/engine.Param],
+) -> BenchUser raise @morm/engine.ParamDecodeError {
   let id = bench_row_int(row, "id")
   let email = bench_row_string(row, "email")
   let active = bench_row_int(row, "active")
@@ -115,14 +115,14 @@ fn BenchUser::decode_from(
 }
 
 ///|
-pub fn BenchPost::_from(row : Map[String, @engine.Param]) -> BenchPost {
+pub fn BenchPost::_from(row : Map[String, @morm/engine.Param]) -> BenchPost {
   try! BenchPost::decode_from(row)
 }
 
 ///|
 fn BenchPost::decode_from(
-  row : Map[String, @engine.Param],
-) -> BenchPost raise @engine.ParamDecodeError {
+  row : Map[String, @morm/engine.Param],
+) -> BenchPost raise @morm/engine.ParamDecodeError {
   let id = bench_row_int(row, "id")
   let user_id = bench_row_int(row, "user_id")
   let title = bench_row_string(row, "title")
@@ -131,14 +131,14 @@ fn BenchPost::decode_from(
 }
 
 ///|
-pub impl @engine.FromParam for BenchUser with fn from_param(value) {
+pub impl @morm/engine.FromParam for BenchUser with fn from_param(value) {
   match value {
     Object(obj) => BenchUser::decode_from(obj)
     Json(Object(obj)) => {
-      let row : Map[String, @engine.Param] = Map([])
+      let row : Map[String, @morm/engine.Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(v) {
-          row.set(key, @engine.to_param(v))
+          row.set(key, @morm/engine.to_param(v))
         }
       }
       BenchUser::decode_from(row)
@@ -148,14 +148,14 @@ pub impl @engine.FromParam for BenchUser with fn from_param(value) {
 }
 
 ///|
-pub impl @engine.FromParam for BenchPost with fn from_param(value) {
+pub impl @morm/engine.FromParam for BenchPost with fn from_param(value) {
   match value {
     Object(obj) => BenchPost::decode_from(obj)
     Json(Object(obj)) => {
-      let row : Map[String, @engine.Param] = Map([])
+      let row : Map[String, @morm/engine.Param] = Map([])
       for key in obj.keys() {
         if obj.get(key) is Some(v) {
-          row.set(key, @engine.to_param(v))
+          row.set(key, @morm/engine.to_param(v))
         }
       }
       BenchPost::decode_from(row)

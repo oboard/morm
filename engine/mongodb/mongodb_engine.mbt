@@ -7,24 +7,24 @@ pub(all) struct MongoDBEngine {
   auth_database : String
   user : String
   password : String
-  pool : @engine.ConnectionPool[@socket.Tcp]
+  pool : @morm/engine.ConnectionPool[@socket.Tcp]
 }
 
 ///|
 fn ok_result(
   rows_affected : Int,
   rows : FixedArray[Json],
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   {
     ok: true,
     rows_affected,
-    rows: rows.map(row => @engine.param_row_from_json(row)),
+    rows: rows.map(row => @morm/engine.param_row_from_json(row)),
     error: None,
   }
 }
 
 ///|
-fn fail_result(msg : String) -> @engine.QueryResult {
+fn fail_result(msg : String) -> @morm/engine.QueryResult {
   { ok: false, rows_affected: 0, rows: [], error: Some(msg) }
 }
 
@@ -161,7 +161,7 @@ pub fn MongoDBEngine::open(dsn : String) -> Result[MongoDBEngine, String] {
 }
 
 ///|
-fn param_to_json(value : @engine.Param) -> Json {
+fn param_to_json(value : @morm/engine.Param) -> Json {
   match value {
     Bytes(data) => @bson.from_bytes(data) catch { _ => data.to_json() }
     _ => value.to_json()
@@ -169,7 +169,7 @@ fn param_to_json(value : @engine.Param) -> Json {
 }
 
 ///|
-fn json_to_param(value : Json) -> @engine.Param {
+fn json_to_param(value : Json) -> @morm/engine.Param {
   match value {
     Null => Null
     True => Bool(true)
@@ -874,7 +874,7 @@ fn append_condition(
 }
 
 ///|
-fn where_to_filter(where_ : FixedArray[@engine.Where]) -> Json {
+fn where_to_filter(where_ : FixedArray[@morm/engine.Where]) -> Json {
   let filter : Map[String, Json] = {}
   for clause in where_ {
     let value = param_to_json(clause.value)
@@ -903,7 +903,7 @@ fn where_to_filter(where_ : FixedArray[@engine.Where]) -> Json {
 }
 
 ///|
-fn sort_doc(order_by : FixedArray[@engine.OrderBy]) -> Json? {
+fn sort_doc(order_by : FixedArray[@morm/engine.OrderBy]) -> Json? {
   if order_by.is_empty() {
     return None
   }
@@ -920,7 +920,7 @@ fn sort_doc(order_by : FixedArray[@engine.OrderBy]) -> Json? {
 ///|
 fn document_from_insert(
   columns : FixedArray[String],
-  values : FixedArray[@engine.Param],
+  values : FixedArray[@morm/engine.Param],
 ) -> Json {
   let obj : Map[String, Json] = {}
   let mut i = 0
@@ -934,8 +934,8 @@ fn document_from_insert(
 ///|
 fn documents_from_insert(
   columns : FixedArray[String],
-  values : FixedArray[@engine.Param],
-  rows : FixedArray[FixedArray[@engine.Param]],
+  values : FixedArray[@morm/engine.Param],
+  rows : FixedArray[FixedArray[@morm/engine.Param]],
 ) -> FixedArray[Json] {
   if !rows.is_empty() {
     rows.map(row => document_from_insert(columns, row))
@@ -945,7 +945,7 @@ fn documents_from_insert(
 }
 
 ///|
-fn document_from_sets(sets : FixedArray[@engine.Set]) -> Json {
+fn document_from_sets(sets : FixedArray[@morm/engine.Set]) -> Json {
   let obj : Map[String, Json] = {}
   for set_ in sets {
     obj[set_.col] = param_to_json(set_.value)
@@ -1029,7 +1029,7 @@ async fn find_docs(
   table : String,
   filter : Json,
   select? : String = "*",
-  order_by? : FixedArray[@engine.OrderBy] = [],
+  order_by? : FixedArray[@morm/engine.OrderBy] = [],
   limit? : Int? = None,
   offset? : Int? = None,
 ) -> Result[FixedArray[Json], String] {
@@ -1748,8 +1748,8 @@ pub async fn MongoDBEngine::bulk_write(
 ///|
 async fn run_select(
   engine : MongoDBEngine,
-  stmt : @engine.SelectStatement,
-) -> @engine.QueryResult {
+  stmt : @morm/engine.SelectStatement,
+) -> @morm/engine.QueryResult {
   if !stmt.joins.is_empty() {
     return fail_result("mongodb join is not supported")
   }
@@ -1783,8 +1783,8 @@ async fn run_select(
 ///|
 async fn run_insert(
   engine : MongoDBEngine,
-  stmt : @engine.InsertStatement,
-) -> @engine.QueryResult {
+  stmt : @morm/engine.InsertStatement,
+) -> @morm/engine.QueryResult {
   let docs = documents_from_insert(stmt.columns, stmt.values, stmt.rows)
   let reply = run_command(engine, {
     "insert": stmt.into,
@@ -1802,7 +1802,7 @@ async fn run_insert(
 }
 
 ///|
-fn upsert_filter(stmt : @engine.UpsertStatement, doc : Json) -> Json {
+fn upsert_filter(stmt : @morm/engine.UpsertStatement, doc : Json) -> Json {
   let filter : Map[String, Json] = {}
   match doc {
     Object(obj) =>
@@ -1829,8 +1829,8 @@ fn upsert_filter(stmt : @engine.UpsertStatement, doc : Json) -> Json {
 ///|
 async fn run_upsert(
   engine : MongoDBEngine,
-  stmt : @engine.UpsertStatement,
-) -> @engine.QueryResult {
+  stmt : @morm/engine.UpsertStatement,
+) -> @morm/engine.QueryResult {
   let set_doc = document_from_sets(stmt.sets)
   let filter = upsert_filter(stmt, set_doc)
   let reply = run_command(engine, {
@@ -1858,8 +1858,8 @@ async fn run_upsert(
 ///|
 async fn run_update(
   engine : MongoDBEngine,
-  stmt : @engine.UpdateStatement,
-) -> @engine.QueryResult {
+  stmt : @morm/engine.UpdateStatement,
+) -> @morm/engine.QueryResult {
   let reply = run_command(engine, {
     "update": stmt.table,
     "updates": [
@@ -1884,8 +1884,8 @@ async fn run_update(
 ///|
 async fn run_delete(
   engine : MongoDBEngine,
-  stmt : @engine.DeleteStatement,
-) -> @engine.QueryResult {
+  stmt : @morm/engine.DeleteStatement,
+) -> @morm/engine.QueryResult {
   let reply = run_command(engine, {
     "delete": stmt.from,
     "deletes": [{ "q": where_to_filter(stmt.where_), "limit": 0 }],
@@ -1920,9 +1920,9 @@ fn decode_json_string_array(value : Json) -> FixedArray[String]? {
 }
 
 ///|
-fn decode_json_param_array(value : Json) -> FixedArray[@engine.Param]? {
+fn decode_json_param_array(value : Json) -> FixedArray[@morm/engine.Param]? {
   guard value is Array(items) else { return None }
-  let out : Array[@engine.Param] = []
+  let out : Array[@morm/engine.Param] = []
   for item in items {
     out.push(json_to_param(item))
   }
@@ -1932,12 +1932,12 @@ fn decode_json_param_array(value : Json) -> FixedArray[@engine.Param]? {
 ///|
 fn decode_json_param_matrix(
   value : Json,
-) -> FixedArray[FixedArray[@engine.Param]]? {
+) -> FixedArray[FixedArray[@morm/engine.Param]]? {
   guard value is Array(items) else { return None }
-  let out : Array[FixedArray[@engine.Param]] = []
+  let out : Array[FixedArray[@morm/engine.Param]] = []
   for item in items {
     guard item is Array(row_items) else { return None }
-    let row : Array[@engine.Param] = []
+    let row : Array[@morm/engine.Param] = []
     for value in row_items {
       row.push(json_to_param(value))
     }
@@ -1947,9 +1947,9 @@ fn decode_json_param_matrix(
 }
 
 ///|
-fn decode_json_set_array(value : Json) -> FixedArray[@engine.Set]? {
+fn decode_json_set_array(value : Json) -> FixedArray[@morm/engine.Set]? {
   guard value is Array(items) else { return None }
-  let out : Array[@engine.Set] = []
+  let out : Array[@morm/engine.Set] = []
   for item in items {
     guard item is { "col": String(col), "value": set_value, .. } else {
       return None
@@ -1960,15 +1960,15 @@ fn decode_json_set_array(value : Json) -> FixedArray[@engine.Set]? {
 }
 
 ///|
-fn decode_json_where_array(value : Json) -> FixedArray[@engine.Where]? {
+fn decode_json_where_array(value : Json) -> FixedArray[@morm/engine.Where]? {
   guard value is Array(items) else { return None }
-  let out : Array[@engine.Where] = []
+  let out : Array[@morm/engine.Where] = []
   for item in items {
     guard item
       is { "col": String(col), "value": where_value, "ty": String(ty), .. } else {
       return None
     }
-    let where_ty : @engine.WhereType? = match ty {
+    let where_ty : @morm/engine.WhereType? = match ty {
       "eq" => Some(Eq)
       "ne" => Some(Ne)
       "gt" => Some(Gt)
@@ -1985,9 +1985,9 @@ fn decode_json_where_array(value : Json) -> FixedArray[@engine.Where]? {
 }
 
 ///|
-fn decode_json_order_array(value : Json) -> FixedArray[@engine.OrderBy]? {
+fn decode_json_order_array(value : Json) -> FixedArray[@morm/engine.OrderBy]? {
   guard value is Array(items) else { return None }
-  let out : Array[@engine.OrderBy] = []
+  let out : Array[@morm/engine.OrderBy] = []
   for item in items {
     guard item is { "col": String(col), "desc": desc, .. } else { return None }
     let flag = match desc {
@@ -2016,7 +2016,7 @@ fn decode_json_int_opt(value : Json) -> (Bool, Int?) {
 }
 
 ///|
-fn decode_statement_command(cmd : Json) -> @engine.Statement? {
+fn decode_statement_command(cmd : Json) -> @morm/engine.Statement? {
   guard cmd is { "op": String(op), .. } else { return None }
   match op {
     "select" => {
@@ -2128,12 +2128,12 @@ fn decode_statement_command(cmd : Json) -> @engine.Statement? {
 }
 
 ///|
-fn tx_noop() -> @engine.QueryResult {
+fn tx_noop() -> @morm/engine.QueryResult {
   ok_result(0, [])
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with fn migrate_table(
+pub impl @morm/engine.Engine for MongoDBEngine with fn migrate_table(
   self,
   table_schema : @table.Table,
 ) {
@@ -2150,9 +2150,9 @@ pub impl @engine.Engine for MongoDBEngine with fn migrate_table(
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with fn exec(
+pub impl @morm/engine.Engine for MongoDBEngine with fn exec(
   self,
-  query : &@engine.QueryBuilder,
+  query : &@morm/engine.QueryBuilder,
 ) {
   let stmt = match query.to_query() {
     Statement(stmt) => stmt
@@ -2177,11 +2177,11 @@ pub impl @engine.Engine for MongoDBEngine with fn exec(
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with fn page(
+pub impl @morm/engine.Engine for MongoDBEngine with fn page(
   self,
-  query : &@engine.QueryBuilder,
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
   let normalized_page = if pageable.page < 1 { 1 } else { pageable.page }
   let offset = (normalized_page - 1) * pageable.size
   let stmt = match query.to_query() {
@@ -2205,35 +2205,35 @@ pub impl @engine.Engine for MongoDBEngine with fn page(
             offset: Some(offset),
             limit: Some(pageable.size),
           }
-          @engine.Select(new_sel)
+          @morm/engine.Select(new_sel)
         }
         _ => stmt
       }
     _ => return fail_result("mongodb page expects statement query")
   }
-  self.exec(@engine.Statement(stmt))
+  self.exec(@morm/engine.Statement(stmt))
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with fn page_raw(
+pub impl @morm/engine.Engine for MongoDBEngine with fn page_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
-  self.page(@engine.Raw(sql, params), pageable)
+  params : FixedArray[@morm/engine.Param],
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
+  self.page(@morm/engine.Raw(sql, params), pageable)
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with fn exec_raw(
+pub impl @morm/engine.Engine for MongoDBEngine with fn exec_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
+  params : FixedArray[@morm/engine.Param],
 ) {
-  self.exec(@engine.Raw(sql, params))
+  self.exec(@morm/engine.Raw(sql, params))
 }
 
 ///|
-pub impl @engine.Engine for MongoDBEngine with fn close(self) -> Unit {
+pub impl @morm/engine.Engine for MongoDBEngine with fn close(self) -> Unit {
   self.pool.close(close_tcp)
 }

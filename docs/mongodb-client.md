@@ -6,7 +6,7 @@ outline: deep
 
 `MongoDBEngine` is not limited to ORM-generated queries.
 
-Besides implementing `@engine.Engine`, it also exposes MongoDB-native helper methods so you can use it directly as a document client.
+Besides implementing `@morm/engine.Engine`, it also exposes MongoDB-native helper methods so you can use it directly as a document client.
 
 This is useful when:
 

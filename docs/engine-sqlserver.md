@@ -28,7 +28,7 @@ Use dedicated service credentials and avoid `sa` for normal application traffic.
 
 - Uses `?` placeholders
 - Parameters are transmitted through engine-level typed binding
-- Keep values in `@engine.Param` instead of string interpolation
+- Keep values in `@morm/engine.Param` instead of string interpolation
 
 ## Transactions
 

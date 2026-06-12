@@ -81,12 +81,12 @@ pub fn SQLServerEngine::open(dsn : String) -> Result[SQLServerEngine, String] {
 }
 
 ///|
-fn fail(message : String) -> @engine.QueryResult {
+fn fail(message : String) -> @morm/engine.QueryResult {
   { ok: false, rows_affected: 0, rows: [], error: Some(message) }
 }
 
 ///|
-fn param_sql(p : @engine.Param) -> String {
+fn param_sql(p : @morm/engine.Param) -> String {
   let quote = fn(s : String) -> String {
     let esc = s.replace(old="'", new="''")
     "'\{esc}'"
@@ -105,20 +105,21 @@ fn param_sql(p : @engine.Param) -> String {
     Float(v) => v.to_string()
     Double(v) => v.to_string()
     Decimal(v) => v
-    Date(v, format) => quote(@engine.format_plain_date(v, format))
-    Time(v, format) => quote(@engine.format_plain_time(v, format))
-    DateTime(v, format) => quote(@engine.format_plain_date_time(v, format))
-    Timestamp(v, format) => quote(@engine.format_zoned_date_time(v, format))
+    Date(v, format) => quote(@morm/engine.format_plain_date(v, format))
+    Time(v, format) => quote(@morm/engine.format_plain_time(v, format))
+    DateTime(v, format) => quote(@morm/engine.format_plain_date_time(v, format))
+    Timestamp(v, format) =>
+      quote(@morm/engine.format_zoned_date_time(v, format))
     Uuid(v) => quote(v)
     Object(v) => quote(v.to_json().stringify())
     Json(v) => quote(v.stringify())
     String(v) => quote(v)
-    Bytes(v) => "0x\{@engine.bytes_to_hex(v)}"
+    Bytes(v) => "0x\{@morm/engine.bytes_to_hex(v)}"
   }
 }
 
 ///|
-fn inline_sql(sql : String, params : FixedArray[@engine.Param]) -> String {
+fn inline_sql(sql : String, params : FixedArray[@morm/engine.Param]) -> String {
   let out = StringBuilder()
   let mut i = 0
   for c in sql {
@@ -517,7 +518,7 @@ async fn[IO : @io.Reader + @io.Writer] sqlbatch(
   conn : IO,
   sql : String,
   packet_size : Int,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   let payload = utf16le_bytes(sql)
   if !(write_tds_message(conn, 1, payload, packet_size) catch { _ => false }) {
     return fail("sqlserver batch write failed")
@@ -538,7 +539,10 @@ async fn[IO : @io.Reader + @io.Writer] sqlbatch(
 }
 
 ///|
-async fn tds_exec(cfg : SQLServerEngine, sql : String) -> @engine.QueryResult {
+async fn tds_exec(
+  cfg : SQLServerEngine,
+  sql : String,
+) -> @morm/engine.QueryResult {
   let conn = @socket.Tcp::connect_to_host(cfg.host, port=cfg.port) catch {
     _ => return fail("sqlserver connect failed")
   }
@@ -590,7 +594,7 @@ async fn tds_exec(cfg : SQLServerEngine, sql : String) -> @engine.QueryResult {
       )
     }
 
-    let mut final_res : @engine.QueryResult = {
+    let mut final_res : @morm/engine.QueryResult = {
       ok: true,
       rows_affected: 0,
       rows: [],
@@ -650,7 +654,7 @@ async fn tds_exec(cfg : SQLServerEngine, sql : String) -> @engine.QueryResult {
       )
     }
 
-    let mut final_res : @engine.QueryResult = {
+    let mut final_res : @morm/engine.QueryResult = {
       ok: true,
       rows_affected: 0,
       rows: [],
@@ -966,7 +970,7 @@ fn sqlserver_index_sqls(table_schema : @table.Table) -> Array[String] {
 }
 
 ///|
-fn sqlserver_tx_sql(op : @engine.TxOp) -> String {
+fn sqlserver_tx_sql(op : @morm/engine.TxOp) -> String {
   match op {
     Begin => "BEGIN TRANSACTION"
     Commit => "COMMIT TRANSACTION"
@@ -977,12 +981,12 @@ fn sqlserver_tx_sql(op : @engine.TxOp) -> String {
 }
 
 ///|
-pub impl @engine.Engine for SQLServerEngine with fn exec(
+pub impl @morm/engine.Engine for SQLServerEngine with fn exec(
   self,
-  query : &@engine.QueryBuilder,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+) -> @morm/engine.QueryResult {
   let (sql, params) = match query.to_query() {
-    Statement(stmt) => @engine.render_default_sql(stmt)
+    Statement(stmt) => @morm/engine.render_default_sql(stmt)
     Raw(sql, params) => (sql, params)
     Tx(op) => (sqlserver_tx_sql(op), [])
   }
@@ -991,11 +995,11 @@ pub impl @engine.Engine for SQLServerEngine with fn exec(
 }
 
 ///|
-pub impl @engine.Engine for SQLServerEngine with fn page(
+pub impl @morm/engine.Engine for SQLServerEngine with fn page(
   self,
-  query : &@engine.QueryBuilder,
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
   let normalized_page = if pageable.page < 1 { 1 } else { pageable.page }
   let offset = (normalized_page - 1) * pageable.size
   let page_query = match query.to_query() {
@@ -1013,7 +1017,7 @@ pub impl @engine.Engine for SQLServerEngine with fn page(
               ]
             None => sel.order_by
           }
-          @engine.Statement(
+          @morm/engine.Statement(
             Select({
               ..sel,
               order_by,
@@ -1035,46 +1039,46 @@ pub impl @engine.Engine for SQLServerEngine with fn page(
 }
 
 ///|
-pub impl @engine.Engine for SQLServerEngine with fn page_raw(
+pub impl @morm/engine.Engine for SQLServerEngine with fn page_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
-  self.page(@engine.Raw(sql, params), pageable)
+  params : FixedArray[@morm/engine.Param],
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
+  self.page(@morm/engine.Raw(sql, params), pageable)
 }
 
 ///|
-pub impl @engine.Engine for SQLServerEngine with fn exec_raw(
+pub impl @morm/engine.Engine for SQLServerEngine with fn exec_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-) -> @engine.QueryResult {
-  self.exec(@engine.Raw(sql, params))
+  params : FixedArray[@morm/engine.Param],
+) -> @morm/engine.QueryResult {
+  self.exec(@morm/engine.Raw(sql, params))
 }
 
 ///|
-pub impl @engine.Engine for SQLServerEngine with fn migrate_table(
+pub impl @morm/engine.Engine for SQLServerEngine with fn migrate_table(
   self,
   table_schema : @table.Table,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   let create_sql = sqlserver_create_table_sql(table_schema)
   if create_sql == "" {
     return fail("invalid table schema")
   }
-  let create_res = self.exec(@engine.Raw(create_sql, []))
+  let create_res = self.exec(@morm/engine.Raw(create_sql, []))
   if !create_res.ok {
     return create_res
   }
   let comment_sql = sqlserver_comment_sql(table_schema)
   if comment_sql != "" {
-    let comment_res = self.exec(@engine.Raw(comment_sql, []))
+    let comment_res = self.exec(@morm/engine.Raw(comment_sql, []))
     if !comment_res.ok {
       return comment_res
     }
   }
   for sql in sqlserver_index_sqls(table_schema) {
-    let res = self.exec(@engine.Raw(sql, []))
+    let res = self.exec(@morm/engine.Raw(sql, []))
     if !res.ok {
       return res
     }
@@ -1083,6 +1087,6 @@ pub impl @engine.Engine for SQLServerEngine with fn migrate_table(
 }
 
 ///|
-pub impl @engine.Engine for SQLServerEngine with fn close(_self) -> Unit {
+pub impl @morm/engine.Engine for SQLServerEngine with fn close(_self) -> Unit {
   ()
 }

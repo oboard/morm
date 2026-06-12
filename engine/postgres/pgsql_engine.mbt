@@ -5,7 +5,7 @@ pub struct PgSQLEngine {
   user : String
   password : String
   database : String
-  pool : @engine.ConnectionPool[@socket.Tcp]
+  pool : @morm/engine.ConnectionPool[@socket.Tcp]
   mut tx_conn : @socket.Tcp?
 }
 
@@ -107,7 +107,9 @@ pub fn PgSQLEngine::open(dsn : String) -> Result[PgSQLEngine, String] {
 }
 
 ///|
-fn pg_render(stmt : @engine.Statement) -> (String, FixedArray[@engine.Param]) {
+fn pg_render(
+  stmt : @morm/engine.Statement,
+) -> (String, FixedArray[@morm/engine.Param]) {
   if stmt is Upsert(upsert_stmt) {
     let { table, sets, conflict_target, update_sets } = upsert_stmt
     let buf = StringBuilder()
@@ -145,7 +147,7 @@ fn pg_render(stmt : @engine.Statement) -> (String, FixedArray[@engine.Param]) {
     }
     return (buf.to_string(), args)
   }
-  let (sql, params) = @engine.render_default_sql(stmt)
+  let (sql, params) = @morm/engine.render_default_sql(stmt)
   (pg_placeholder_sql(sql), params)
 }
 
@@ -166,7 +168,7 @@ fn pg_placeholder_sql(sql : String) -> String {
 }
 
 ///|
-fn param_sql(p : @engine.Param) -> String {
+fn param_sql(p : @morm/engine.Param) -> String {
   let quote = fn(s : String) -> String {
     let esc = s.replace(old="'", new="''")
     "'\{esc}'"
@@ -185,20 +187,21 @@ fn param_sql(p : @engine.Param) -> String {
     Float(v) => v.to_string()
     Double(v) => v.to_string()
     Decimal(v) => v
-    Date(v, format) => quote(@engine.format_plain_date(v, format))
-    Time(v, format) => quote(@engine.format_plain_time(v, format))
-    DateTime(v, format) => quote(@engine.format_plain_date_time(v, format))
-    Timestamp(v, format) => quote(@engine.format_zoned_date_time(v, format))
+    Date(v, format) => quote(@morm/engine.format_plain_date(v, format))
+    Time(v, format) => quote(@morm/engine.format_plain_time(v, format))
+    DateTime(v, format) => quote(@morm/engine.format_plain_date_time(v, format))
+    Timestamp(v, format) =>
+      quote(@morm/engine.format_zoned_date_time(v, format))
     Uuid(v) => quote(v)
     Object(v) => quote(v.to_json().stringify())
     Json(v) => quote(v.stringify())
     String(v) => quote(v)
-    Bytes(v) => "decode('\{@engine.bytes_to_hex(v)}', 'hex')"
+    Bytes(v) => "decode('\{@morm/engine.bytes_to_hex(v)}', 'hex')"
   }
 }
 
 ///|
-fn inline_sql(sql : String, params : FixedArray[@engine.Param]) -> String {
+fn inline_sql(sql : String, params : FixedArray[@morm/engine.Param]) -> String {
   let mut out = sql
   let mut i = params.length() - 1
   while i >= 0 {
@@ -210,7 +213,7 @@ fn inline_sql(sql : String, params : FixedArray[@engine.Param]) -> String {
 }
 
 ///|
-fn fail(message : String) -> @engine.QueryResult {
+fn fail(message : String) -> @morm/engine.QueryResult {
   { ok: false, rows_affected: 0, rows: [], error: Some(message) }
 }
 
@@ -299,7 +302,7 @@ fn be_u32(bytes : BytesView) -> Int? {
 }
 
 ///|
-fn pg_param_from_text(type_oid : Int, text : String) -> @engine.Param {
+fn pg_param_from_text(type_oid : Int, text : String) -> @morm/engine.Param {
   match type_oid {
     16 => Bool(text is ("t" | "true" | "TRUE"))
     20 =>
@@ -340,7 +343,7 @@ fn pg_param_from_text(type_oid : Int, text : String) -> @engine.Param {
     1700 => Decimal(text)
     114 | 3802 => Json(json_from_text(text))
     25 | 1042 | 1043 | 2950 => String(text)
-    _ => @engine.to_param(json_from_text(text))
+    _ => @morm/engine.to_param(json_from_text(text))
   }
 }
 
@@ -498,7 +501,7 @@ fn close_pg_tcp(conn : @socket.Tcp) -> Unit {
 async fn pg_query_on_conn(
   conn : @socket.Tcp,
   sql : String,
-) -> (@engine.QueryResult, Bool) {
+) -> (@morm/engine.QueryResult, Bool) {
   let q = Buffer()
   q.write_bytes(@utf8.encode(sql))
   q.write_byte(0)
@@ -508,7 +511,7 @@ async fn pg_query_on_conn(
 
   let cols : Array[String] = []
   let col_type_oids : Array[Int] = []
-  let rows : Array[Map[String, @engine.Param]] = []
+  let rows : Array[Map[String, @morm/engine.Param]] = []
   let mut rows_affected = 0
   let mut done = false
 
@@ -559,7 +562,7 @@ async fn pg_query_on_conn(
           (b0.reinterpret_as_int() << 8) | b1.reinterpret_as_int()
         _ => return (fail("pgsql bad data-row"), false)
       }
-      let obj : Map[String, @engine.Param] = {}
+      let obj : Map[String, @morm/engine.Param] = {}
       let mut pos = 2
       let mut i = 0
       while i < count {
@@ -629,7 +632,10 @@ fn pg_is_tx_rollback(sql : String) -> Bool {
 }
 
 ///|
-async fn pg_exec_sql(engine : PgSQLEngine, sql : String) -> @engine.QueryResult {
+async fn pg_exec_sql(
+  engine : PgSQLEngine,
+  sql : String,
+) -> @morm/engine.QueryResult {
   if pg_is_tx_begin(sql) && engine.tx_conn is Some(_) {
     return fail("pgsql transaction already active")
   }
@@ -1162,7 +1168,7 @@ fn pg_index_sqls(table_schema : @table.Table) -> Array[String] {
 }
 
 ///|
-fn pg_tx_sql(op : @engine.TxOp) -> String {
+fn pg_tx_sql(op : @morm/engine.TxOp) -> String {
   match op {
     Begin => "BEGIN"
     Commit => "COMMIT"
@@ -1173,10 +1179,10 @@ fn pg_tx_sql(op : @engine.TxOp) -> String {
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with fn exec(
+pub impl @morm/engine.Engine for PgSQLEngine with fn exec(
   self,
-  query : &@engine.QueryBuilder,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+) -> @morm/engine.QueryResult {
   let (sql, params) = match query.to_query() {
     Statement(stmt) => pg_render(stmt)
     Raw(sql, params) => (pg_placeholder_sql(sql), params)
@@ -1197,11 +1203,11 @@ pub impl @engine.Engine for PgSQLEngine with fn exec(
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with fn page(
+pub impl @morm/engine.Engine for PgSQLEngine with fn page(
   self,
-  query : &@engine.QueryBuilder,
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
   let normalized_page = if pageable.page < 1 { 1 } else { pageable.page }
   let offset = (normalized_page - 1) * pageable.size
   let page_query = match query.to_query() {
@@ -1219,7 +1225,7 @@ pub impl @engine.Engine for PgSQLEngine with fn page(
               ]
             None => sel.order_by
           }
-          @engine.Statement(
+          @morm/engine.Statement(
             Select({
               ..sel,
               order_by,
@@ -1238,37 +1244,37 @@ pub impl @engine.Engine for PgSQLEngine with fn page(
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with fn page_raw(
+pub impl @morm/engine.Engine for PgSQLEngine with fn page_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
-  self.page(@engine.Raw(sql, params), pageable)
+  params : FixedArray[@morm/engine.Param],
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
+  self.page(@morm/engine.Raw(sql, params), pageable)
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with fn exec_raw(
+pub impl @morm/engine.Engine for PgSQLEngine with fn exec_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-) -> @engine.QueryResult {
-  self.exec(@engine.Raw(sql, params))
+  params : FixedArray[@morm/engine.Param],
+) -> @morm/engine.QueryResult {
+  self.exec(@morm/engine.Raw(sql, params))
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with fn migrate_table(
+pub impl @morm/engine.Engine for PgSQLEngine with fn migrate_table(
   self,
   table_schema : @table.Table,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   for schema_sql in pg_schema_sqls(table_schema) {
-    let schema_res = self.exec(@engine.Raw(schema_sql, []))
+    let schema_res = self.exec(@morm/engine.Raw(schema_sql, []))
     if !schema_res.ok {
       return schema_res
     }
   }
   for enum_sql in pg_enum_type_sqls(table_schema) {
-    let enum_res = self.exec(@engine.Raw(enum_sql, []))
+    let enum_res = self.exec(@morm/engine.Raw(enum_sql, []))
     if !enum_res.ok {
       return enum_res
     }
@@ -1282,25 +1288,25 @@ pub impl @engine.Engine for PgSQLEngine with fn migrate_table(
       error: Some("invalid table schema"),
     }
   }
-  let create_res = self.exec(@engine.Raw(create_sql, []))
+  let create_res = self.exec(@morm/engine.Raw(create_sql, []))
   if !create_res.ok {
     return create_res
   }
   let comment_sql = pg_comment_sql(table_schema)
   if comment_sql != "" {
-    let comment_res = self.exec(@engine.Raw(comment_sql, []))
+    let comment_res = self.exec(@morm/engine.Raw(comment_sql, []))
     if !comment_res.ok {
       return comment_res
     }
   }
   for sql in pg_post_create_sqls(table_schema) {
-    let res = self.exec(@engine.Raw(sql, []))
+    let res = self.exec(@morm/engine.Raw(sql, []))
     if !res.ok {
       return res
     }
   }
   for sql in pg_index_sqls(table_schema) {
-    let res = self.exec(@engine.Raw(sql, []))
+    let res = self.exec(@morm/engine.Raw(sql, []))
     if !res.ok {
       return res
     }
@@ -1309,7 +1315,7 @@ pub impl @engine.Engine for PgSQLEngine with fn migrate_table(
 }
 
 ///|
-pub impl @engine.Engine for PgSQLEngine with fn close(self) -> Unit {
+pub impl @morm/engine.Engine for PgSQLEngine with fn close(self) -> Unit {
   if self.tx_conn is Some(conn) {
     self.tx_conn = None
     close_pg_tcp(conn)

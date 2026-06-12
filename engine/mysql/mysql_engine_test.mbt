@@ -125,7 +125,7 @@ async test "mysql transaction pins one connection" {
     content="true",
   )
 
-  inspect(engine.exec(@engine.Tx(Begin)).ok, content="true")
+  inspect(engine.exec(@morm/engine.Tx(Begin)).ok, content="true")
   inspect(
     engine.exec_raw(
       "INSERT INTO morm_engine_tx_pin_test (id, name) VALUES (1, 'A')",
@@ -133,13 +133,13 @@ async test "mysql transaction pins one connection" {
     ).ok,
     content="true",
   )
-  inspect(engine.exec(@engine.Tx(Rollback)).ok, content="true")
+  inspect(engine.exec(@morm/engine.Tx(Rollback)).ok, content="true")
   json_inspect(
     engine.exec_raw("SELECT COUNT(*) AS c FROM morm_engine_tx_pin_test", []).rows[0],
     content={ "c": 0 },
   )
 
-  inspect(engine.exec(@engine.Tx(Begin)).ok, content="true")
+  inspect(engine.exec(@morm/engine.Tx(Begin)).ok, content="true")
   inspect(
     engine.exec_raw(
       "INSERT INTO morm_engine_tx_pin_test (id, name) VALUES (1, 'A')",
@@ -147,7 +147,7 @@ async test "mysql transaction pins one connection" {
     ).ok,
     content="true",
   )
-  inspect(engine.exec(@engine.Tx(Commit)).ok, content="true")
+  inspect(engine.exec(@morm/engine.Tx(Commit)).ok, content="true")
   json_inspect(
     engine.exec_raw("SELECT COUNT(*) AS c FROM morm_engine_tx_pin_test", []).rows[0],
     content={ "c": 1 },

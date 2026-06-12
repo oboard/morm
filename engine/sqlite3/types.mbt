@@ -47,7 +47,7 @@ pub impl @json.FromJson for SQLiteValue with fn from_json(json, path) {
 }
 
 ///|
-pub impl @engine.ToParam for SQLiteValue with fn to_param(self) -> @engine.Param {
+pub impl @morm/engine.ToParam for SQLiteValue with fn to_param(self) -> @morm/engine.Param {
   match self {
     Null => Null
     Integer(v) => Int64(v)

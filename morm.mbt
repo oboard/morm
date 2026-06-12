@@ -1,8 +1,8 @@
 ///|
-using @engine {type SortDirection, type Sort, type Pageable, type Page}
+using @morm/engine {type SortDirection, type Sort, type Pageable, type Page}
 
 ///|
-pub(open) trait Entity: ToJson + @engine.FromParam {
+pub(open) trait Entity: ToJson + @morm/engine.FromParam {
   fn table(Self) -> Table
 }
 
@@ -398,10 +398,10 @@ pub(open) trait Driver {
   fn open(Self, dsn : String) -> DbResult[Self]
   fn close(Self) -> DbResult[Self]
   fn ping(Self) -> DbResult[Unit]
-  fn exec(Self, sql : String, args : FixedArray[@engine.Param]) -> DbResult[
+  fn exec(Self, sql : String, args : FixedArray[@morm/engine.Param]) -> DbResult[
     Unit,
   ]
-  fn query(Self, sql : String, args : FixedArray[@engine.Param]) -> DbResult[
+  fn query(Self, sql : String, args : FixedArray[@morm/engine.Param]) -> DbResult[
     FixedArray[Json],
   ]
 }
@@ -409,7 +409,7 @@ pub(open) trait Driver {
 ///|
 // ---- 简易查询构建器 ----
 pub struct Query {
-  stmt : @engine.SelectStatement
+  stmt : @morm/engine.SelectStatement
 } derive(Eq, ToJson, FromJson)
 
 ///|
@@ -418,16 +418,16 @@ pub impl Show for Query with fn output(self : Query, logger : &Logger) {
 }
 
 ///|
-pub type OrderBy = @engine.OrderBy
+pub type OrderBy = @morm/engine.OrderBy
 
 ///|
-pub type Where = @engine.Where
+pub type Where = @morm/engine.Where
 
 ///|
-pub type WhereType = @engine.WhereType
+pub type WhereType = @morm/engine.WhereType
 
 ///|
-fn json_to_param(value : Json) -> @engine.Param {
+fn json_to_param(value : Json) -> @morm/engine.Param {
   match value {
     Null => Null
     True => Bool(true)
@@ -447,7 +447,7 @@ fn json_storage_for_column(col : Column) -> String {
 }
 
 ///|
-fn json_to_param_for_column(value : Json, col : Column) -> @engine.Param {
+fn json_to_param_for_column(value : Json, col : Column) -> @morm/engine.Param {
   match col.column_type {
     Json | JsonB =>
       match json_storage_for_column(col) {
@@ -463,9 +463,9 @@ fn json_to_param_for_column(value : Json, col : Column) -> @engine.Param {
 fn[O : ToJson] collect_owner_key_params(
   owners : FixedArray[O],
   owner_key : String,
-) -> FixedArray[@engine.Param] {
+) -> FixedArray[@morm/engine.Param] {
   let seen : Map[String, Bool] = Map([])
-  let params : Array[@engine.Param] = []
+  let params : Array[@morm/engine.Param] = []
   for owner in owners {
     if owner.to_json() is Object(obj) {
       if obj.get(owner_key) is Some(v) {
@@ -599,13 +599,13 @@ pub fn many_to_many(
 }
 
 ///|
-async fn[E : @engine.Engine] select_by_eq(
+async fn[E : @morm/engine.Engine] select_by_eq(
   engine : E,
   table : String,
   key : String,
-  value : @engine.Param,
-) -> FixedArray[Map[String, @engine.Param]] {
-  let stmt : @engine.Statement = Select({
+  value : @morm/engine.Param,
+) -> FixedArray[Map[String, @morm/engine.Param]] {
+  let stmt : @morm/engine.Statement = Select({
     select: "",
     from: table,
     joins: [],
@@ -614,12 +614,12 @@ async fn[E : @engine.Engine] select_by_eq(
     limit: None,
     offset: None,
   })
-  engine.exec(@engine.Statement(stmt)).rows
+  engine.exec(@morm/engine.Statement(stmt)).rows
 }
 
 ///|
-fn row_param(row : Map[String, @engine.Param]) -> @engine.Param {
-  let obj : Map[String, @engine.Param] = Map([])
+fn row_param(row : Map[String, @morm/engine.Param]) -> @morm/engine.Param {
+  let obj : Map[String, @morm/engine.Param] = Map([])
   for key in row.keys() {
     if row.get(key) is Some(value) {
       obj.set(key.to_lower(), value)
@@ -629,9 +629,9 @@ fn row_param(row : Map[String, @engine.Param]) -> @engine.Param {
 }
 
 ///|
-fn page_row_param(row : Map[String, @engine.Param]) -> @engine.Param {
+fn page_row_param(row : Map[String, @morm/engine.Param]) -> @morm/engine.Param {
   let mut count = 0
-  let mut only : @engine.Param? = None
+  let mut only : @morm/engine.Param? = None
   for key in row.keys() {
     count = count + 1
     if count == 1 {
@@ -651,7 +651,10 @@ fn page_row_param(row : Map[String, @engine.Param]) -> @engine.Param {
 }
 
 ///|
-fn page_total_elements(row : Map[String, @engine.Param], fallback : Int) -> Int {
+fn page_total_elements(
+  row : Map[String, @morm/engine.Param],
+  fallback : Int,
+) -> Int {
   let first_key : String? = None
   let mut key_opt = first_key
   for key in row.keys() {
@@ -675,18 +678,18 @@ fn page_total_elements(row : Map[String, @engine.Param], fallback : Int) -> Int 
 }
 
 ///|
-fn[T : @engine.FromParam] decode_page_row(
-  row : Map[String, @engine.Param],
+fn[T : @morm/engine.FromParam] decode_page_row(
+  row : Map[String, @morm/engine.Param],
 ) -> T {
-  try @engine.from_param(row_param(row)) catch {
-    _ => try! @engine.from_param(page_row_param(row))
+  try @morm/engine.from_param(row_param(row)) catch {
+    _ => try! @morm/engine.from_param(page_row_param(row))
   } noraise {
     value => value
   }
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_belongs_to(
+pub async fn[E : @morm/engine.Engine, O : ToJson, T : @morm/engine.FromParam] preload_belongs_to(
   engine : E,
   owners : FixedArray[O],
   owner_key : String,
@@ -699,7 +702,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_belo
     let key = key_param.to_json().stringify()
     let rows = select_by_eq(engine, target_table, target_key, key_param)
     if rows is [row, ..] {
-      try @engine.from_param(row_param(row)) catch {
+      try @morm/engine.from_param(row_param(row)) catch {
         _ => ()
       } noraise {
         entity => out.set(key, entity)
@@ -710,7 +713,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_belo
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_one(
+pub async fn[E : @morm/engine.Engine, O : ToJson, T : @morm/engine.FromParam] preload_has_one(
   engine : E,
   owners : FixedArray[O],
   owner_key : String,
@@ -723,7 +726,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_
     let key = key_param.to_json().stringify()
     let rows = select_by_eq(engine, target_table, target_key, key_param)
     if rows is [row, ..] {
-      try @engine.from_param(row_param(row)) catch {
+      try @morm/engine.from_param(row_param(row)) catch {
         _ => ()
       } noraise {
         entity => out.set(key, entity)
@@ -734,7 +737,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_many(
+pub async fn[E : @morm/engine.Engine, O : ToJson, T : @morm/engine.FromParam] preload_has_many(
   engine : E,
   owners : FixedArray[O],
   owner_key : String,
@@ -748,7 +751,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_
     let rows = select_by_eq(engine, target_table, target_key, key_param)
     let items : Array[T] = []
     for row in rows {
-      try @engine.from_param(row_param(row)) catch {
+      try @morm/engine.from_param(row_param(row)) catch {
         _ => ()
       } noraise {
         entity => items.push(entity)
@@ -760,7 +763,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_has_
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_many_to_many(
+pub async fn[E : @morm/engine.Engine, O : ToJson, T : @morm/engine.FromParam] preload_many_to_many(
   engine : E,
   owners : FixedArray[O],
   owner_key : String,
@@ -784,7 +787,7 @@ pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload_many
           engine, target_table, target_key, target_value,
         )
         for target_row in target_rows {
-          try @engine.from_param(row_param(target_row)) catch {
+          try @morm/engine.from_param(row_param(target_row)) catch {
             _ => ()
           } noraise {
             entity => items.push(entity)
@@ -804,7 +807,7 @@ pub(all) enum PreloadResult[T] {
 }
 
 ///|
-pub async fn[E : @engine.Engine, O : ToJson, T : @engine.FromParam] preload(
+pub async fn[E : @morm/engine.Engine, O : ToJson, T : @morm/engine.FromParam] preload(
   engine : E,
   owners : FixedArray[O],
   association : Association,
@@ -887,7 +890,7 @@ pub fn select_raw(table : String, cols_expr : String) -> Query {
 }
 
 ///|
-pub fn[V : @engine.ToParam] Query::where_eq(
+pub fn[V : @morm/engine.ToParam] Query::where_eq(
   self : Query,
   col : String,
   value : V,
@@ -897,7 +900,7 @@ pub fn[V : @engine.ToParam] Query::where_eq(
 }
 
 ///|
-pub fn[V : @engine.ToParam] Query::where_gt(
+pub fn[V : @morm/engine.ToParam] Query::where_gt(
   self : Query,
   col : String,
   value : V,
@@ -907,7 +910,7 @@ pub fn[V : @engine.ToParam] Query::where_gt(
 }
 
 ///|
-pub fn[V : @engine.ToParam] Query::where_ne(
+pub fn[V : @morm/engine.ToParam] Query::where_ne(
   self : Query,
   col : String,
   value : V,
@@ -917,7 +920,7 @@ pub fn[V : @engine.ToParam] Query::where_ne(
 }
 
 ///|
-pub fn[V : @engine.ToParam] Query::where_lt(
+pub fn[V : @morm/engine.ToParam] Query::where_lt(
   self : Query,
   col : String,
   value : V,
@@ -927,7 +930,7 @@ pub fn[V : @engine.ToParam] Query::where_lt(
 }
 
 ///|
-pub fn[V : @engine.ToParam] Query::where_like(
+pub fn[V : @morm/engine.ToParam] Query::where_like(
   self : Query,
   col : String,
   pattern : V,
@@ -937,7 +940,7 @@ pub fn[V : @engine.ToParam] Query::where_like(
 }
 
 ///|
-pub fn[V : @engine.ToParam] Query::where_gte(
+pub fn[V : @morm/engine.ToParam] Query::where_gte(
   self : Query,
   col : String,
   value : V,
@@ -947,7 +950,7 @@ pub fn[V : @engine.ToParam] Query::where_gte(
 }
 
 ///|
-pub fn[V : @engine.ToParam] Query::where_lte(
+pub fn[V : @morm/engine.ToParam] Query::where_lte(
   self : Query,
   col : String,
   value : V,
@@ -977,14 +980,14 @@ pub fn Query::offset(self : Query, n : Int) -> Query {
 }
 
 ///|
-pub impl @engine.QueryBuilder for Query with fn to_query(self) -> @engine.Query {
+pub impl @morm/engine.QueryBuilder for Query with fn to_query(self) -> @morm/engine.Query {
   Statement(Select(self.stmt))
 }
 
 ///|
 // ---- INSERT 构建器 ----
 pub struct InsertQuery {
-  stmt : @engine.InsertStatement
+  stmt : @morm/engine.InsertStatement
 } derive(Eq, ToJson, FromJson)
 
 ///|
@@ -1021,7 +1024,7 @@ pub fn[E : Entity] InsertQuery::from(
   let insert_cols = insertable_columns(table)
   let columns = insert_cols.map(c => c.name)
   let values = if json is Object(obj) {
-    let encoded : Array[@engine.Param] = []
+    let encoded : Array[@morm/engine.Param] = []
     for col in insert_cols {
       match obj.get(col.name) {
         Some(v) => encoded.push(json_to_param_for_column(v, col))
@@ -1047,11 +1050,11 @@ pub fn[E : Entity] InsertQuery::from_many(
   let table = first.table()
   let insert_cols = insertable_columns(table)
   let columns = insert_cols.map(c => c.name)
-  let rows : Array[FixedArray[@engine.Param]] = []
+  let rows : Array[FixedArray[@morm/engine.Param]] = []
   for entity in entities {
     let json = entity.to_json()
     if json is Object(obj) {
-      let encoded : Array[@engine.Param] = []
+      let encoded : Array[@morm/engine.Param] = []
       for col in insert_cols {
         match obj.get(col.name) {
           Some(v) => encoded.push(json_to_param_for_column(v, col))
@@ -1084,7 +1087,7 @@ pub fn InsertQuery::columns(
 ///|
 pub fn InsertQuery::values(
   self : InsertQuery,
-  values : FixedArray[&@engine.ToParam],
+  values : FixedArray[&@morm/engine.ToParam],
 ) -> InsertQuery {
   { stmt: { ..self.stmt, values: values.map(v => v.to_param()), rows: [] } }
 }
@@ -1092,7 +1095,7 @@ pub fn InsertQuery::values(
 ///|
 pub fn InsertQuery::values_many(
   self : InsertQuery,
-  rows : FixedArray[FixedArray[&@engine.ToParam]],
+  rows : FixedArray[FixedArray[&@morm/engine.ToParam]],
 ) -> InsertQuery {
   {
     stmt: {
@@ -1104,14 +1107,14 @@ pub fn InsertQuery::values_many(
 }
 
 ///|
-pub impl @engine.QueryBuilder for InsertQuery with fn to_query(self) -> @engine.Query {
+pub impl @morm/engine.QueryBuilder for InsertQuery with fn to_query(self) -> @morm/engine.Query {
   Statement(Insert(self.stmt))
 }
 
 ///|
 // ---- UPSERT 构建器 ----
 pub struct UpsertQuery {
-  stmt : @engine.UpsertStatement
+  stmt : @morm/engine.UpsertStatement
 } derive(Eq, ToJson, FromJson)
 
 ///|
@@ -1135,7 +1138,7 @@ pub fn[E : Entity] UpsertQuery::from(
   let json = entity.to_json()
   let table = entity.table()
   let sets = if json is Object(obj) {
-    let out : Array[@engine.Set] = []
+    let out : Array[@morm/engine.Set] = []
     for col in table.columns {
       if obj.get(col.name) is Some(value) {
         out.push({ col: col.name, value: json_to_param_for_column(value, col) })
@@ -1159,7 +1162,7 @@ pub fn[E : Entity] UpsertQuery::from(
         }
       }
   }
-  let update_sets : Array[@engine.Set] = []
+  let update_sets : Array[@morm/engine.Set] = []
   for set_item in sets {
     let mut is_conflict_col = false
     for conflict_col in conflict_cols {
@@ -1201,7 +1204,7 @@ pub fn[E : Entity] UpsertQuery::from(
 pub fn UpsertQuery::set(
   self : UpsertQuery,
   col : String,
-  value : @engine.Param,
+  value : @morm/engine.Param,
 ) -> UpsertQuery {
   { stmt: { ..self.stmt, sets: self.stmt.sets + [{ col, value }] } }
 }
@@ -1218,7 +1221,7 @@ pub fn UpsertQuery::on_conflict(
 pub fn UpsertQuery::do_update_set(
   self : UpsertQuery,
   col : String,
-  value : @engine.Param,
+  value : @morm/engine.Param,
 ) -> UpsertQuery {
   {
     stmt: { ..self.stmt, update_sets: self.stmt.update_sets + [{ col, value }] },
@@ -1226,17 +1229,17 @@ pub fn UpsertQuery::do_update_set(
 }
 
 ///|
-pub impl @engine.QueryBuilder for UpsertQuery with fn to_query(self) -> @engine.Query {
+pub impl @morm/engine.QueryBuilder for UpsertQuery with fn to_query(self) -> @morm/engine.Query {
   Statement(Upsert(self.stmt))
 }
 
 ///|
 // ---- UPDATE 构建器 ----
-pub type Set = @engine.Set
+pub type Set = @morm/engine.Set
 
 ///|
 pub struct UpdateQuery {
-  stmt : @engine.UpdateStatement
+  stmt : @morm/engine.UpdateStatement
 } derive(Eq, ToJson, FromJson)
 
 ///|
@@ -1260,7 +1263,7 @@ pub fn[E : Entity] UpdateQuery::from(
   let json = entity.to_json()
   let table = entity.table()
   let sets = if json is Object(obj) {
-    let out : Array[@engine.Set] = []
+    let out : Array[@morm/engine.Set] = []
     for col in table.columns {
       if obj.get(col.name) is Some(value) {
         out.push({ col: col.name, value: json_to_param_for_column(value, col) })
@@ -1274,7 +1277,7 @@ pub fn[E : Entity] UpdateQuery::from(
 }
 
 ///|
-pub fn[V : @engine.ToParam] UpdateQuery::set(
+pub fn[V : @morm/engine.ToParam] UpdateQuery::set(
   self : UpdateQuery,
   col : String,
   value : V,
@@ -1288,7 +1291,7 @@ pub fn[V : @engine.ToParam] UpdateQuery::set(
 }
 
 ///|
-pub fn[V : @engine.ToParam] UpdateQuery::where_eq(
+pub fn[V : @morm/engine.ToParam] UpdateQuery::where_eq(
   self : UpdateQuery,
   col : String,
   value : V,
@@ -1302,7 +1305,7 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_eq(
 }
 
 ///|
-pub fn[V : @engine.ToParam] UpdateQuery::where_gt(
+pub fn[V : @morm/engine.ToParam] UpdateQuery::where_gt(
   self : UpdateQuery,
   col : String,
   value : V,
@@ -1316,7 +1319,7 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_gt(
 }
 
 ///|
-pub fn[V : @engine.ToParam] UpdateQuery::where_ne(
+pub fn[V : @morm/engine.ToParam] UpdateQuery::where_ne(
   self : UpdateQuery,
   col : String,
   value : V,
@@ -1330,7 +1333,7 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_ne(
 }
 
 ///|
-pub fn[V : @engine.ToParam] UpdateQuery::where_lt(
+pub fn[V : @morm/engine.ToParam] UpdateQuery::where_lt(
   self : UpdateQuery,
   col : String,
   value : V,
@@ -1344,7 +1347,7 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_lt(
 }
 
 ///|
-pub fn[V : @engine.ToParam] UpdateQuery::where_like(
+pub fn[V : @morm/engine.ToParam] UpdateQuery::where_like(
   self : UpdateQuery,
   col : String,
   pattern : V,
@@ -1358,7 +1361,7 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_like(
 }
 
 ///|
-pub fn[V : @engine.ToParam] UpdateQuery::where_gte(
+pub fn[V : @morm/engine.ToParam] UpdateQuery::where_gte(
   self : UpdateQuery,
   col : String,
   value : V,
@@ -1372,7 +1375,7 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_gte(
 }
 
 ///|
-pub fn[V : @engine.ToParam] UpdateQuery::where_lte(
+pub fn[V : @morm/engine.ToParam] UpdateQuery::where_lte(
   self : UpdateQuery,
   col : String,
   value : V,
@@ -1386,14 +1389,14 @@ pub fn[V : @engine.ToParam] UpdateQuery::where_lte(
 }
 
 ///|
-pub impl @engine.QueryBuilder for UpdateQuery with fn to_query(self) -> @engine.Query {
+pub impl @morm/engine.QueryBuilder for UpdateQuery with fn to_query(self) -> @morm/engine.Query {
   Statement(Update(self.stmt))
 }
 
 ///|
 // ---- DELETE 构建器 ----
 pub struct DeleteQuery {
-  stmt : @engine.DeleteStatement
+  stmt : @morm/engine.DeleteStatement
 } derive(Eq, ToJson, FromJson)
 
 ///|
@@ -1410,7 +1413,7 @@ pub fn delete_from(table : String) -> DeleteQuery {
 }
 
 ///|
-pub fn[V : @engine.ToParam] DeleteQuery::where_eq(
+pub fn[V : @morm/engine.ToParam] DeleteQuery::where_eq(
   self : DeleteQuery,
   col : String,
   value : V,
@@ -1424,7 +1427,7 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_eq(
 }
 
 ///|
-pub fn[V : @engine.ToParam] DeleteQuery::where_gt(
+pub fn[V : @morm/engine.ToParam] DeleteQuery::where_gt(
   self : DeleteQuery,
   col : String,
   value : V,
@@ -1438,7 +1441,7 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_gt(
 }
 
 ///|
-pub fn[V : @engine.ToParam] DeleteQuery::where_ne(
+pub fn[V : @morm/engine.ToParam] DeleteQuery::where_ne(
   self : DeleteQuery,
   col : String,
   value : V,
@@ -1452,7 +1455,7 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_ne(
 }
 
 ///|
-pub fn[V : @engine.ToParam] DeleteQuery::where_lt(
+pub fn[V : @morm/engine.ToParam] DeleteQuery::where_lt(
   self : DeleteQuery,
   col : String,
   value : V,
@@ -1466,7 +1469,7 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_lt(
 }
 
 ///|
-pub fn[V : @engine.ToParam] DeleteQuery::where_like(
+pub fn[V : @morm/engine.ToParam] DeleteQuery::where_like(
   self : DeleteQuery,
   col : String,
   pattern : V,
@@ -1480,7 +1483,7 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_like(
 }
 
 ///|
-pub fn[V : @engine.ToParam] DeleteQuery::where_gte(
+pub fn[V : @morm/engine.ToParam] DeleteQuery::where_gte(
   self : DeleteQuery,
   col : String,
   value : V,
@@ -1494,7 +1497,7 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_gte(
 }
 
 ///|
-pub fn[V : @engine.ToParam] DeleteQuery::where_lte(
+pub fn[V : @morm/engine.ToParam] DeleteQuery::where_lte(
   self : DeleteQuery,
   col : String,
   value : V,
@@ -1508,13 +1511,13 @@ pub fn[V : @engine.ToParam] DeleteQuery::where_lte(
 }
 
 ///|
-pub impl @engine.QueryBuilder for DeleteQuery with fn to_query(self) -> @engine.Query {
+pub impl @morm/engine.QueryBuilder for DeleteQuery with fn to_query(self) -> @morm/engine.Query {
   Statement(Delete(self.stmt))
 }
 
 ///|
 pub struct TxQuery {
-  op : @engine.TxOp
+  op : @morm/engine.TxOp
 } derive(Eq, ToJson, FromJson)
 
 ///|
@@ -1548,7 +1551,7 @@ pub fn tx_rollback_to_savepoint(name : String) -> TxQuery {
 }
 
 ///|
-pub impl @engine.QueryBuilder for TxQuery with fn to_query(self) -> @engine.Query {
+pub impl @morm/engine.QueryBuilder for TxQuery with fn to_query(self) -> @morm/engine.Query {
   Tx(self.op)
 }
 
@@ -1558,46 +1561,46 @@ pub struct TxBatch[E] {
 }
 
 ///|
-pub async fn[E : @engine.Engine] tx_block(engine : E) -> TxBatch[E] {
+pub async fn[E : @morm/engine.Engine] tx_block(engine : E) -> TxBatch[E] {
   ignore(engine.exec(tx_begin()))
   { engine, }
 }
 
 ///|
-pub async fn[Q : @engine.QueryBuilder, E : @engine.Engine] TxBatch::exec(
+pub async fn[Q : @morm/engine.QueryBuilder, E : @morm/engine.Engine] TxBatch::exec(
   self : TxBatch[E],
   query : Q,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   self.engine.exec(query)
 }
 
 ///|
-pub async fn[E : @engine.Engine] TxBatch::commit(
+pub async fn[E : @morm/engine.Engine] TxBatch::commit(
   self : TxBatch[E],
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   self.engine.exec(tx_commit())
 }
 
 ///|
-pub async fn[E : @engine.Engine] TxBatch::rollback(
+pub async fn[E : @morm/engine.Engine] TxBatch::rollback(
   self : TxBatch[E],
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   self.engine.exec(tx_rollback())
 }
 
 ///|
-pub async fn[E : @engine.Engine] TxBatch::savepoint(
+pub async fn[E : @morm/engine.Engine] TxBatch::savepoint(
   self : TxBatch[E],
   name : String,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   self.engine.exec(tx_savepoint(name))
 }
 
 ///|
-pub async fn[E : @engine.Engine] TxBatch::rollback_to_savepoint(
+pub async fn[E : @morm/engine.Engine] TxBatch::rollback_to_savepoint(
   self : TxBatch[E],
   name : String,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   self.engine.exec(tx_rollback_to_savepoint(name))
 }
 
@@ -1636,7 +1639,7 @@ pub fn select_from_scoped(table : String, deleted_col? : String) -> Query {
 }
 
 ///|
-pub fn[V : @engine.ToParam] soft_delete_by_id(
+pub fn[V : @morm/engine.ToParam] soft_delete_by_id(
   table : String,
   id_col : String,
   id : V,
@@ -1647,7 +1650,7 @@ pub fn[V : @engine.ToParam] soft_delete_by_id(
 }
 
 ///|
-pub fn[V : @engine.ToParam] restore_by_id(
+pub fn[V : @morm/engine.ToParam] restore_by_id(
   table : String,
   id_col : String,
   id : V,
@@ -1993,9 +1996,9 @@ pub fn Query::to_count_sql(self : Query) -> String {
 }
 
 ///|
-pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate(
+pub async fn[E : @morm/engine.Engine, T : @morm/engine.FromParam] paginate(
   engine : E,
-  query : &@engine.QueryBuilder,
+  query : &@morm/engine.QueryBuilder,
   pageable : Pageable,
 ) -> Page[T] {
   let page = if pageable.page < 1 { 1 } else { pageable.page }
@@ -2003,14 +2006,14 @@ pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate(
     Statement(stmt) =>
       match stmt {
         Select(sel) =>
-          @engine.Statement(
+          @morm/engine.Statement(
             Select({ ..sel, order_by: [], limit: None, offset: None }),
           )
         _ => Statement(stmt)
       }
     other => other
   }
-  let (base_sql, _) = @engine.render_query_sql(count_query)
+  let (base_sql, _) = @morm/engine.render_query_sql(count_query)
   let upper = base_sql.to_upper()
   let count_sql = if upper.contains(" FROM ") {
     let from_idx = upper.find(" FROM ").unwrap()
@@ -2025,7 +2028,7 @@ pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate(
   }
   let count_result = engine.exec_raw(
     count_sql,
-    @engine.render_query_sql(count_query).1,
+    @morm/engine.render_query_sql(count_query).1,
   )
   let total_elements = match count_result.rows {
     [row, ..] => page_total_elements(row, items.length())
@@ -2049,10 +2052,10 @@ pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate(
 }
 
 ///|
-pub async fn[E : @engine.Engine, T : @engine.FromParam] paginate_raw(
+pub async fn[E : @morm/engine.Engine, T : @morm/engine.FromParam] paginate_raw(
   engine : E,
   sql : String,
-  params : FixedArray[@engine.Param],
+  params : FixedArray[@morm/engine.Param],
   pageable : Pageable,
 ) -> Page[T] {
   let page = if pageable.page < 1 { 1 } else { pageable.page }

@@ -5,7 +5,7 @@ pub struct MySQLEngine {
   user : String
   password : String
   database : String
-  pool : @engine.ConnectionPool[@socket.Tcp]
+  pool : @morm/engine.ConnectionPool[@socket.Tcp]
   mut tx_conn : @socket.Tcp?
 }
 
@@ -101,7 +101,7 @@ pub fn MySQLEngine::open(dsn : String) -> Result[MySQLEngine, String] {
 }
 
 ///|
-fn param_sql(p : @engine.Param) -> String {
+fn param_sql(p : @morm/engine.Param) -> String {
   let quote = fn(s : String) -> String {
     let esc = s.replace(old="'", new="''")
     "'\{esc}'"
@@ -120,20 +120,21 @@ fn param_sql(p : @engine.Param) -> String {
     Float(v) => v.to_string()
     Double(v) => v.to_string()
     Decimal(v) => v
-    Date(v, format) => quote(@engine.format_plain_date(v, format))
-    Time(v, format) => quote(@engine.format_plain_time(v, format))
-    DateTime(v, format) => quote(@engine.format_plain_date_time(v, format))
-    Timestamp(v, format) => quote(@engine.format_zoned_date_time(v, format))
+    Date(v, format) => quote(@morm/engine.format_plain_date(v, format))
+    Time(v, format) => quote(@morm/engine.format_plain_time(v, format))
+    DateTime(v, format) => quote(@morm/engine.format_plain_date_time(v, format))
+    Timestamp(v, format) =>
+      quote(@morm/engine.format_zoned_date_time(v, format))
     Uuid(v) => quote(v)
     Object(v) => quote(v.to_json().stringify())
     Json(v) => quote(v.stringify())
     String(v) => quote(v)
-    Bytes(v) => "x'\{@engine.bytes_to_hex(v)}'"
+    Bytes(v) => "x'\{@morm/engine.bytes_to_hex(v)}'"
   }
 }
 
 ///|
-fn inline_sql(sql : String, params : FixedArray[@engine.Param]) -> String {
+fn inline_sql(sql : String, params : FixedArray[@morm/engine.Param]) -> String {
   let out = StringBuilder()
   let mut i = 0
   for c in sql {
@@ -148,7 +149,7 @@ fn inline_sql(sql : String, params : FixedArray[@engine.Param]) -> String {
 }
 
 ///|
-fn fail(message : String) -> @engine.QueryResult {
+fn fail(message : String) -> @morm/engine.QueryResult {
   { ok: false, rows_affected: 0, rows: [], error: Some(message) }
 }
 
@@ -614,7 +615,7 @@ fn close_mysql_tcp(conn : @socket.Tcp) -> Unit {
 async fn mysql_query_on_conn(
   conn : @socket.Tcp,
   sql : String,
-) -> (@engine.QueryResult, Bool) {
+) -> (@morm/engine.QueryResult, Bool) {
   let q = Buffer()
   q.write_byte(0x03) // COM_QUERY
   q.write_bytes(@utf8.encode(sql))
@@ -698,7 +699,7 @@ async fn mysql_query_on_conn(
     pending_row = Some(after_cols_payload)
   }
 
-  let rows : Array[Map[String, @engine.Param]] = []
+  let rows : Array[Map[String, @morm/engine.Param]] = []
   let mut done = false
   let mut first_pending = pending_row
   while !done {
@@ -728,7 +729,7 @@ async fn mysql_query_on_conn(
       row_pkt.length() < 9 {
       done = true
     } else {
-      let obj : Map[String, @engine.Param] = {}
+      let obj : Map[String, @morm/engine.Param] = {}
       let mut pos = 0
       let mut c = 0
       while c < cols.length() {
@@ -739,7 +740,7 @@ async fn mysql_query_on_conn(
         let (v, np) = parsed.unwrap()
         pos = np
         obj[cols[c]] = match v {
-          Some(s) => @engine.to_param(json_from_text(s))
+          Some(s) => @morm/engine.to_param(json_from_text(s))
           None => Null
         }
         c = c + 1
@@ -778,7 +779,7 @@ fn mysql_is_tx_rollback(sql : String) -> Bool {
 async fn mysql_exec_sql(
   engine : MySQLEngine,
   sql : String,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   if mysql_is_tx_begin(sql) && engine.tx_conn is Some(_) {
     return fail("mysql transaction already active")
   }
@@ -1094,7 +1095,7 @@ fn mysql_index_sqls(table_schema : @table.Table) -> Array[String] {
 }
 
 ///|
-fn mysql_tx_sql(op : @engine.TxOp) -> String {
+fn mysql_tx_sql(op : @morm/engine.TxOp) -> String {
   match op {
     Begin => "START TRANSACTION"
     Commit => "COMMIT"
@@ -1105,12 +1106,12 @@ fn mysql_tx_sql(op : @engine.TxOp) -> String {
 }
 
 ///|
-pub impl @engine.Engine for MySQLEngine with fn exec(
+pub impl @morm/engine.Engine for MySQLEngine with fn exec(
   self,
-  query : &@engine.QueryBuilder,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+) -> @morm/engine.QueryResult {
   let (sql, params) = match query.to_query() {
-    Statement(stmt) => @engine.render_default_sql(stmt)
+    Statement(stmt) => @morm/engine.render_default_sql(stmt)
     Raw(sql, params) => (sql, params)
     Tx(op) => (mysql_tx_sql(op), [])
   }
@@ -1119,11 +1120,11 @@ pub impl @engine.Engine for MySQLEngine with fn exec(
 }
 
 ///|
-pub impl @engine.Engine for MySQLEngine with fn page(
+pub impl @morm/engine.Engine for MySQLEngine with fn page(
   self,
-  query : &@engine.QueryBuilder,
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
+  query : &@morm/engine.QueryBuilder,
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
   let normalized_page = if pageable.page < 1 { 1 } else { pageable.page }
   let offset = (normalized_page - 1) * pageable.size
   let page_query = match query.to_query() {
@@ -1141,7 +1142,7 @@ pub impl @engine.Engine for MySQLEngine with fn page(
               ]
             None => sel.order_by
           }
-          @engine.Statement(
+          @morm/engine.Statement(
             Select({
               ..sel,
               order_by,
@@ -1160,29 +1161,29 @@ pub impl @engine.Engine for MySQLEngine with fn page(
 }
 
 ///|
-pub impl @engine.Engine for MySQLEngine with fn page_raw(
+pub impl @morm/engine.Engine for MySQLEngine with fn page_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-  pageable : @engine.Pageable,
-) -> @engine.QueryResult {
-  self.page(@engine.Raw(sql, params), pageable)
+  params : FixedArray[@morm/engine.Param],
+  pageable : @morm/engine.Pageable,
+) -> @morm/engine.QueryResult {
+  self.page(@morm/engine.Raw(sql, params), pageable)
 }
 
 ///|
-pub impl @engine.Engine for MySQLEngine with fn exec_raw(
+pub impl @morm/engine.Engine for MySQLEngine with fn exec_raw(
   self,
   sql : String,
-  params : FixedArray[@engine.Param],
-) -> @engine.QueryResult {
-  self.exec(@engine.Raw(sql, params))
+  params : FixedArray[@morm/engine.Param],
+) -> @morm/engine.QueryResult {
+  self.exec(@morm/engine.Raw(sql, params))
 }
 
 ///|
-pub impl @engine.Engine for MySQLEngine with fn migrate_table(
+pub impl @morm/engine.Engine for MySQLEngine with fn migrate_table(
   self,
   table_schema : @table.Table,
-) -> @engine.QueryResult {
+) -> @morm/engine.QueryResult {
   let create_sql = mysql_create_table_sql(table_schema)
   if create_sql == "" {
     return {
@@ -1192,19 +1193,19 @@ pub impl @engine.Engine for MySQLEngine with fn migrate_table(
       error: Some("invalid table schema"),
     }
   }
-  let create_res = self.exec(@engine.Raw(create_sql, []))
+  let create_res = self.exec(@morm/engine.Raw(create_sql, []))
   if !create_res.ok {
     return create_res
   }
   let comment_sql = mysql_comment_sql(table_schema)
   if comment_sql != "" {
-    let comment_res = self.exec(@engine.Raw(comment_sql, []))
+    let comment_res = self.exec(@morm/engine.Raw(comment_sql, []))
     if !comment_res.ok {
       return comment_res
     }
   }
   for sql in mysql_index_sqls(table_schema) {
-    let res = self.exec(@engine.Raw(sql, []))
+    let res = self.exec(@morm/engine.Raw(sql, []))
     if !res.ok {
       return res
     }
@@ -1213,7 +1214,7 @@ pub impl @engine.Engine for MySQLEngine with fn migrate_table(
 }
 
 ///|
-pub impl @engine.Engine for MySQLEngine with fn close(self) -> Unit {
+pub impl @morm/engine.Engine for MySQLEngine with fn close(self) -> Unit {
   if self.tx_conn is Some(conn) {
     self.tx_conn = None
     close_mysql_tcp(conn)
