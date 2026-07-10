@@ -16,6 +16,6 @@ import {
 
 options(
   "bin-name": "morm-gen",
-  "bin-target": "native",
+  "bin-target": "wasm",
   "is-main": true,
 )
