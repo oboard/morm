@@ -562,7 +562,7 @@ async fn pg_query_on_conn(
           (b0.reinterpret_as_int() << 8) | b1.reinterpret_as_int()
         _ => return (fail("pgsql bad data-row"), false)
       }
-      let obj : Map[String, @morm/engine.Param] = {}
+      let obj : Map[String, @morm/engine.Param] = Map([])
       let mut pos = 2
       let mut i = 0
       while i < count {

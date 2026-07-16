@@ -5,7 +5,8 @@ import {
 
 supported_targets = "+native"
 
+pkgtype(kind: "executable")
+
 options(
   "bin-name": "morm-example-exec-raw",
-  "is-main": true,
 )

@@ -25,7 +25,7 @@ pub fn new_table(
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: {},
+    engine_options: Map([]),
   }
 }
 

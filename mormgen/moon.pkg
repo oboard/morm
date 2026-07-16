@@ -14,8 +14,9 @@ import {
   "oboard/morm",
 }
 
+pkgtype(kind: "executable")
+
 options(
   "bin-name": "morm-gen",
   "bin-target": "wasm",
-  "is-main": true,
 )

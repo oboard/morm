@@ -462,7 +462,7 @@ fn SQLiteEngine::exec_sql(
     // 构造第一行的 Json（按列名 -> 值）
 
     while stmt.step() == true {
-      let obj : Map[String, @morm/engine.Param] = {}
+      let obj : Map[String, @morm/engine.Param] = Map([])
       let col_cnt = stmt.column_count()
       let mut index = 0
       while index < col_cnt {

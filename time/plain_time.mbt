@@ -39,15 +39,22 @@ pub fn PlainTime::of(
 ///|
 /// Creates a PlainTime from a string, like '10:20:30.45678'.
 pub fn PlainTime::from_string(str : String) -> PlainTime raise Error {
-  let (hour, minute, second, nanosecond) = lexmatch str with longest {
-    (("[0-9]{2}" as hour_str) ":" ("[0-9]{2}" as minute_str)) =>
-      (@string.parse_int(hour_str), @string.parse_int(minute_str), 0, 0)
+  let (hour, minute, second, nanosecond) = lexscan str with longest {
     (
-      ("[0-9]{2}" as hour_str)
-      ":"
-      ("[0-9]{2}" as minute_str)
-      ":"
-      ("[0-9]{2}" as second_str)
+      re"^" +
+      (re"[0-9]{2}" as hour_str) +
+      re":" +
+      (re"[0-9]{2}$" as minute_str),
+      after=_,
+    ) => (@string.parse_int(hour_str), @string.parse_int(minute_str), 0, 0)
+    (
+      re"^" +
+      (re"[0-9]{2}" as hour_str) +
+      re":" +
+      (re"[0-9]{2}" as minute_str) +
+      re":" +
+      (re"[0-9]{2}$" as second_str),
+      after=_,
     ) =>
       (
         @string.parse_int(hour_str),
@@ -56,13 +63,15 @@ pub fn PlainTime::from_string(str : String) -> PlainTime raise Error {
         0,
       )
     (
-      ("[0-9]{2}" as hour_str)
-      ":"
-      ("[0-9]{2}" as minute_str)
-      ":"
-      ("[0-9]{2}" as second_str)
-      "."
-      ("[0-9]{1,9}" as nanosecond_str)
+      re"^" +
+      (re"[0-9]{2}" as hour_str) +
+      re":" +
+      (re"[0-9]{2}" as minute_str) +
+      re":" +
+      (re"[0-9]{2}" as second_str) +
+      re"[.]" +
+      (re"[0-9]{1,9}$" as nanosecond_str),
+      after=_,
     ) =>
       (
         @string.parse_int(hour_str),

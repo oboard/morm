@@ -729,7 +729,7 @@ async fn mysql_query_on_conn(
       row_pkt.length() < 9 {
       done = true
     } else {
-      let obj : Map[String, @morm/engine.Param] = {}
+      let obj : Map[String, @morm/engine.Param] = Map([])
       let mut pos = 0
       let mut c = 0
       while c < cols.length() {

@@ -71,13 +71,15 @@ pub fn PlainDate::to_unix_day(self : PlainDate) -> Int64 {
 ///|
 /// Creates a PlainDate from a string, like "2008-08-08".
 pub fn PlainDate::from_string(str : String) -> PlainDate raise Error {
-  lexmatch str with longest {
+  lexscan str with longest {
     (
-      ("-?[0-9]{4}" as year_str)
-      "-"
-      ("[0-9]{2}" as month_str)
-      "-"
-      ("[0-9]{2}" as day_str)
+      re"^" +
+      (re"-?[0-9]{4}" as year_str) +
+      re"-" +
+      (re"[0-9]{2}" as month_str) +
+      re"-" +
+      (re"[0-9]{2}$" as day_str),
+      after=_,
     ) => {
       let year = @string.parse_int(year_str)
       let month = @string.parse_int(month_str)
