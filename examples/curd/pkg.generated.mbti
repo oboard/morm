@@ -40,4 +40,3 @@ pub trait UserMapper {
   async fn delete(Self, User) -> Bool
   async fn delete_by_id(Self, Int) -> Bool
 }
-

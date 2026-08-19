@@ -160,4 +160,3 @@ pub impl Column for Int64
 pub impl Column for Double
 pub impl Column for String
 pub impl Column for Bytes
-

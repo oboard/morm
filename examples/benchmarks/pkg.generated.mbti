@@ -53,4 +53,3 @@ pub trait BenchUserMapper {
   async fn update_active_by_id(Self, Int, Int) -> Bool
   async fn delete_by_id(Self, Int) -> Bool
 }
-

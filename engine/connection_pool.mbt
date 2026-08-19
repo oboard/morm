@@ -10,7 +10,7 @@ pub fn[C] ConnectionPool::ConnectionPool(
   max_open : Int,
   max_idle? : Int = max_open,
 ) -> ConnectionPool[C] {
-  guard max_open > 0
+  guard max_open > 0 else { abort("max_open must be greater than 0") }
   let idle_cap = if max_idle < 0 {
     0
   } else if max_idle > max_open {

@@ -1217,8 +1217,7 @@ fn parse_entities_from_ast(
   let specs : Array[EntitySpec] = []
   ast.each(item => {
     if item is TopTypeDef(type_decl) {
-      if type_decl
-        is { tycon: name, components: Record(fields~, ..), attrs, .. } {
+      if type_decl is { tycon: name, components: Record(fields~), attrs, .. } {
         let orm_attrs = collect_orm_attributes(attrs)
         let mut has_entity = false
         let mut table_name = name.to_lower()

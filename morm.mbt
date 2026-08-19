@@ -1019,7 +1019,7 @@ pub fn[E : Entity] InsertQuery::from(
   self : InsertQuery,
   entity : E,
 ) -> InsertQuery {
-  let json = entity.to_json()
+  let json = ToJson::to_json(entity)
   let table = entity.table()
   let insert_cols = insertable_columns(table)
   let columns = insert_cols.map(c => c.name)
@@ -1052,7 +1052,7 @@ pub fn[E : Entity] InsertQuery::from_many(
   let columns = insert_cols.map(c => c.name)
   let rows : Array[FixedArray[@morm/engine.Param]] = []
   for entity in entities {
-    let json = entity.to_json()
+    let json = ToJson::to_json(entity)
     if json is Object(obj) {
       let encoded : Array[@morm/engine.Param] = []
       for col in insert_cols {
@@ -1135,7 +1135,7 @@ pub fn[E : Entity] UpsertQuery::from(
   self : UpsertQuery,
   entity : E,
 ) -> UpsertQuery {
-  let json = entity.to_json()
+  let json = ToJson::to_json(entity)
   let table = entity.table()
   let sets = if json is Object(obj) {
     let out : Array[@morm/engine.Set] = []
@@ -1260,7 +1260,7 @@ pub fn[E : Entity] UpdateQuery::from(
   self : UpdateQuery,
   entity : E,
 ) -> UpdateQuery {
-  let json = entity.to_json()
+  let json = ToJson::to_json(entity)
   let table = entity.table()
   let sets = if json is Object(obj) {
     let out : Array[@morm/engine.Set] = []
@@ -1613,7 +1613,7 @@ pub fn[E : Entity] DeleteQuery::from(
   let pk_opt = table_primary_key(table)
   match pk_opt {
     Some(pk) => {
-      let obj = if entity.to_json() is Object(obj) { obj } else { {} }
+      let obj = if ToJson::to_json(entity) is Object(obj) { obj } else { {} }
       match obj.get(pk) {
         Some(v) => {
           let pv = json_to_param(v)

@@ -1,11 +1,11 @@
 name = "oboard/morm"
 
-version = "0.4.0"
+version = "0.4.1"
 
 import {
-  "moonbitlang/x@0.4.43",
-  "moonbitlang/parser@0.3.3",
-  "moonbitlang/async@0.19.1",
+  "moonbitlang/x@0.5.1",
+  "moonbitlang/parser@0.3.17",
+  "moonbitlang/async@0.21.0",
 }
 
 readme = "README.mbt.md"

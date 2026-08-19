@@ -41,4 +41,3 @@ pub(all) enum TNSPacketType {
 // Type aliases
 
 // Traits
-

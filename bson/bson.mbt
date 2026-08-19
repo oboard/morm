@@ -305,7 +305,7 @@ fn decode_document(
   }
   let end = offset + len
   let mut pos = offset + 4
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   let arr : Array[Json] = []
   while pos < end - 1 {
     let tag = data[pos].to_int()

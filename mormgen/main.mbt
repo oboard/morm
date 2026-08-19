@@ -180,11 +180,7 @@ fn normalize_default_expr(raw_expr : String) -> String? {
   if expr == "" {
     return None
   }
-  let tokens = @lexer.tokens_from_string(expr, comment=true).tokens
-  let (_, reports) = @handrolled_parser.parse_expr(tokens)
-  if !reports.is_empty() {
-    return None
-  }
+  // Simplified parsing without lexer dependency
   let compact_lower = expr.replace_all(old=" ", new="").to_lower()
   if compact_lower is ("autoincrement()" | "autoincrement") {
     return None
@@ -1618,7 +1614,7 @@ fn generate_mapper_code(
 
 ///|
 fn main {
-  let argv = @sys.get_cli_args()
+  let argv = @env.args()
   let cli_args = if argv.length() > 0 { argv[1:] } else { [] }
   let cmd = @argparse.Command(
     "mormgen",
@@ -1685,10 +1681,10 @@ fn main {
     let entity_names = specs.map(spec => spec.name)
     let mapper_names = mapper_specs.map(ms => ms.trait_name)
     if entity_names.length() > 0 {
-      println("Generated \{output_file} for entities: \{to_repr(entity_names)}")
+      println("Generated \{output_file} for entities: \{Repr(entity_names)}")
     }
     if mapper_names.length() > 0 {
-      println("Generated \{output_file} for mappers: \{to_repr(mapper_names)}")
+      println("Generated \{output_file} for mappers: \{Repr(mapper_names)}")
     }
   } catch {
     IOError(e) => println("IOError: \{e}")

@@ -71,21 +71,10 @@ pub fn PlainDate::to_unix_day(self : PlainDate) -> Int64 {
 ///|
 /// Creates a PlainDate from a string, like "2008-08-08".
 pub fn PlainDate::from_string(str : String) -> PlainDate raise Error {
-  lexmatch str with longest {
-    (
-      ("-?[0-9]{4}" as year_str)
-      "-"
-      ("[0-9]{2}" as month_str)
-      "-"
-      ("[0-9]{2}" as day_str)
-    ) => {
-      let year = @string.parse_int(year_str)
-      let month = @string.parse_int(month_str)
-      let day = @string.parse_int(day_str)
-      PlainDate::of(year, month, day)
-    }
+  let (year, month, day) = parse_date_string(str) catch {
     _ => fail(invalid_date_err)
   }
+  PlainDate::of(year, month, day)
 }
 
 ///|
@@ -588,4 +577,32 @@ fn validate_ordinal(year : Int, ordinal : Int) -> Bool {
   ordinal >= min_ordinal &&
   ordinal <= max_ordinal &&
   ordinal <= calc_days_in_year(year)
+}
+
+///|
+fn parse_date_string(str : String) -> (Int, Int, Int) raise Error {
+  let parts = str.split("-").to_array()
+  // Handle negative years: "-9999-01-01" splits into ["", "9999", "01", "01"]
+  let (year_str, month_str, day_str) = if parts.length() == 4 && parts[0] == "" {
+    // Negative year
+    ("-" + parts[1].to_owned(), parts[2].to_owned(), parts[3].to_owned())
+  } else if parts.length() == 3 {
+    (parts[0].to_owned(), parts[1].to_owned(), parts[2].to_owned())
+  } else {
+    fail(invalid_date_err)
+  }
+  // Validate format: year should be 4 digits (with optional minus sign)
+  // month and day should be 2 digits
+  let year_len = if year_str.has_prefix("-") {
+    year_str.length() - 1
+  } else {
+    year_str.length()
+  }
+  if year_len != 4 || month_str.length() != 2 || day_str.length() != 2 {
+    fail(invalid_date_err)
+  }
+  let year = @string.parse_int(year_str)
+  let month = @string.parse_int(month_str)
+  let day = @string.parse_int(day_str)
+  (year, month, day)
 }

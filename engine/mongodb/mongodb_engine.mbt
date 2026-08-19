@@ -409,7 +409,7 @@ fn escape_scram_name(text : String) -> String {
 
 ///|
 fn parse_scram_fields(message : String) -> Map[String, String] {
-  let out : Map[String, String] = {}
+  let out : Map[String, String] = Map([])
   for part in message.split(",") {
     if part.find("=") is Some(idx) {
       let key = part[:idx].to_owned()
@@ -832,7 +832,7 @@ fn projection_doc(select : String) -> Json? {
   match parse_projection(select) {
     None => None
     Some(cols) => {
-      let out : Map[String, Json] = {}
+      let out : Map[String, Json] = Map([])
       for col in cols {
         out[col] = Json::number(1.0)
       }
@@ -861,7 +861,7 @@ fn append_condition(
       let next : Map[String, Json] = match filter.get(col) {
         Some(Object(existing)) => existing.copy()
         Some(existing) => {
-          let tmp : Map[String, Json] = {}
+          let tmp : Map[String, Json] = Map([])
           tmp["$eq"] = existing
           tmp
         }
@@ -875,7 +875,7 @@ fn append_condition(
 
 ///|
 fn where_to_filter(where_ : FixedArray[@morm/engine.Where]) -> Json {
-  let filter : Map[String, Json] = {}
+  let filter : Map[String, Json] = Map([])
   for clause in where_ {
     let value = param_to_json(clause.value)
     match clause.ty {
@@ -907,7 +907,7 @@ fn sort_doc(order_by : FixedArray[@morm/engine.OrderBy]) -> Json? {
   if order_by.is_empty() {
     return None
   }
-  let sort : Map[String, Json] = {}
+  let sort : Map[String, Json] = Map([])
   for order in order_by {
     match order {
       Asc(col) => sort[col] = Json::number(1.0)
@@ -922,7 +922,7 @@ fn document_from_insert(
   columns : FixedArray[String],
   values : FixedArray[@morm/engine.Param],
 ) -> Json {
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   let mut i = 0
   while i < columns.length() && i < values.length() {
     obj[columns[i]] = param_to_json(values[i])
@@ -946,7 +946,7 @@ fn documents_from_insert(
 
 ///|
 fn document_from_sets(sets : FixedArray[@morm/engine.Set]) -> Json {
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   for set_ in sets {
     obj[set_.col] = param_to_json(set_.value)
   }
@@ -1037,7 +1037,7 @@ async fn find_docs(
     Some(n) if n > 0 && n < 100 => n
     _ => 100
   }
-  let cmd : Map[String, Json] = {}
+  let cmd : Map[String, Json] = Map([])
   cmd["find"] = Json::string(table)
   cmd["filter"] = filter
   if projection_doc(select) is Some(projection) {
@@ -1188,7 +1188,7 @@ async fn find_docs_raw(
     Some(n) if n > 0 && n < 100 => n
     _ => 100
   }
-  let cmd : Map[String, Json] = {}
+  let cmd : Map[String, Json] = Map([])
   cmd["find"] = Json::string(collection)
   cmd["filter"] = filter
   if projection is Some(projection) {
@@ -1803,7 +1803,7 @@ async fn run_insert(
 
 ///|
 fn upsert_filter(stmt : @morm/engine.UpsertStatement, doc : Json) -> Json {
-  let filter : Map[String, Json] = {}
+  let filter : Map[String, Json] = Map([])
   match doc {
     Object(obj) =>
       if !stmt.conflict_target.is_empty() {

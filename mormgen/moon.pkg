@@ -3,19 +3,17 @@ import {
   "moonbitlang/core/list",
   "moonbitlang/core/argparse",
   "moonbitlang/parser",
-  "moonbitlang/parser/lexer",
-  "moonbitlang/parser/handrolled_parser",
   "moonbitlang/parser/syntax",
   "moonbitlang/parser/attribute",
   "moonbitlang/core/strconv",
   "moonbitlang/core/string",
   "moonbitlang/core/env",
-  "moonbitlang/x/sys",
   "oboard/morm",
 }
+
+pkgtype(kind: "executable")
 
 options(
   "bin-name": "morm-gen",
   "bin-target": "native",
-  "is-main": true,
 )

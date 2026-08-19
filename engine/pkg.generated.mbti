@@ -301,4 +301,3 @@ pub impl ToParam for @time.PlainDate
 pub impl ToParam for @time.PlainDateTime
 pub impl ToParam for @time.PlainTime
 pub impl ToParam for @time.ZonedDateTime
-

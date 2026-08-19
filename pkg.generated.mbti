@@ -372,4 +372,3 @@ pub(open) trait Driver {
 pub(open) trait Entity : ToJson + @engine.FromParam {
   fn table(Self) -> @table.Table
 }
-

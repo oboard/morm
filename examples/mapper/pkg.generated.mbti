@@ -37,4 +37,3 @@ pub trait UserMapper {
   async fn find_users_by_active(Self, Int) -> FixedArray[User]
   async fn find_users_page_by_active(Self, Int, @engine.Pageable) -> @engine.Page[User]
 }
-

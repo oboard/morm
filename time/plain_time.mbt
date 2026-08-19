@@ -39,37 +39,7 @@ pub fn PlainTime::of(
 ///|
 /// Creates a PlainTime from a string, like '10:20:30.45678'.
 pub fn PlainTime::from_string(str : String) -> PlainTime raise Error {
-  let (hour, minute, second, nanosecond) = lexmatch str with longest {
-    (("[0-9]{2}" as hour_str) ":" ("[0-9]{2}" as minute_str)) =>
-      (@string.parse_int(hour_str), @string.parse_int(minute_str), 0, 0)
-    (
-      ("[0-9]{2}" as hour_str)
-      ":"
-      ("[0-9]{2}" as minute_str)
-      ":"
-      ("[0-9]{2}" as second_str)
-    ) =>
-      (
-        @string.parse_int(hour_str),
-        @string.parse_int(minute_str),
-        @string.parse_int(second_str),
-        0,
-      )
-    (
-      ("[0-9]{2}" as hour_str)
-      ":"
-      ("[0-9]{2}" as minute_str)
-      ":"
-      ("[0-9]{2}" as second_str)
-      "."
-      ("[0-9]{1,9}" as nanosecond_str)
-    ) =>
-      (
-        @string.parse_int(hour_str),
-        @string.parse_int(minute_str),
-        @string.parse_int(second_str),
-        @string.parse_int(add_suffix_zero(nanosecond_str.to_owned(), 9)),
-      )
+  let (hour, minute, second, nanosecond) = parse_time_string(str) catch {
     _ => fail(invalid_time_err)
   }
   PlainTime::of(hour, minute, second, nanosecond)
@@ -431,4 +401,43 @@ fn validate_second(s : Int) -> Bool {
 ///|
 fn validate_nano(n : Int) -> Bool {
   n >= min_nanosecond && n <= max_nanosecond
+}
+
+///|
+fn parse_time_string(str : String) -> (Int, Int, Int, Int) raise Error {
+  let parts = str.split(".").to_array()
+  let (time_part, nano_part) = if parts.length() == 2 {
+    (parts[0].to_owned(), Some(parts[1].to_owned()))
+  } else if parts.length() == 1 {
+    (str, None)
+  } else {
+    fail(invalid_time_err)
+  }
+  let time_parts = time_part.split(":").to_array()
+  if time_parts.length() < 2 || time_parts.length() > 3 {
+    fail(invalid_time_err)
+  }
+  // Validate format: each part must be exactly 2 digits
+  let hour_str = time_parts[0].to_owned()
+  let minute_str = time_parts[1].to_owned()
+  if hour_str.length() != 2 || minute_str.length() != 2 {
+    fail(invalid_time_err)
+  }
+  let hour = @string.parse_int(hour_str)
+  let minute = @string.parse_int(minute_str)
+  let (second, nanosecond) = if time_parts.length() == 3 {
+    let second_str = time_parts[2].to_owned()
+    if second_str.length() != 2 {
+      fail(invalid_time_err)
+    }
+    let sec = @string.parse_int(second_str)
+    let nano = match nano_part {
+      Some(n) => @string.parse_int(add_suffix_zero(n, 9))
+      None => 0
+    }
+    (sec, nano)
+  } else {
+    (0, 0)
+  }
+  (hour, minute, second, nanosecond)
 }
