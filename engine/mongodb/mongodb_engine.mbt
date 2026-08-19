@@ -1359,7 +1359,7 @@ pub async fn MongoDBEngine::aggregate(
   let cursor = if limit is Some(n) && n > 0 {
     { "batchSize": batch_size }
   } else {
-    {}
+    Map([])
   }
   let cmd : Json = {
     "aggregate": collection,
@@ -1377,7 +1377,7 @@ pub async fn MongoDBEngine::aggregate(
 pub async fn MongoDBEngine::count_documents(
   self : MongoDBEngine,
   collection : String,
-  filter? : Json = {},
+  filter? : Json = Json::empty_object(),
 ) -> Result[Int, String] {
   match run_command(self, { "count": collection, "query": filter }) {
     Ok(doc) =>
@@ -1394,7 +1394,7 @@ pub async fn MongoDBEngine::distinct(
   self : MongoDBEngine,
   collection : String,
   field : String,
-  filter? : Json = {},
+  filter? : Json = Json::empty_object(),
 ) -> Result[FixedArray[Json], String] {
   match
     run_command(self, { "distinct": collection, "key": field, "query": filter }) {
@@ -1601,7 +1601,7 @@ pub async fn MongoDBEngine::list_search_indexes(
   let stage = if name is Some(name) {
     { "$listSearchIndexes": { "name": name } }
   } else {
-    { "$listSearchIndexes": {} }
+    { "$listSearchIndexes": Map([]) }
   }
   self.aggregate(collection, [stage])
 }

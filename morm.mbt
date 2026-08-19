@@ -1613,7 +1613,11 @@ pub fn[E : Entity] DeleteQuery::from(
   let pk_opt = table_primary_key(table)
   match pk_opt {
     Some(pk) => {
-      let obj = if ToJson::to_json(entity) is Object(obj) { obj } else { {} }
+      let obj = if ToJson::to_json(entity) is Object(obj) {
+        obj
+      } else {
+        Map([])
+      }
       match obj.get(pk) {
         Some(v) => {
           let pv = json_to_param(v)

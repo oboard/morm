@@ -46,7 +46,7 @@ pub fn Post::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: {},
+        engine_options: Map([]),
       },
       {
         name: "status",
@@ -60,7 +60,7 @@ pub fn Post::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: {},
+        engine_options: Map([]),
       },
     ],
     indexes: [],
@@ -73,7 +73,7 @@ pub fn Post::table() -> @morm.Table {
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: {},
+    engine_options: Map([]),
   }
 }
 

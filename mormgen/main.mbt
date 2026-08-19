@@ -44,7 +44,7 @@ fn transform_entity_to_table(
       comment: "",
       charset: None,
       collation: None,
-      engine_options: {},
+      engine_options: Map([]),
     }
     let parsed_attrs = collect_orm_attributes_from_source(f.attrs, source)
     for attr in parsed_attrs {
@@ -474,9 +474,7 @@ fn render_column(col : @morm.Column) -> String {
     $|        charset: \{mbt_opt_string(col.charset)},
     $|        collation: \{mbt_opt_string(col.collation)},
     $|        default_value: \{mbt_opt_string(col.default_value)},
-    $|        engine_options: {
-    $|\{engine_options}
-    $|        },
+    $|        engine_options: \{if engine_options.is_empty() { "Map([])" } else { "{\n" + engine_options + "\n        }" }},
     $|      }
   )
 }
@@ -536,9 +534,7 @@ fn render_table_literal(table : @morm.Table) -> String {
     $|   tablespace: \{mbt_opt_string(table.tablespace)},
     $|   comment: \{mbt_string(table.comment)},
     $|   auto_increment: \{mbt_opt_int(table.auto_increment)},
-    $|   engine_options: {
-    $|\{engine_options}
-    $|   },
+    $|   engine_options: \{if engine_options.is_empty() { "Map([])" } else { "{\n" + engine_options + "\n   }" }},
     $| }
   )
 }
@@ -1630,7 +1626,7 @@ fn main {
       ),
     ],
   )
-  let matches = cmd.parse(argv=cli_args, env={}) catch {
+  let matches = cmd.parse(argv=cli_args, env=Map([])) catch {
     e => {
       println("\{e}")
       return

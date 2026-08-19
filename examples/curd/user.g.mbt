@@ -22,7 +22,7 @@ pub fn User::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: {},
+        engine_options: Map([]),
       },
       {
         name: "email",
@@ -36,7 +36,7 @@ pub fn User::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: {},
+        engine_options: Map([]),
       },
       {
         name: "active",
@@ -50,7 +50,7 @@ pub fn User::table() -> @morm.Table {
         charset: None,
         collation: None,
         default_value: None,
-        engine_options: {},
+        engine_options: Map([]),
       },
     ],
     indexes: [],
@@ -63,7 +63,7 @@ pub fn User::table() -> @morm.Table {
     tablespace: None,
     comment: "",
     auto_increment: None,
-    engine_options: {},
+    engine_options: Map([]),
   }
 }
 
