@@ -160,7 +160,7 @@ fn parse_enum_specs_from_source(source : String) -> Array[EnumSpec] {
         block = lines[i].to_owned()
       }
       if supported && values.length() > 0 {
-        specs.push({ name, values: FixedArray::from_array(values) })
+        specs.push({ name, values: FixedArray::from_array(values), })
       }
     }
     i = i + 1
@@ -255,7 +255,7 @@ fn collect_orm_attributes(
         }
       }
       let m = parse_attr_param_map(name, params_part)
-      results.push({ name, value: m })
+      results.push({ name, value: m, })
     }
   })
   results
@@ -288,7 +288,7 @@ fn collect_orm_attributes_from_source(
         }
       }
       let m = parse_attr_param_map(name, params_part)
-      results.push({ name, value: m })
+      results.push({ name, value: m, })
     }
   })
   results
@@ -1237,10 +1237,10 @@ fn parse_entities_from_ast(
         fields.each(param => {
           if param is { name: { label, .. }, ty, attrs, .. } {
             let (field_type, is_nullable) = extract_type_name_and_nullable(ty)
-            params.push({ label, field_type, nullable: is_nullable, attrs })
+            params.push({ label, field_type, nullable: is_nullable, attrs, })
           }
         })
-        specs.push({ name, table_name, fields: params, attrs: orm_attrs })
+        specs.push({ name, table_name, fields: params, attrs: orm_attrs, })
       }
     }
   })

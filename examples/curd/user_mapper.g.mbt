@@ -55,3 +55,13 @@ pub impl UserMapper for UserMapperImpl with fn delete_by_id(self, id : Int) -> B
   let q = @morm.delete_from("user").where_eq("id", id)
   self.engine.exec(q).ok
 }
+
+///|
+extend UserMapperImpl with UserMapper::{
+  save,
+  find_user_by_id,
+  update,
+  update_active_by_id,
+  delete,
+  delete_by_id,
+}

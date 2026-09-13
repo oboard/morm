@@ -84,7 +84,7 @@ pub fn User::_from(row : Map[String, @morm/engine.Param]) -> User {
     None => panic()
   }
   let active : Int = (try! @morm/engine.from_param(active_param) : Int)
-  return { id, email, active }
+  return { id, email, active, }
 }
 
 ///|
@@ -146,4 +146,11 @@ pub impl UserMapper for UserMapperImpl with fn find_users_page_by_active(
     @morm.select_from("user").where_eq("active", active),
     pageable,
   )
+}
+
+///|
+extend UserMapperImpl with UserMapper::{
+  find_user_by_id,
+  find_users_by_active,
+  find_users_page_by_active,
 }

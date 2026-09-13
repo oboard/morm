@@ -178,14 +178,14 @@ async fn run_main_metrics(
   )
   rows.push(
     run_metric("morm/postgresql/upsert", async fn() {
-      if mapper.save({ ..bench_user(42), active: 1 }) {
+      if mapper.save({ ..bench_user(42), active: 1, }) {
         sink += 1
       }
     }),
   )
   rows.push(
     run_metric("morm/postgresql/nested_upsert", async fn() {
-      ignore(mapper.save({ ..bench_user(42), active: 1 }))
+      ignore(mapper.save({ ..bench_user(42), active: 1, }))
       if engine.exec(@morm.upsert_into("bench_post").from(bench_post(421, 42))).ok {
         sink += 1
       }

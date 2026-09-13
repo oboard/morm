@@ -55,7 +55,7 @@ fn transform_entity_to_table(
       if attr.name == "#morm.default" &&
         attr.value.get("value") is Some(default_expr) {
         if normalize_default_expr(default_expr) is Some(normalized) {
-          col = { ..col, default_value: Some(normalized) }
+          col = { ..col, default_value: Some(normalized), }
         }
       }
       if attr.name is ("#morm.json" | "#morm.jsonb") &&
@@ -220,7 +220,7 @@ fn apply_entity_table_attributes(
     }
     if attr.name == "#morm.postgres.table" {
       if orm_attr_name_or_value(attr) is Some(table_name) {
-        table = { ..table, name: table_name }
+        table = { ..table, name: table_name, }
       }
       if orm_attr_string(attr, "owner") is Some(role) {
         table = @morm.pg_table_owner(table, role)
@@ -301,10 +301,10 @@ fn apply_entity_table_attributes(
     table = @morm.table_engine(table, engine)
   }
   if entity_table_attr_value(spec, "charset") is Some(charset) {
-    table = { ..table, charset: Some(charset) }
+    table = { ..table, charset: Some(charset), }
   }
   if entity_table_attr_value(spec, "collation") is Some(collation) {
-    table = { ..table, collation: Some(collation) }
+    table = { ..table, collation: Some(collation), }
   }
   if entity_table_attr_value(spec, "tablespace") is Some(tablespace) {
     table = @morm.table_tablespace(table, tablespace)
@@ -313,7 +313,7 @@ fn apply_entity_table_attributes(
     table = @morm.table_comment(table, comment)
   }
   if entity_table_attr_int(spec, "auto_increment") is Some(value) {
-    table = { ..table, auto_increment: Some(value) }
+    table = { ..table, auto_increment: Some(value), }
   }
   if entity_table_attr_value(spec, "create_suffix") is Some(create_suffix) {
     table = @morm.table_create_suffix(table, create_suffix)

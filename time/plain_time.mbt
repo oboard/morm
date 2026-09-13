@@ -30,7 +30,7 @@ pub fn PlainTime::of(
   nanosecond : Int,
 ) -> PlainTime raise Error {
   if validate_time(hour, minute, second, nanosecond) {
-    { hour, minute, second, nanosecond }
+    { hour, minute, second, nanosecond, }
   } else {
     fail(invalid_time_err)
   }
@@ -312,7 +312,7 @@ pub fn PlainTime::until(
 ///|
 /// Combines this time with a date to creates a PlainDateTime
 pub fn PlainTime::at_date(self : PlainTime, date : PlainDate) -> PlainDateTime {
-  { date, time: self }
+  { date, time: self, }
 }
 
 // *****************************

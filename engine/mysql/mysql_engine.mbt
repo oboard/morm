@@ -150,7 +150,7 @@ fn inline_sql(sql : String, params : FixedArray[@morm/engine.Param]) -> String {
 
 ///|
 fn fail(message : String) -> @morm/engine.QueryResult {
-  { ok: false, rows_affected: 0, rows: [], error: Some(message) }
+  { ok: false, rows_affected: 0, rows: [], error: Some(message), }
 }
 
 ///|
@@ -638,7 +638,7 @@ async fn mysql_query_on_conn(
   }
   if tag == 0x00 {
     let affected = parse_ok_affected_rows(first_payload)
-    return ({ ok: true, rows_affected: affected, rows: [], error: None }, true)
+    return ({ ok: true, rows_affected: affected, rows: [], error: None, }, true)
   }
 
   let col_count = match lenenc_int(first_payload, 0) {
@@ -1210,7 +1210,7 @@ pub impl @morm/engine.Engine for MySQLEngine with fn migrate_table(
       return res
     }
   }
-  { ok: true, rows_affected: 0, rows: [], error: None }
+  { ok: true, rows_affected: 0, rows: [], error: None, }
 }
 
 ///|

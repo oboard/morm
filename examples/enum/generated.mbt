@@ -95,7 +95,7 @@ pub fn Post::_from(row : Map[String, @morm/engine.Param]) -> Post {
   }
   let status : PostStatus = (
     try! @morm/engine.from_param(status_param) : PostStatus)
-  return { id, title, status }
+  return { id, title, status, }
 }
 
 ///|

@@ -27,13 +27,13 @@ pub fn Period::of(
   months? : Int = 0,
   days? : Int = 0,
 ) -> Period {
-  { years, months, days }
+  { years, months, days, }
 }
 
 ///|
 /// Returns a zero length period.
 pub fn Period::zero() -> Period {
-  { years: 0, months: 0, days: 0 }
+  { years: 0, months: 0, days: 0, }
 }
 
 ///|
@@ -52,15 +52,15 @@ pub fn Period::from_string(str : String) -> Period raise Error {
       '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '-' =>
         buf.write_char(str.code_unit_at(i).unsafe_to_char())
       'Y' => {
-        years = @strconv.from_str(buf.to_string())
+        years = @string.from_str(buf.to_string())
         buf.reset()
       }
       'M' => {
-        months = @strconv.from_str(buf.to_string())
+        months = @string.from_str(buf.to_string())
         buf.reset()
       }
       'D' => {
-        days = @strconv.from_str(buf.to_string())
+        days = @string.from_str(buf.to_string())
         buf.reset()
         break
       }

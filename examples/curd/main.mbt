@@ -13,7 +13,7 @@ async fn main {
   let mapper = UserMapperImpl(engine)
 
   // C: save
-  let created = mapper.save({ id: 1, email: "alice@example.com", active: 1 })
+  let created = mapper.save({ id: 1, email: "alice@example.com", active: 1, })
   if !created {
     println("save user failed")
     return
@@ -22,13 +22,13 @@ async fn main {
 
   // R: find by id
   if mapper.find_user_by_id(1) is Some(user) {
-    println("curd: read=\{user.to_json().stringify()}")
+    println("curd: read=\{ToJson::to_json(user).stringify()}")
   } else {
     println("curd: read=null")
   }
 
   // U: update
-  let updated = mapper.update({ id: 1, email: "alice@example.com", active: 0 })
+  let updated = mapper.update({ id: 1, email: "alice@example.com", active: 0, })
   if !updated {
     println("update user failed")
     return
@@ -36,7 +36,7 @@ async fn main {
   println("curd: updated=true")
 
   if mapper.find_user_by_id(1) is Some(user) {
-    println("curd: after_update=\{user.to_json().stringify()}")
+    println("curd: after_update=\{ToJson::to_json(user).stringify()}")
   }
 
   // U: update_[field]_by_[where]
@@ -46,11 +46,11 @@ async fn main {
     return
   }
   if mapper.find_user_by_id(1) is Some(user) {
-    println("curd: after_update_by=\{user.to_json().stringify()}")
+    println("curd: after_update_by=\{ToJson::to_json(user).stringify()}")
   }
 
   // D: delete
-  let deleted = mapper.delete({ id: 1, email: "alice@example.com", active: 1 })
+  let deleted = mapper.delete({ id: 1, email: "alice@example.com", active: 1, })
   if !deleted {
     println("delete user failed")
     return
@@ -58,7 +58,7 @@ async fn main {
   println("curd: deleted=true")
 
   // Re-create and delete by naming-convention method
-  let recreated = mapper.save({ id: 2, email: "bob@example.com", active: 1 })
+  let recreated = mapper.save({ id: 2, email: "bob@example.com", active: 1, })
   if !recreated {
     println("save bob failed")
     return
@@ -71,7 +71,7 @@ async fn main {
   println("curd: deleted_by_id=true")
 
   let final_user = mapper.find_user_by_id(1)
-  println("curd: final=\{final_user.to_json().stringify()}")
+  println("curd: final=\{@json.to_json(final_user).stringify()}")
 
   engine.close()
 }

@@ -208,7 +208,7 @@ fn format_set_sql(sets : FixedArray[Set]) -> String {
 pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
   match stmt {
     Select(select_stmt) => {
-      let { select, from, joins, where_, order_by, limit, offset } = select_stmt
+      let { select, from, joins, where_, order_by, limit, offset, } = select_stmt
       let buf = StringBuilder()
       buf <+
         "SELECT \{if select.is_empty() { "*" } else { select }} FROM \{from}"
@@ -238,7 +238,7 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
       (buf.to_string(), where_params(where_))
     }
     Insert(insert_stmt) => {
-      let { into, columns, values, rows } = insert_stmt
+      let { into, columns, values, rows, } = insert_stmt
       let buf = StringBuilder()
       buf <+ "INSERT INTO \{into}"
       if !columns.is_empty() {
@@ -258,7 +258,7 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
       (buf.to_string(), FixedArray::from_array(out_params))
     }
     Upsert(upsert_stmt) => {
-      let { table, sets, conflict_target: _, update_sets } = upsert_stmt
+      let { table, sets, conflict_target: _, update_sets, } = upsert_stmt
       let buf = StringBuilder()
       buf <+
         "INSERT INTO \{table} (\{sets.map(s => s.col).join(", ")}) VALUES (\{placeholders(sets.length())})"
@@ -272,7 +272,7 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
       (buf.to_string(), args)
     }
     Update(update_stmt) => {
-      let { table, sets, where_ } = update_stmt
+      let { table, sets, where_, } = update_stmt
       let buf = StringBuilder()
       buf <+ "UPDATE \{table} SET \{format_set_sql(sets)}"
       if !where_.is_empty() {
@@ -281,7 +281,7 @@ pub fn render_default_sql(stmt : Statement) -> (String, FixedArray[Param]) {
       (buf.to_string(), sets.map(s => s.value) + where_params(where_))
     }
     Delete(delete_stmt) => {
-      let { from, where_ } = delete_stmt
+      let { from, where_, } = delete_stmt
       let buf = StringBuilder()
       buf <+ "DELETE FROM \{from}"
       if !where_.is_empty() {

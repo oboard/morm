@@ -7,7 +7,7 @@ fn select_stmt_with_null(
     select: "*",
     from: "users",
     joins: [],
-    where_: [{ col: "status", value, ty: where_ty }],
+    where_: [{ col: "status", value, ty: where_ty, }],
     order_by: [],
     limit: None,
     offset: None,

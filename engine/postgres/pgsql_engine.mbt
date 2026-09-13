@@ -111,7 +111,7 @@ fn pg_render(
   stmt : @morm/engine.Statement,
 ) -> (String, FixedArray[@morm/engine.Param]) {
   if stmt is Upsert(upsert_stmt) {
-    let { table, sets, conflict_target, update_sets } = upsert_stmt
+    let { table, sets, conflict_target, update_sets, } = upsert_stmt
     let buf = StringBuilder()
     buf.write_string("INSERT INTO ")
     buf.write_string(table)
@@ -214,7 +214,7 @@ fn inline_sql(sql : String, params : FixedArray[@morm/engine.Param]) -> String {
 
 ///|
 fn fail(message : String) -> @morm/engine.QueryResult {
-  { ok: false, rows_affected: 0, rows: [], error: Some(message) }
+  { ok: false, rows_affected: 0, rows: [], error: Some(message), }
 }
 
 ///|
@@ -611,7 +611,12 @@ async fn pg_query_on_conn(
   }
 
   (
-    { ok: true, rows_affected, rows: FixedArray::from_array(rows), error: None },
+    {
+      ok: true,
+      rows_affected,
+      rows: FixedArray::from_array(rows),
+      error: None,
+    },
     true,
   )
 }
@@ -1311,7 +1316,7 @@ pub impl @morm/engine.Engine for PgSQLEngine with fn migrate_table(
       return res
     }
   }
-  { ok: true, rows_affected: 0, rows: [], error: None }
+  { ok: true, rows_affected: 0, rows: [], error: None, }
 }
 
 ///|

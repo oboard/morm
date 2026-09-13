@@ -22,7 +22,7 @@ struct Zone {
 
 ///|
 /// UTC time zone.
-pub let utc_zone : Zone = { id: "UTC", offsets: [utc_offset], transitions: [] }
+pub let utc_zone : Zone = { id: "UTC", offsets: [utc_offset], transitions: [], }
 
 ///|
 /// Creates a time zone with fixed offset from time zone id and offset seconds.
@@ -33,7 +33,7 @@ pub fn fixed_zone(
   dst? : Bool = false,
 ) -> Zone raise Error {
   let offset = ZoneOffset::from_seconds(offset_seconds, abbrev~, dst~)
-  { id, offsets: [offset], transitions: [] }
+  { id, offsets: [offset], transitions: [], }
 }
 
 ///|
@@ -112,7 +112,7 @@ pub fn Zone::from_tzif2(
     let transition_time = to_int_be(data, offset).to_int64()
     (transition_time, data[transition_indices_offset + i].to_int())
   })
-  let offsets = Array::new(capacity=typecnt)
+  let offsets = Array(capacity=typecnt)
   for i in 0..<typecnt {
     let offset = ttinfo_offset + i * 6
     let dst = data[offset + 4] != 0
@@ -122,7 +122,7 @@ pub fn Zone::from_tzif2(
       ZoneOffset::from_seconds(to_int_be(data, offset), abbrev~, dst~),
     )
   }
-  { id, offsets, transitions }
+  { id, offsets, transitions, }
 }
 
 ///|

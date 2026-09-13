@@ -35,7 +35,7 @@ pub fn Duration::of(
   )
   let nanos = (nanoseconds % nanoseconds_per_second).to_int()
   secs += nanoseconds / nanoseconds_per_second
-  { secs, nanos }
+  { secs, nanos, }
 }
 
 ///|
@@ -43,13 +43,13 @@ fn create(secs : Int64, nanos : Int) -> Duration raise Error {
   if nanos < min_nanosecond || nanos > max_nanosecond {
     fail(invalid_duration_err)
   }
-  { secs, nanos }
+  { secs, nanos, }
 }
 
 ///|
 /// Returns a zero length duration.
 pub fn Duration::zero() -> Duration {
-  { secs: 0L, nanos: 0 }
+  { secs: 0L, nanos: 0, }
 }
 
 ///|
@@ -66,11 +66,11 @@ pub fn Duration::from_string(str : String) -> Duration raise Error {
       '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '.' | '-' =>
         buf.write_char(str.code_unit_at(i).unsafe_to_char())
       'H' => {
-        hours = @strconv.from_str(buf.to_string())
+        hours = @string.from_str(buf.to_string())
         buf.reset()
       }
       'M' => {
-        minutes = @strconv.from_str(buf.to_string())
+        minutes = @string.from_str(buf.to_string())
         buf.reset()
       }
       'S' => {
@@ -81,7 +81,7 @@ pub fn Duration::from_string(str : String) -> Duration raise Error {
         }
         if splits.length() > 0 && splits[0] != "" {
           let secs_str = splits[0]
-          seconds = @strconv.from_str(secs_str)
+          seconds = @string.from_str(secs_str)
         }
         if splits.length() > 1 && splits[1] != "" {
           let mut nanos_str = splits[1]
@@ -89,7 +89,7 @@ pub fn Duration::from_string(str : String) -> Duration raise Error {
           if seconds < 0L {
             nanos_str = "-" + nanos_str
           }
-          nanoseconds = @strconv.from_str(nanos_str)
+          nanoseconds = @string.from_str(nanos_str)
         }
         break
       }
@@ -261,7 +261,7 @@ pub fn Duration::with_seconds(self : Duration, seconds : Int64) -> Duration {
   if seconds == self.secs {
     return self
   }
-  { secs: seconds, nanos: self.nanos }
+  { secs: seconds, nanos: self.nanos, }
 }
 
 ///|

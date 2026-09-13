@@ -84,7 +84,7 @@ pub fn User::_from(row : Map[String, @morm/engine.Param]) -> User {
     None => panic()
   }
   let active : Int = (try! @morm/engine.from_param(active_param) : Int)
-  return { id, email, active }
+  return { id, email, active, }
 }
 
 ///|

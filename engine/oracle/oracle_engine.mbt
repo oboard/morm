@@ -64,7 +64,7 @@ fn parse_oracle_dsn(dsn : String) -> OracleEngine? {
   }
 
   let (host, port) = parse_host_port(host_port, 1521)
-  Some({ host, port, user, password, service })
+  Some({ host, port, user, password, service, })
 }
 
 ///|
@@ -126,7 +126,7 @@ fn inline_sql(sql : String, params : FixedArray[@morm/engine.Param]) -> String {
 
 ///|
 fn fail(message : String) -> @morm/engine.QueryResult {
-  { ok: false, rows_affected: 0, rows: [], error: Some(message) }
+  { ok: false, rows_affected: 0, rows: [], error: Some(message), }
 }
 
 ///|
@@ -431,7 +431,7 @@ pub impl @morm/engine.Engine for OracleEngine with fn exec(
     Tx(op) => (oracle_tx_sql(op), [])
   }
   if sql.trim() == "" {
-    return { ok: true, rows_affected: 0, rows: [], error: None }
+    return { ok: true, rows_affected: 0, rows: [], error: None, }
   }
   let _query = inline_sql(sql, params)
   if !oracle_tns_handshake(self) {
@@ -528,7 +528,7 @@ pub impl @morm/engine.Engine for OracleEngine with fn migrate_table(
       return res
     }
   }
-  { ok: true, rows_affected: 0, rows: [], error: None }
+  { ok: true, rows_affected: 0, rows: [], error: None, }
 }
 
 ///|

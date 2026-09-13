@@ -163,12 +163,12 @@ test "morm sqlite latency benchmarks" (b : @bench.T) {
   })
   b.bench(name="morm/sqlite/upsert", fn() {
     @async.run_async_main(async fn() {
-      b.keep(mapper.save({ ..bench_user(42), active: 1 }))
+      b.keep(mapper.save({ ..bench_user(42), active: 1, }))
     })
   })
   b.bench(name="morm/sqlite/nested_upsert", fn() {
     @async.run_async_main(async fn() {
-      ignore(mapper.save({ ..bench_user(42), active: 1 }))
+      ignore(mapper.save({ ..bench_user(42), active: 1, }))
       let res = engine.exec(
         @morm.upsert_into("bench_post").from(bench_post(421, 42)),
       )

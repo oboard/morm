@@ -28,7 +28,7 @@ pub fn add_column(table : Table, col : Column) -> Table {
     new_columns.push(column)
   }
   new_columns.push(col)
-  { ..table, columns: FixedArray::from_array(new_columns) }
+  { ..table, columns: FixedArray::from_array(new_columns), }
 }
 
 ///|
@@ -43,7 +43,7 @@ pub fn add_column_engine_option(
     None => [value]
   }
   options.set(key, values)
-  { ..col, engine_options: options }
+  { ..col, engine_options: options, }
 }
 
 ///|
@@ -53,7 +53,7 @@ pub fn add_index(table : Table, idx : Index) -> Table {
     new_indexes.push(index)
   }
   new_indexes.push(idx)
-  { ..table, indexes: FixedArray::from_array(new_indexes) }
+  { ..table, indexes: FixedArray::from_array(new_indexes), }
 }
 
 ///|
@@ -63,22 +63,22 @@ pub fn add_foreign_key(table : Table, fk : ForeignKey) -> Table {
     new_fks.push(foreign_key)
   }
   new_fks.push(fk)
-  { ..table, foreign_keys: FixedArray::from_array(new_fks) }
+  { ..table, foreign_keys: FixedArray::from_array(new_fks), }
 }
 
 ///|
 pub fn table_comment(table : Table, text : String) -> Table {
-  { ..table, comment: text }
+  { ..table, comment: text, }
 }
 
 ///|
 pub fn table_schema(table : Table, schema : String) -> Table {
-  { ..table, schema: Some(schema) }
+  { ..table, schema: Some(schema), }
 }
 
 ///|
 pub fn table_catalog(table : Table, catalog : String) -> Table {
-  { ..table, catalog: Some(catalog) }
+  { ..table, catalog: Some(catalog), }
 }
 
 ///|
@@ -93,12 +93,12 @@ pub fn table_if_not_exists(table : Table, if_not_exists : Bool) -> Table {
 
 ///|
 pub fn table_engine(table : Table, engine : String) -> Table {
-  { ..table, engine: Some(engine) }
+  { ..table, engine: Some(engine), }
 }
 
 ///|
 pub fn table_tablespace(table : Table, tablespace : String) -> Table {
-  { ..table, tablespace: Some(tablespace) }
+  { ..table, tablespace: Some(tablespace), }
 }
 
 ///|
@@ -113,7 +113,7 @@ pub fn add_table_engine_option(
     None => [value]
   }
   options.set(key, values)
-  { ..table, engine_options: options }
+  { ..table, engine_options: options, }
 }
 
 ///|
@@ -308,17 +308,17 @@ pub fn sqlite_table_strict(table : Table) -> Table {
 ///|
 // ---- 索引构建器函数 ----
 pub fn new_index(name : String, columns : FixedArray[String]) -> Index {
-  { name, index_type: Index, columns, comment: "" }
+  { name, index_type: Index, columns, comment: "", }
 }
 
 ///|
 pub fn new_unique_index(name : String, columns : FixedArray[String]) -> Index {
-  { name, index_type: Unique, columns, comment: "" }
+  { name, index_type: Unique, columns, comment: "", }
 }
 
 ///|
 pub fn new_primary_index(columns : FixedArray[String]) -> Index {
-  { name: "PRIMARY", index_type: Primary, columns, comment: "" }
+  { name: "PRIMARY", index_type: Primary, columns, comment: "", }
 }
 
 ///|
@@ -609,7 +609,7 @@ async fn[E : @morm/engine.Engine] select_by_eq(
     select: "",
     from: table,
     joins: [],
-    where_: [{ col: key, value, ty: Eq }],
+    where_: [{ col: key, value, ty: Eq, }],
     order_by: [],
     limit: None,
     offset: None,
@@ -895,8 +895,8 @@ pub fn[V : @morm/engine.ToParam] Query::where_eq(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Eq }]
-  { stmt: { ..self.stmt, where_, } }
+  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Eq, }]
+  { stmt: { ..self.stmt, where_, }, }
 }
 
 ///|
@@ -905,8 +905,8 @@ pub fn[V : @morm/engine.ToParam] Query::where_gt(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Gt }]
-  { stmt: { ..self.stmt, where_, } }
+  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Gt, }]
+  { stmt: { ..self.stmt, where_, }, }
 }
 
 ///|
@@ -915,8 +915,8 @@ pub fn[V : @morm/engine.ToParam] Query::where_ne(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Ne }]
-  { stmt: { ..self.stmt, where_, } }
+  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Ne, }]
+  { stmt: { ..self.stmt, where_, }, }
 }
 
 ///|
@@ -925,8 +925,8 @@ pub fn[V : @morm/engine.ToParam] Query::where_lt(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Lt }]
-  { stmt: { ..self.stmt, where_, } }
+  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Lt, }]
+  { stmt: { ..self.stmt, where_, }, }
 }
 
 ///|
@@ -935,8 +935,9 @@ pub fn[V : @morm/engine.ToParam] Query::where_like(
   col : String,
   pattern : V,
 ) -> Query {
-  let where_ = self.stmt.where_ + [{ col, value: pattern.to_param(), ty: Like }]
-  { stmt: { ..self.stmt, where_, } }
+  let where_ = self.stmt.where_ +
+    [{ col, value: pattern.to_param(), ty: Like, }]
+  { stmt: { ..self.stmt, where_, }, }
 }
 
 ///|
@@ -945,8 +946,8 @@ pub fn[V : @morm/engine.ToParam] Query::where_gte(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Gte }]
-  { stmt: { ..self.stmt, where_, } }
+  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Gte, }]
+  { stmt: { ..self.stmt, where_, }, }
 }
 
 ///|
@@ -955,28 +956,28 @@ pub fn[V : @morm/engine.ToParam] Query::where_lte(
   col : String,
   value : V,
 ) -> Query {
-  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Lte }]
-  { stmt: { ..self.stmt, where_, } }
+  let where_ = self.stmt.where_ + [{ col, value: value.to_param(), ty: Lte, }]
+  { stmt: { ..self.stmt, where_, }, }
 }
 
 ///|
 pub fn Query::order_by(self : Query, order_by : OrderBy) -> Query {
-  { stmt: { ..self.stmt, order_by: self.stmt.order_by + [order_by] } }
+  { stmt: { ..self.stmt, order_by: self.stmt.order_by + [order_by], }, }
 }
 
 ///|
 pub fn Query::join(self : Query, join_sql : String) -> Query {
-  { stmt: { ..self.stmt, joins: self.stmt.joins + [join_sql] } }
+  { stmt: { ..self.stmt, joins: self.stmt.joins + [join_sql], }, }
 }
 
 ///|
 pub fn Query::limit(self : Query, n : Int) -> Query {
-  { stmt: { ..self.stmt, limit: Some(n) } }
+  { stmt: { ..self.stmt, limit: Some(n), }, }
 }
 
 ///|
 pub fn Query::offset(self : Query, n : Int) -> Query {
-  { stmt: { ..self.stmt, offset: Some(n) } }
+  { stmt: { ..self.stmt, offset: Some(n), }, }
 }
 
 ///|
@@ -1000,7 +1001,7 @@ pub impl Show for InsertQuery with fn output(
 
 ///|
 pub fn insert_into(table : String) -> InsertQuery {
-  { stmt: { into: table, columns: [], values: [], rows: [] } }
+  { stmt: { into: table, columns: [], values: [], rows: [], }, }
 }
 
 ///|
@@ -1035,7 +1036,7 @@ pub fn[E : Entity] InsertQuery::from(
   } else {
     []
   }
-  { stmt: { ..self.stmt, columns, values, rows: [] } }
+  { stmt: { ..self.stmt, columns, values, rows: [], }, }
 }
 
 ///|
@@ -1081,7 +1082,7 @@ pub fn InsertQuery::columns(
   self : InsertQuery,
   columns : FixedArray[String],
 ) -> InsertQuery {
-  { stmt: { ..self.stmt, columns, } }
+  { stmt: { ..self.stmt, columns, }, }
 }
 
 ///|
@@ -1089,7 +1090,7 @@ pub fn InsertQuery::values(
   self : InsertQuery,
   values : FixedArray[&@morm/engine.ToParam],
 ) -> InsertQuery {
-  { stmt: { ..self.stmt, values: values.map(v => v.to_param()), rows: [] } }
+  { stmt: { ..self.stmt, values: values.map(v => v.to_param()), rows: [], }, }
 }
 
 ///|
@@ -1127,7 +1128,7 @@ pub impl Show for UpsertQuery with fn output(
 
 ///|
 pub fn upsert_into(table : String) -> UpsertQuery {
-  { stmt: { table, sets: [], conflict_target: [], update_sets: [] } }
+  { stmt: { table, sets: [], conflict_target: [], update_sets: [], }, }
 }
 
 ///|
@@ -1141,7 +1142,7 @@ pub fn[E : Entity] UpsertQuery::from(
     let out : Array[@morm/engine.Set] = []
     for col in table.columns {
       if obj.get(col.name) is Some(value) {
-        out.push({ col: col.name, value: json_to_param_for_column(value, col) })
+        out.push({ col: col.name, value: json_to_param_for_column(value, col), })
       }
     }
     FixedArray::from_array(out)
@@ -1206,7 +1207,7 @@ pub fn UpsertQuery::set(
   col : String,
   value : @morm/engine.Param,
 ) -> UpsertQuery {
-  { stmt: { ..self.stmt, sets: self.stmt.sets + [{ col, value }] } }
+  { stmt: { ..self.stmt, sets: self.stmt.sets + [{ col, value, }], }, }
 }
 
 ///|
@@ -1214,7 +1215,7 @@ pub fn UpsertQuery::on_conflict(
   self : UpsertQuery,
   columns : FixedArray[String],
 ) -> UpsertQuery {
-  { stmt: { ..self.stmt, conflict_target: columns } }
+  { stmt: { ..self.stmt, conflict_target: columns, }, }
 }
 
 ///|
@@ -1224,7 +1225,10 @@ pub fn UpsertQuery::do_update_set(
   value : @morm/engine.Param,
 ) -> UpsertQuery {
   {
-    stmt: { ..self.stmt, update_sets: self.stmt.update_sets + [{ col, value }] },
+    stmt: {
+      ..self.stmt,
+      update_sets: self.stmt.update_sets + [{ col, value, }],
+    },
   }
 }
 
@@ -1252,7 +1256,7 @@ pub impl Show for UpdateQuery with fn output(
 
 ///|
 pub fn update(table : String) -> UpdateQuery {
-  { stmt: { table, sets: [], where_: [] } }
+  { stmt: { table, sets: [], where_: [], }, }
 }
 
 ///|
@@ -1266,14 +1270,14 @@ pub fn[E : Entity] UpdateQuery::from(
     let out : Array[@morm/engine.Set] = []
     for col in table.columns {
       if obj.get(col.name) is Some(value) {
-        out.push({ col: col.name, value: json_to_param_for_column(value, col) })
+        out.push({ col: col.name, value: json_to_param_for_column(value, col), })
       }
     }
     FixedArray::from_array(out)
   } else {
     []
   }
-  { stmt: { ..self.stmt, sets, } }
+  { stmt: { ..self.stmt, sets, }, }
 }
 
 ///|
@@ -1285,7 +1289,7 @@ pub fn[V : @morm/engine.ToParam] UpdateQuery::set(
   {
     stmt: {
       ..self.stmt,
-      sets: self.stmt.sets + [{ col, value: value.to_param() }],
+      sets: self.stmt.sets + [{ col, value: value.to_param(), }],
     },
   }
 }
@@ -1299,7 +1303,7 @@ pub fn[V : @morm/engine.ToParam] UpdateQuery::where_eq(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Eq }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Eq, }],
     },
   }
 }
@@ -1313,7 +1317,7 @@ pub fn[V : @morm/engine.ToParam] UpdateQuery::where_gt(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Gt }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Gt, }],
     },
   }
 }
@@ -1327,7 +1331,7 @@ pub fn[V : @morm/engine.ToParam] UpdateQuery::where_ne(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Ne }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Ne, }],
     },
   }
 }
@@ -1341,7 +1345,7 @@ pub fn[V : @morm/engine.ToParam] UpdateQuery::where_lt(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Lt }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Lt, }],
     },
   }
 }
@@ -1355,7 +1359,7 @@ pub fn[V : @morm/engine.ToParam] UpdateQuery::where_like(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: pattern.to_param(), ty: Like }],
+      where_: self.stmt.where_ + [{ col, value: pattern.to_param(), ty: Like, }],
     },
   }
 }
@@ -1369,7 +1373,7 @@ pub fn[V : @morm/engine.ToParam] UpdateQuery::where_gte(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Gte }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Gte, }],
     },
   }
 }
@@ -1383,7 +1387,7 @@ pub fn[V : @morm/engine.ToParam] UpdateQuery::where_lte(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Lte }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Lte, }],
     },
   }
 }
@@ -1409,7 +1413,7 @@ pub impl Show for DeleteQuery with fn output(
 
 ///|
 pub fn delete_from(table : String) -> DeleteQuery {
-  { stmt: { from: table, where_: [] } }
+  { stmt: { from: table, where_: [], }, }
 }
 
 ///|
@@ -1421,7 +1425,7 @@ pub fn[V : @morm/engine.ToParam] DeleteQuery::where_eq(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Eq }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Eq, }],
     },
   }
 }
@@ -1435,7 +1439,7 @@ pub fn[V : @morm/engine.ToParam] DeleteQuery::where_gt(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Gt }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Gt, }],
     },
   }
 }
@@ -1449,7 +1453,7 @@ pub fn[V : @morm/engine.ToParam] DeleteQuery::where_ne(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Ne }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Ne, }],
     },
   }
 }
@@ -1463,7 +1467,7 @@ pub fn[V : @morm/engine.ToParam] DeleteQuery::where_lt(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Lt }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Lt, }],
     },
   }
 }
@@ -1477,7 +1481,7 @@ pub fn[V : @morm/engine.ToParam] DeleteQuery::where_like(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: pattern.to_param(), ty: Like }],
+      where_: self.stmt.where_ + [{ col, value: pattern.to_param(), ty: Like, }],
     },
   }
 }
@@ -1491,7 +1495,7 @@ pub fn[V : @morm/engine.ToParam] DeleteQuery::where_gte(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Gte }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Gte, }],
     },
   }
 }
@@ -1505,7 +1509,7 @@ pub fn[V : @morm/engine.ToParam] DeleteQuery::where_lte(
   {
     stmt: {
       ..self.stmt,
-      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Lte }],
+      where_: self.stmt.where_ + [{ col, value: value.to_param(), ty: Lte, }],
     },
   }
 }
@@ -1527,27 +1531,27 @@ pub impl Show for TxQuery with fn output(self : TxQuery, logger : &Logger) {
 
 ///|
 pub fn tx_begin() -> TxQuery {
-  { op: Begin }
+  { op: Begin, }
 }
 
 ///|
 pub fn tx_commit() -> TxQuery {
-  { op: Commit }
+  { op: Commit, }
 }
 
 ///|
 pub fn tx_rollback() -> TxQuery {
-  { op: Rollback }
+  { op: Rollback, }
 }
 
 ///|
 pub fn tx_savepoint(name : String) -> TxQuery {
-  { op: Savepoint(name) }
+  { op: Savepoint(name), }
 }
 
 ///|
 pub fn tx_rollback_to_savepoint(name : String) -> TxQuery {
-  { op: RollbackToSavepoint(name) }
+  { op: RollbackToSavepoint(name), }
 }
 
 ///|
@@ -1624,7 +1628,7 @@ pub fn[E : Entity] DeleteQuery::from(
           {
             stmt: {
               ..self.stmt,
-              where_: self.stmt.where_ + [{ col: pk, value: pv, ty: Eq }],
+              where_: self.stmt.where_ + [{ col: pk, value: pv, ty: Eq, }],
             },
           }
         }
@@ -1918,27 +1922,27 @@ pub fn resolve_driver_name(dsn : String) -> String? {
 
 ///|
 pub fn pageable(page : Int, size : Int) -> Pageable {
-  { page, size, sort: None }
+  { page, size, sort: None, }
 }
 
 ///|
 pub fn pageable_with_sort(page : Int, size : Int, sort : Sort) -> Pageable {
-  { page, size, sort: Some(sort) }
+  { page, size, sort: Some(sort), }
 }
 
 ///|
 pub fn sort(property : String, direction : SortDirection) -> Sort {
-  { property, direction }
+  { property, direction, }
 }
 
 ///|
 pub fn asc(property : String) -> Sort {
-  { property, direction: Asc }
+  { property, direction: Asc, }
 }
 
 ///|
 pub fn desc(property : String) -> Sort {
-  { property, direction: Desc }
+  { property, direction: Desc, }
 }
 
 ///|
@@ -2011,7 +2015,7 @@ pub async fn[E : @morm/engine.Engine, T : @morm/engine.FromParam] paginate(
       match stmt {
         Select(sel) =>
           @morm/engine.Statement(
-            Select({ ..sel, order_by: [], limit: None, offset: None }),
+            Select({ ..sel, order_by: [], limit: None, offset: None, }),
           )
         _ => Statement(stmt)
       }

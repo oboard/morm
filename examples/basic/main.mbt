@@ -10,9 +10,13 @@ async fn main {
       auto_increment: true,
       nullable: false,
     },
-    { ..@morm.new_column("email", VarChar(255)), nullable: false, unique: true },
-    { ..@morm.new_column("name", VarChar(255)), nullable: true },
-    { ..@morm.new_column("active", Int), nullable: false },
+    {
+      ..@morm.new_column("email", VarChar(255)),
+      nullable: false,
+      unique: true,
+    },
+    { ..@morm.new_column("name", VarChar(255)), nullable: true, },
+    { ..@morm.new_column("active", Int), nullable: false, },
   ])
   let migrate_res = engine.migrate_table(user_table)
   if !migrate_res.ok {

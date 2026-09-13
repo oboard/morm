@@ -27,13 +27,13 @@ pub impl @morm.Entity for BenchPost with fn table(_self) -> @morm.Table {
 pub fn BenchUser::table() -> @morm.Table {
   @morm.add_index(
     @morm.new_table("bench_user", columns=[
-      { ..@morm.new_column("id", Int), primary_key: true, nullable: false },
+      { ..@morm.new_column("id", Int), primary_key: true, nullable: false, },
       {
         ..@morm.new_column("email", VarChar(255)),
         unique: true,
         nullable: false,
       },
-      { ..@morm.new_column("active", Int), nullable: false },
+      { ..@morm.new_column("active", Int), nullable: false, },
     ]),
     @morm.new_index("idx_bench_user_active", ["active"]),
   )
@@ -43,10 +43,10 @@ pub fn BenchUser::table() -> @morm.Table {
 pub fn BenchPost::table() -> @morm.Table {
   @morm.add_index(
     @morm.new_table("bench_post", columns=[
-      { ..@morm.new_column("id", Int), primary_key: true, nullable: false },
-      { ..@morm.new_column("user_id", Int), nullable: false },
-      { ..@morm.new_column("title", VarChar(255)), nullable: false },
-      { ..@morm.new_column("published", Int), nullable: false },
+      { ..@morm.new_column("id", Int), primary_key: true, nullable: false, },
+      { ..@morm.new_column("user_id", Int), nullable: false, },
+      { ..@morm.new_column("title", VarChar(255)), nullable: false, },
+      { ..@morm.new_column("published", Int), nullable: false, },
     ]),
     @morm.new_index("idx_bench_post_user_id", ["user_id"]),
   )
@@ -111,7 +111,7 @@ fn BenchUser::decode_from(
   let id = bench_row_int(row, "id")
   let email = bench_row_string(row, "email")
   let active = bench_row_int(row, "active")
-  { id, email, active }
+  { id, email, active, }
 }
 
 ///|
@@ -127,7 +127,7 @@ fn BenchPost::decode_from(
   let user_id = bench_row_int(row, "user_id")
   let title = bench_row_string(row, "title")
   let published = bench_row_int(row, "published")
-  { id, user_id, title, published }
+  { id, user_id, title, published, }
 }
 
 ///|

@@ -45,7 +45,7 @@ async fn main {
   let active = mapper.find_users_by_active(1)
   println("mapper: active_count=\{active.length()}")
   for user in active {
-    println(user.to_json().stringify())
+    println(ToJson::to_json(user).stringify())
   }
 
   let page = mapper.find_users_page_by_active(1, @morm.pageable(1, 1))

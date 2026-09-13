@@ -6,7 +6,6 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",
   "moonbitlang/core/string",
-  "moonbitlang/core/strconv",
   "moonbitlang/x/crypto",
   "moonbitlang/x/json5",
   "oboard/morm/bson",

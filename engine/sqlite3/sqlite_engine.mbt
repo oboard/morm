@@ -5,7 +5,7 @@ struct SQLiteEngine {
 
 ///|
 pub fn SQLiteEngine::open(filename : String) -> SQLiteEngine {
-  { conn: try! Connection::open(filename) }
+  { conn: try! Connection::open(filename), }
 }
 
 ///|
@@ -261,7 +261,7 @@ fn render_sqlite(
 ) -> (String, FixedArray[@morm/engine.Param]) {
   match stmt {
     Select(select_stmt) => {
-      let { select, from, joins, where_, order_by, limit, offset } = select_stmt
+      let { select, from, joins, where_, order_by, limit, offset, } = select_stmt
       let buf = StringBuilder()
       buf.write_string("SELECT ")
       if select.is_empty() {
@@ -303,7 +303,7 @@ fn render_sqlite(
       (buf.to_string(), where_params(where_))
     }
     Insert(insert_stmt) => {
-      let { into, columns, values, rows } = insert_stmt
+      let { into, columns, values, rows, } = insert_stmt
       let buf = StringBuilder()
       buf.write_string("INSERT INTO ")
       buf.write_string(into)
@@ -327,7 +327,7 @@ fn render_sqlite(
       (buf.to_string(), FixedArray::from_array(out_params))
     }
     Upsert(upsert_stmt) => {
-      let { table, sets, conflict_target, update_sets } = upsert_stmt
+      let { table, sets, conflict_target, update_sets, } = upsert_stmt
       let buf = StringBuilder()
       buf.write_string("INSERT INTO ")
       buf.write_string(table)
@@ -355,7 +355,7 @@ fn render_sqlite(
       (buf.to_string(), args)
     }
     Update(update_stmt) => {
-      let { table, sets, where_ } = update_stmt
+      let { table, sets, where_, } = update_stmt
       let buf = StringBuilder()
       buf.write_string("UPDATE ")
       buf.write_string(table)
@@ -368,7 +368,7 @@ fn render_sqlite(
       (buf.to_string(), sets.map(s => s.value) + where_params(where_))
     }
     Delete(delete_stmt) => {
-      let { from, where_ } = delete_stmt
+      let { from, where_, } = delete_stmt
       let buf = StringBuilder()
       buf.write_string("DELETE FROM ")
       buf.write_string(from)
@@ -416,7 +416,7 @@ pub impl @morm/engine.Engine for SQLiteEngine with fn migrate_table(
       return res
     }
   }
-  { ok: true, rows_affected: 0, rows: [], error: None }
+  { ok: true, rows_affected: 0, rows: [], error: None, }
 }
 
 ///|

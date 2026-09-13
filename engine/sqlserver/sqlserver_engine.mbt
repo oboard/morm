@@ -68,7 +68,7 @@ fn parse_sqlserver_dsn(dsn : String) -> SQLServerEngine? {
   }
 
   let (host, port) = parse_host_port(host_port, 1433)
-  Some({ host, port, user, password, database })
+  Some({ host, port, user, password, database, })
 }
 
 ///|
@@ -82,7 +82,7 @@ pub fn SQLServerEngine::open(dsn : String) -> Result[SQLServerEngine, String] {
 
 ///|
 fn fail(message : String) -> @morm/engine.QueryResult {
-  { ok: false, rows_affected: 0, rows: [], error: Some(message) }
+  { ok: false, rows_affected: 0, rows: [], error: Some(message), }
 }
 
 ///|
@@ -535,7 +535,7 @@ async fn[IO : @io.Reader + @io.Writer] sqlbatch(
   if !ok {
     return fail(if err == "" { "sqlserver batch failed" } else { err })
   }
-  { ok: true, rows_affected: rows, rows: [], error: None }
+  { ok: true, rows_affected: rows, rows: [], error: None, }
 }
 
 ///|
@@ -1083,7 +1083,7 @@ pub impl @morm/engine.Engine for SQLServerEngine with fn migrate_table(
       return res
     }
   }
-  { ok: true, rows_affected: 0, rows: [], error: None }
+  { ok: true, rows_affected: 0, rows: [], error: None, }
 }
 
 ///|

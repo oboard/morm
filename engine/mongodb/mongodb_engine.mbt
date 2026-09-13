@@ -25,7 +25,7 @@ fn ok_result(
 
 ///|
 fn fail_result(msg : String) -> @morm/engine.QueryResult {
-  { ok: false, rows_affected: 0, rows: [], error: Some(msg) }
+  { ok: false, rows_affected: 0, rows: [], error: Some(msg), }
 }
 
 ///|
@@ -1954,7 +1954,7 @@ fn decode_json_set_array(value : Json) -> FixedArray[@morm/engine.Set]? {
     guard item is { "col": String(col), "value": set_value, .. } else {
       return None
     }
-    out.push({ col, value: json_to_param(set_value) })
+    out.push({ col, value: json_to_param(set_value), })
   }
   Some(FixedArray::from_array(out))
 }
@@ -1979,7 +1979,7 @@ fn decode_json_where_array(value : Json) -> FixedArray[@morm/engine.Where]? {
       _ => None
     }
     guard where_ty is Some(where_ty) else { return None }
-    out.push({ col, value: json_to_param(where_value), ty: where_ty })
+    out.push({ col, value: json_to_param(where_value), ty: where_ty, })
   }
   Some(FixedArray::from_array(out))
 }
@@ -2050,7 +2050,7 @@ fn decode_statement_command(cmd : Json) -> @morm/engine.Statement? {
       if !offset_ok {
         return None
       }
-      Some(Select({ select, from, joins, where_, order_by, limit, offset }))
+      Some(Select({ select, from, joins, where_, order_by, limit, offset, }))
     }
     "insert" => {
       guard cmd
@@ -2076,7 +2076,7 @@ fn decode_statement_command(cmd : Json) -> @morm/engine.Statement? {
           }
         _ => []
       }
-      Some(Insert({ into, columns, values, rows }))
+      Some(Insert({ into, columns, values, rows, }))
     }
     "upsert" => {
       guard cmd
@@ -2096,7 +2096,7 @@ fn decode_statement_command(cmd : Json) -> @morm/engine.Statement? {
       guard decode_json_set_array(update_sets_json) is Some(update_sets) else {
         return None
       }
-      Some(Upsert({ table, sets, conflict_target, update_sets }))
+      Some(Upsert({ table, sets, conflict_target, update_sets, }))
     }
     "update" => {
       guard cmd
@@ -2112,7 +2112,7 @@ fn decode_statement_command(cmd : Json) -> @morm/engine.Statement? {
       guard decode_json_where_array(where_json) is Some(where_) else {
         return None
       }
-      Some(Update({ table, sets, where_ }))
+      Some(Update({ table, sets, where_, }))
     }
     "delete" => {
       guard cmd is { "from": String(from), "where": where_json, .. } else {
@@ -2121,7 +2121,7 @@ fn decode_statement_command(cmd : Json) -> @morm/engine.Statement? {
       guard decode_json_where_array(where_json) is Some(where_) else {
         return None
       }
-      Some(Delete({ from, where_ }))
+      Some(Delete({ from, where_, }))
     }
     _ => None
   }

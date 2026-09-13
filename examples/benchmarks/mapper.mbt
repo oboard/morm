@@ -81,3 +81,12 @@ pub impl BenchUserMapper for BenchUserMapperImpl with fn update_active_by_id(
 pub impl BenchUserMapper for BenchUserMapperImpl with fn delete_by_id(self, id) {
   self.engine.exec(@morm.delete_from("bench_user").where_eq("id", id)).ok
 }
+
+///|
+extend BenchUserMapperImpl with BenchUserMapper::{
+  save,
+  find_user_by_id,
+  find_users_page_by_active,
+  update_active_by_id,
+  delete_by_id,
+}

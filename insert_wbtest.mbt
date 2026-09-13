@@ -8,9 +8,9 @@ struct InsertAutoUser {
 ///|
 impl Entity for InsertAutoUser with fn table(_self) -> Table {
   new_table("insert_auto_user", columns=[
-    { ..new_column("id", Int), primary_key: true, auto_increment: true },
-    { ..new_column("name", VarChar(255)), nullable: false },
-    { ..new_column("active", Boolean), nullable: false },
+    { ..new_column("id", Int), primary_key: true, auto_increment: true, },
+    { ..new_column("name", VarChar(255)), nullable: false, },
+    { ..new_column("active", Boolean), nullable: false, },
   ])
 }
 
@@ -21,7 +21,7 @@ impl @morm/engine.FromParam for InsertAutoUser with fn from_param(_value) {
 
 ///|
 test "insert from skips auto increment columns" {
-  let user = { id: 42, name: "Alice", active: true }
+  let user = { id: 42, name: "Alice", active: true, }
   let (sql, params) = @morm/engine.render_query_sql(
     insert_into("insert_auto_user").from(user),
   )
@@ -35,8 +35,8 @@ test "insert from skips auto increment columns" {
 ///|
 test "insert from many skips auto increment columns" {
   let users : FixedArray[InsertAutoUser] = [
-    { id: 42, name: "Alice", active: true },
-    { id: 43, name: "Bob", active: false },
+    { id: 42, name: "Alice", active: true, },
+    { id: 43, name: "Bob", active: false, },
   ]
   let (sql, params) = @morm/engine.render_query_sql(
     insert_into("insert_auto_user").from_many(users),
