@@ -1,7 +1,7 @@
 ///|
 async test "oracle native tns handshake" {
   let engine = match
-    OracleEngine::open("oracle://system:oracle@127.0.0.1:11521/XEPDB1") {
+    @oracle.OracleEngine::open("oracle://system:oracle@127.0.0.1:11521/XEPDB1") {
     Ok(e) => e
     Err(_) => panic()
   }
@@ -23,7 +23,9 @@ async test "oracle native tns handshake" {
 ///|
 test "oracle compatible dsn schemes" {
   inspect(
-    OracleEngine::open("jdbc:oracle://system:oracle@127.0.0.1:1521/XEPDB1")
+    @oracle.OracleEngine::open(
+      "jdbc:oracle://system:oracle@127.0.0.1:1521/XEPDB1",
+    )
     is Ok(_),
     content="true",
   )

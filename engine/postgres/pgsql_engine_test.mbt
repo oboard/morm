@@ -1,7 +1,7 @@
 ///|
 async test "pgsql real connection" {
   let engine = match
-    PgSQLEngine::open("postgres://postgres@127.0.0.1:15432/morm_test") {
+    @postgres.PgSQLEngine::open("postgres://postgres@127.0.0.1:15432/morm_test") {
     Ok(e) => e
     Err(_) => panic()
   }
@@ -47,7 +47,7 @@ async test "pgsql real connection" {
 ///|
 async test "pgsql sql execution coverage" {
   let engine = match
-    PgSQLEngine::open("postgres://postgres@127.0.0.1:15432/morm_test") {
+    @postgres.PgSQLEngine::open("postgres://postgres@127.0.0.1:15432/morm_test") {
     Ok(e) => e
     Err(_) => panic()
   }
@@ -111,7 +111,7 @@ async test "pgsql sql execution coverage" {
 ///|
 async test "pgsql transaction pins one connection" {
   let engine = match
-    PgSQLEngine::open("postgres://postgres@127.0.0.1:15432/morm_test") {
+    @postgres.PgSQLEngine::open("postgres://postgres@127.0.0.1:15432/morm_test") {
     Ok(e) => e
     Err(_) => panic()
   }
@@ -159,43 +159,53 @@ async test "pgsql transaction pins one connection" {
 ///|
 test "pgsql compatible dsn schemes" {
   inspect(
-    PgSQLEngine::open("gaussdb://postgres@127.0.0.1:15432/test") is Ok(_),
+    @postgres.PgSQLEngine::open("gaussdb://postgres@127.0.0.1:15432/test")
+    is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("cockroachdb://root@127.0.0.1:26257/test") is Ok(_),
+    @postgres.PgSQLEngine::open("cockroachdb://root@127.0.0.1:26257/test")
+    is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("opengauss://postgres@127.0.0.1:5432/test") is Ok(_),
+    @postgres.PgSQLEngine::open("opengauss://postgres@127.0.0.1:5432/test")
+    is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("mogdb://postgres@127.0.0.1:5432/test") is Ok(_),
+    @postgres.PgSQLEngine::open("mogdb://postgres@127.0.0.1:5432/test") is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("kingbase://system@127.0.0.1:54321/test") is Ok(_),
+    @postgres.PgSQLEngine::open("kingbase://system@127.0.0.1:54321/test")
+    is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("kingbase8://system@127.0.0.1:54321/test") is Ok(_),
+    @postgres.PgSQLEngine::open("kingbase8://system@127.0.0.1:54321/test")
+    is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("highgo://sysdba@127.0.0.1:5866/test") is Ok(_),
+    @postgres.PgSQLEngine::open("highgo://sysdba@127.0.0.1:5866/test") is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("vastbase://postgres@127.0.0.1:5432/test") is Ok(_),
+    @postgres.PgSQLEngine::open("vastbase://postgres@127.0.0.1:5432/test")
+    is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("ivorysql://postgres@127.0.0.1:5432/test") is Ok(_),
+    @postgres.PgSQLEngine::open("ivorysql://postgres@127.0.0.1:5432/test")
+    is Ok(_),
     content="true",
   )
   inspect(
-    PgSQLEngine::open("jdbc:postgresql://postgres@127.0.0.1:5432/test") is Ok(_),
+    @postgres.PgSQLEngine::open(
+      "jdbc:postgresql://postgres@127.0.0.1:5432/test",
+    )
+    is Ok(_),
     content="true",
   )
 }

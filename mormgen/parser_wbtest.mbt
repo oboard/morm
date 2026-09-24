@@ -149,6 +149,12 @@ test "generate create save update delete with trait parameter name" {
   inspect(code.contains(".set(\"name\", user.name)"), content="true")
   inspect(code.contains(".where_eq(\"id\", user.id)"), content="true")
   inspect(code.contains(".from(entity)"), content="false")
+  inspect(
+    code.contains(
+      "pub extend UserMapperImpl with UserMapper::{create, save, update, delete}",
+    ),
+    content="true",
+  )
   inspect(code.contains("entity."), content="false")
 }
 
@@ -239,6 +245,14 @@ test "generate enum codec impls for mapper package types" {
   )
   inspect(
     code.contains("pub impl @morm/engine.FromParam for Status"),
+    content="true",
+  )
+  inspect(
+    code.contains("pub extend Status with @morm/engine.ToParam::{to_param}"),
+    content="true",
+  )
+  inspect(
+    code.contains("pub extend Status with @morm/engine.FromParam::{from_param}"),
     content="true",
   )
   inspect(

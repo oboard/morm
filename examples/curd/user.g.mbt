@@ -102,3 +102,6 @@ pub impl @morm/engine.FromParam for User with fn from_param(value) {
     _ => raise ParamDecodeError("User::from_param: expected Json object row")
   }
 }
+
+///|
+pub extend User with @morm/engine.FromParam::{from_param}

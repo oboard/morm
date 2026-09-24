@@ -104,6 +104,9 @@ pub impl @morm/engine.FromParam for User with fn from_param(value) {
 }
 
 ///|
+pub extend User with @morm/engine.FromParam::{from_param}
+
+///|
 pub struct UserMapperImpl {
   engine : &@morm/engine.Engine
 }
@@ -149,7 +152,7 @@ pub impl UserMapper for UserMapperImpl with fn find_users_page_by_active(
 }
 
 ///|
-extend UserMapperImpl with UserMapper::{
+pub extend UserMapperImpl with UserMapper::{
   find_user_by_id,
   find_users_by_active,
   find_users_page_by_active,

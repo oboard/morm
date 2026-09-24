@@ -19,6 +19,7 @@ pub struct User {
   active : Int
 } derive(ToJson, @json.FromJson)
 pub fn User::_from(Map[String, @engine.Param]) -> Self
+pub fn User::from_param(@engine.Param) -> Self raise @engine.ParamDecodeError
 pub fn User::table() -> @table.Table
 pub impl @morm.Entity for User
 pub impl @engine.FromParam for User
@@ -27,6 +28,12 @@ pub struct UserMapperImpl {
   engine : &@engine.Engine
 }
 pub fn UserMapperImpl::UserMapperImpl(&@engine.Engine) -> Self
+pub async fn UserMapperImpl::delete(Self, User) -> Bool
+pub async fn UserMapperImpl::delete_by_id(Self, Int) -> Bool
+pub async fn UserMapperImpl::find_user_by_id(Self, Int) -> User?
+pub async fn UserMapperImpl::save(Self, User) -> Bool
+pub async fn UserMapperImpl::update(Self, User) -> Bool
+pub async fn UserMapperImpl::update_active_by_id(Self, Int, Int) -> Bool
 pub impl UserMapper for UserMapperImpl
 
 // Type aliases

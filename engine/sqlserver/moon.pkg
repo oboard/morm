@@ -2,8 +2,6 @@ import {
   "moonbitlang/async/io",
   "moonbitlang/async/socket",
   "moonbitlang/async/tls",
-  "moonbitlang/core/buffer",
-  "moonbitlang/core/json",
   "moonbitlang/core/string",
   "oboard/morm/engine" @morm/engine,
   "oboard/morm/table",

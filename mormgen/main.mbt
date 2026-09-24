@@ -700,6 +700,8 @@ fn generate_entity_impl(
       $|     _ => raise ParamDecodeError("\{name}::from_param: expected Json object row")
       $|   }
       $| }
+      $|
+      $| pub extend \{name} with \{ENGINE_PKG}.FromParam::{from_param}
     )
   } else {
     ""
@@ -978,6 +980,9 @@ fn render_enum_codec_impl(enum_spec : EnumSpec) -> String {
     $| pub impl \{ENGINE_PKG}.FromParam for \{enum_spec.name} with fn from_param(value) {
     $|   try! \{ENGINE_PKG}.enum_from_param(value)
     $| }
+    $|
+    $| pub extend \{enum_spec.name} with \{ENGINE_PKG}.ToParam::{to_param}
+    $| pub extend \{enum_spec.name} with \{ENGINE_PKG}.FromParam::{from_param}
   )
 }
 
@@ -1605,7 +1610,13 @@ fn generate_mapper_code(
     }
     impls = impls + method_header + body
   }
-  struct_def + mapper_fn + mapper_helpers + impls
+  let method_names = spec.methods.map(mapper_method => mapper_method.name)
+  let method_extensions = if method_names.length() == 0 {
+    ""
+  } else {
+    "\npub extend \{impl_name} with \{trait_name}::{\{method_names.join(", ")}}\n"
+  }
+  struct_def + mapper_fn + mapper_helpers + impls + method_extensions
 }
 
 ///|

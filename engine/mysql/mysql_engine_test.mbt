@@ -1,7 +1,7 @@
 ///|
 async test "mysql real connection" {
   let engine = match
-    MySQLEngine::open("mysql://root:123456@127.0.0.1:13306/morm_test") {
+    @mysql.MySQLEngine::open("mysql://root:123456@127.0.0.1:13306/morm_test") {
     Ok(e) => e
     Err(_) => panic()
   }
@@ -47,7 +47,7 @@ async test "mysql real connection" {
 ///|
 async test "mysql sql execution coverage" {
   let engine = match
-    MySQLEngine::open("mysql://root:123456@127.0.0.1:13306/morm_test") {
+    @mysql.MySQLEngine::open("mysql://root:123456@127.0.0.1:13306/morm_test") {
     Ok(e) => e
     Err(_) => panic()
   }
@@ -111,7 +111,7 @@ async test "mysql sql execution coverage" {
 ///|
 async test "mysql transaction pins one connection" {
   let engine = match
-    MySQLEngine::open("mysql://root:123456@127.0.0.1:13306/morm_test") {
+    @mysql.MySQLEngine::open("mysql://root:123456@127.0.0.1:13306/morm_test") {
     Ok(e) => e
     Err(_) => panic()
   }
@@ -159,35 +159,35 @@ async test "mysql transaction pins one connection" {
 ///|
 test "mysql compatible dsn schemes" {
   inspect(
-    MySQLEngine::open("mariadb://root@127.0.0.1:3306/test") is Ok(_),
+    @mysql.MySQLEngine::open("mariadb://root@127.0.0.1:3306/test") is Ok(_),
     content="true",
   )
   inspect(
-    MySQLEngine::open("tidb://root@127.0.0.1:4000/test") is Ok(_),
+    @mysql.MySQLEngine::open("tidb://root@127.0.0.1:4000/test") is Ok(_),
     content="true",
   )
   inspect(
-    MySQLEngine::open("oceanbase://root@127.0.0.1:2881/test") is Ok(_),
+    @mysql.MySQLEngine::open("oceanbase://root@127.0.0.1:2881/test") is Ok(_),
     content="true",
   )
   inspect(
-    MySQLEngine::open("polardb://root@127.0.0.1:3306/test") is Ok(_),
+    @mysql.MySQLEngine::open("polardb://root@127.0.0.1:3306/test") is Ok(_),
     content="true",
   )
   inspect(
-    MySQLEngine::open("doris://root@127.0.0.1:9030/test") is Ok(_),
+    @mysql.MySQLEngine::open("doris://root@127.0.0.1:9030/test") is Ok(_),
     content="true",
   )
   inspect(
-    MySQLEngine::open("starrocks://root@127.0.0.1:9030/test") is Ok(_),
+    @mysql.MySQLEngine::open("starrocks://root@127.0.0.1:9030/test") is Ok(_),
     content="true",
   )
   inspect(
-    MySQLEngine::open("selectdb://root@127.0.0.1:9030/test") is Ok(_),
+    @mysql.MySQLEngine::open("selectdb://root@127.0.0.1:9030/test") is Ok(_),
     content="true",
   )
   inspect(
-    MySQLEngine::open("jdbc:mysql://root@127.0.0.1:3306/test") is Ok(_),
+    @mysql.MySQLEngine::open("jdbc:mysql://root@127.0.0.1:3306/test") is Ok(_),
     content="true",
   )
 }

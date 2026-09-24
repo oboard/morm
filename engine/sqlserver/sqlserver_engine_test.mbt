@@ -1,7 +1,7 @@
 ///|
 async test "sqlserver real connection with transaction batch" {
   let engine = match
-    SQLServerEngine::open(
+    @sqlserver.SQLServerEngine::open(
       "sqlserver://sa:YourStrong!Passw0rd@127.0.0.1:11433/tempdb",
     ) {
     Ok(e) => e
@@ -35,7 +35,7 @@ async test "sqlserver real connection with transaction batch" {
 ///|
 async test "sqlserver sql execution coverage" {
   let engine = match
-    SQLServerEngine::open(
+    @sqlserver.SQLServerEngine::open(
       "sqlserver://sa:YourStrong!Passw0rd@127.0.0.1:11433/tempdb",
     ) {
     Ok(e) => e
@@ -96,11 +96,15 @@ async test "sqlserver sql execution coverage" {
 ///|
 test "sqlserver compatible dsn schemes" {
   inspect(
-    SQLServerEngine::open("mssql://sa@127.0.0.1:1433/master") is Ok(_),
+    @sqlserver.SQLServerEngine::open("mssql://sa@127.0.0.1:1433/master")
+    is Ok(_),
     content="true",
   )
   inspect(
-    SQLServerEngine::open("jdbc:sqlserver://sa@127.0.0.1:1433/master") is Ok(_),
+    @sqlserver.SQLServerEngine::open(
+      "jdbc:sqlserver://sa@127.0.0.1:1433/master",
+    )
+    is Ok(_),
     content="true",
   )
 }

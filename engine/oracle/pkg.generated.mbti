@@ -19,7 +19,13 @@ pub struct OracleEngine {
   password : String
   service : String
 }
+pub fn OracleEngine::close(Self) -> Unit
+pub async fn OracleEngine::exec(Self, &@engine.QueryBuilder) -> @engine.QueryResult
+pub async fn OracleEngine::exec_raw(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
+pub async fn OracleEngine::migrate_table(Self, @table.Table) -> @engine.QueryResult
 pub fn OracleEngine::open(String) -> Result[Self, String]
+pub async fn OracleEngine::page(Self, &@engine.QueryBuilder, @engine.Pageable) -> @engine.QueryResult
+pub async fn OracleEngine::page_raw(Self, String, FixedArray[@engine.Param], @engine.Pageable) -> @engine.QueryResult
 pub async fn OracleEngine::ping(Self) -> Bool
 pub impl @engine.Engine for OracleEngine
 

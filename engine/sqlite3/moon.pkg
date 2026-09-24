@@ -3,7 +3,6 @@ import {
   "moonbitlang/core/json",
   "oboard/morm/engine" @morm/engine,
   "oboard/morm/table",
-  "moonbitlang/core/buffer",
 }
 
 supported_targets = "+native"

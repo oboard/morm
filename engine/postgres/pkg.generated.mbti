@@ -21,7 +21,13 @@ pub struct PgSQLEngine {
   pool : @engine.ConnectionPool[@socket.Tcp]
   mut tx_conn : @socket.Tcp?
 }
+pub fn PgSQLEngine::close(Self) -> Unit
+pub async fn PgSQLEngine::exec(Self, &@engine.QueryBuilder) -> @engine.QueryResult
+pub async fn PgSQLEngine::exec_raw(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
+pub async fn PgSQLEngine::migrate_table(Self, @table.Table) -> @engine.QueryResult
 pub fn PgSQLEngine::open(String) -> Result[Self, String]
+pub async fn PgSQLEngine::page(Self, &@engine.QueryBuilder, @engine.Pageable) -> @engine.QueryResult
+pub async fn PgSQLEngine::page_raw(Self, String, FixedArray[@engine.Param], @engine.Pageable) -> @engine.QueryResult
 pub async fn PgSQLEngine::ping(Self) -> Bool
 pub impl @engine.Engine for PgSQLEngine
 
