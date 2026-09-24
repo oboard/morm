@@ -33,7 +33,7 @@ pub fn DuckDBEngine::open(path : String) -> Result[DuckDBEngine, String] {
     native_callback(fn(complete) {
       @driver.connect(path=database_path, on_ready=complete)
     }) {
-    Ok(conn) => Ok({ conn, closed: false })
+    Ok(conn) => Ok({ conn, closed: false, })
     Err(error) => Err(error)
   }
 }
@@ -57,7 +57,7 @@ fn render_duckdb(
       (sql + " RETURNING *", params)
     }
     Statement(Upsert(statement)) => {
-      let { table, sets, conflict_target, update_sets } = statement
+      let { table, sets, conflict_target, update_sets, } = statement
       let columns = sets.map(set => set.col).join(", ")
       let mut sql = "INSERT INTO \{table} (\{columns}) VALUES (\{duckdb_placeholders(sets.length())}) ON CONFLICT"
       if !conflict_target.is_empty() {
@@ -221,7 +221,7 @@ fn duckdb_param_from_cell(
 
 ///|
 fn duckdb_failed(message : String) -> @morm/engine.QueryResult {
-  { ok: false, rows_affected: 0, rows: [], error: Some(message) }
+  { ok: false, rows_affected: 0, rows: [], error: Some(message), }
 }
 
 ///|
@@ -240,7 +240,7 @@ fn duckdb_result(
     result.columns[0] == "Count" &&
     result.rows.length() == 1 {
     let affected = @string.parse_int(result.rows[0][0]) catch { _ => 0 }
-    return { ok: true, rows_affected: affected, rows: [], error: None }
+    return { ok: true, rows_affected: affected, rows: [], error: None, }
   }
   let rows : Array[Map[String, @morm/engine.Param]] = []
   for row_index in 0..<result.rows.length() {

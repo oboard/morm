@@ -5,7 +5,7 @@ test "duckdb renders null predicates and returning statements" {
       select: "*",
       from: "items",
       joins: [],
-      where_: [{ col: "id", value: Null, ty: Eq }],
+      where_: [{ col: "id", value: Null, ty: Eq, }],
       order_by: [],
       limit: None,
       offset: None,
@@ -19,11 +19,11 @@ test "duckdb renders null predicates and returning statements" {
     Upsert({
       table: "items",
       sets: [
-        { col: "id", value: Int(1) },
-        { col: "name", value: String("new") },
+        { col: "id", value: Int(1), },
+        { col: "name", value: String("new"), },
       ],
       conflict_target: ["id"],
-      update_sets: [{ col: "name", value: String("updated") }],
+      update_sets: [{ col: "name", value: String("updated"), }],
     }),
   )
   let (sql, params) = render_duckdb(upsert_query)

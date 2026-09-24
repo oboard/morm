@@ -25,7 +25,7 @@ async test "duckdb migrates schema and executes query builders" {
         primary_key: true,
         auto_increment: true,
       },
-      { ..@morm.new_column("name", @table.VarChar(80)), nullable: false },
+      { ..@morm.new_column("name", @table.VarChar(80)), nullable: false, },
       @morm.new_column("active", @table.Boolean),
       @morm.new_column("score", @table.Decimal(10, 2)),
       @morm.new_column("payload", @table.Blob),
@@ -290,7 +290,7 @@ async test "duckdb transaction and index migration errors" {
 
   let unsupported = @morm.add_index(
     @morm.new_table("unsupported", columns=[@morm.new_column("id", @table.Int)]),
-    { ..@morm.new_index("unsupported_search", ["id"]), index_type: FullText },
+    { ..@morm.new_index("unsupported_search", ["id"]), index_type: FullText, },
   )
   inspect(engine.migrate_table(unsupported).ok, content="false")
   inspect(engine.exec_raw("SELECT * FROM unsupported", []).ok, content="false")
@@ -315,7 +315,7 @@ async test "duckdb migrates qualified tables, foreign keys, and json" {
   let child = @morm.add_foreign_key(
     @morm.table_schema(
       @morm.new_table("children", columns=[
-        { ..@morm.new_column("id", @table.Int), primary_key: true },
+        { ..@morm.new_column("id", @table.Int), primary_key: true, },
         @morm.new_column("parent_id", @table.BigInt),
         @morm.new_column("payload", @table.Json),
       ]),

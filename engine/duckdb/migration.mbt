@@ -184,5 +184,5 @@ pub impl @morm/engine.Engine for DuckDBEngine with fn migrate_table(
       return result
     }
   }
-  { ok: true, rows_affected: 0, rows: [], error: None }
+  { ok: true, rows_affected: 0, rows: [], error: None, }
 }
