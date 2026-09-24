@@ -135,6 +135,16 @@ fn duckdb_create_table_sql(table_schema : @table.Table) -> String {
 }
 
 ///|
+pub extend DuckDBEngine with @oboard/morm/engine.Engine::{
+  page,
+  exec_raw,
+  close,
+  page_raw,
+  exec,
+  migrate_table,
+}
+
+///|
 pub impl @morm/engine.Engine for DuckDBEngine with fn migrate_table(
   self,
   table_schema : @table.Table,

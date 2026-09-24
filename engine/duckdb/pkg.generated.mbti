@@ -18,7 +18,13 @@ pub struct DuckDBEngine {
   conn : Connection
   mut closed : Bool
 }
+pub fn DuckDBEngine::close(Self) -> Unit
+pub async fn DuckDBEngine::exec(Self, &@engine.QueryBuilder) -> @engine.QueryResult
+pub async fn DuckDBEngine::exec_raw(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
+pub async fn DuckDBEngine::migrate_table(Self, @table.Table) -> @engine.QueryResult
 pub fn DuckDBEngine::open(String) -> Result[Self, String]
+pub async fn DuckDBEngine::page(Self, &@engine.QueryBuilder, @engine.Pageable) -> @engine.QueryResult
+pub async fn DuckDBEngine::page_raw(Self, String, FixedArray[@engine.Param], @engine.Pageable) -> @engine.QueryResult
 pub impl @engine.Engine for DuckDBEngine
 
 // Type aliases

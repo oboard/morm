@@ -1,6 +1,6 @@
 ///|
-fn open_test_duckdb() -> DuckDBEngine {
-  match DuckDBEngine::open(":memory:") {
+fn open_test_duckdb() -> @duckdb.DuckDBEngine {
+  match @duckdb.DuckDBEngine::open(":memory:") {
     Ok(engine) => engine
     Err(message) => abort(message)
   }
@@ -8,7 +8,7 @@ fn open_test_duckdb() -> DuckDBEngine {
 
 ///|
 test "duckdb opens prefixed in-memory paths" {
-  let engine = match DuckDBEngine::open("jdbc:duckdb://:memory:") {
+  let engine = match @duckdb.DuckDBEngine::open("jdbc:duckdb://:memory:") {
     Ok(engine) => engine
     Err(message) => abort(message)
   }
