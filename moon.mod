@@ -1,6 +1,6 @@
 name = "oboard/morm"
 
-version = "0.4.3"
+version = "0.5.0"
 
 import {
   "moonbitlang/x@0.5.5",
