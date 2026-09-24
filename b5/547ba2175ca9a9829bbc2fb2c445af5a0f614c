@@ -1,0 +1,16 @@
+engine/duckdb/duckdb_engine_test.mbt
+  h_c7606fb8f0c97c 2-3,11
+engine/duckdb/migration.mbt
+  h_c7606fb8f0c97c 137-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "b5547ba2175ca9a9829bbc2fb2c445af5a0f614c",
+  "prompts": {},
+  "humans": {
+    "h_c7606fb8f0c97c": {
+      "author": "oboard <oboard@outlook.com>"
+    }
+  }
+}
