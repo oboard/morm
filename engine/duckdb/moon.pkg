@@ -1,6 +1,5 @@
 import {
-  "f4ah6o/duckdb" @driver,
-  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/encoding/utf8" @encoding/utf8,
   "moonbitlang/core/string",
   "oboard/morm/engine" @morm/engine,
   "oboard/morm/table",
@@ -19,6 +18,9 @@ options(
   link: {
     "native": {
       "cc-link-flags": "-L/opt/homebrew/lib -Wl,-rpath,/opt/homebrew/lib -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lduckdb",
+      "stub-cc-flags": "-I/opt/homebrew/include -I/usr/local/include -I/usr/include",
+      "stub-cc-link-flags": "-L/opt/homebrew/lib -Wl,-rpath,/opt/homebrew/lib -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lduckdb",
     },
   },
+  "native-stub": [ "duckdb_native.c" ],
 )

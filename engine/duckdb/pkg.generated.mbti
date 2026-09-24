@@ -11,8 +11,11 @@ import {
 // Errors
 
 // Types and methods
+#external
+pub type Connection
+
 pub struct DuckDBEngine {
-  conn : @f4ah6o/duckdb.Connection
+  conn : Connection
   mut closed : Bool
 }
 pub fn DuckDBEngine::open(String) -> Result[Self, String]

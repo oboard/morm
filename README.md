@@ -20,7 +20,7 @@ The project deliberately avoids runtime reflection and hidden ORM state.
 - typed query builders for `select`, `insert`, `upsert`, `update`, and `delete`
 - page-based pagination helpers with sortable `Pageable` (`paginate` / `paginate_raw`)
 - multi-engine support through a shared `Engine` contract
-- native DuckDB support via `f4ah6o/duckdb` for embedded analytics
+- native DuckDB support through an embedded binding for analytics
 - local time-type support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime`
 - direct MoonBit enum support in generated `ToParam` / `FromParam` impls and schema metadata
 - generated auto timestamp handling for `created_at` / `updated_at` and explicit timestamp annotations

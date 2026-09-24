@@ -1,18 +1,18 @@
 ///|
 pub struct DuckDBEngine {
-  conn : @driver.Connection
+  conn : Connection
   mut closed : Bool
 }
 
 ///|
 fn[T] native_callback(
-  action : ((Result[T, @driver.DuckDBError]) -> Unit) -> Unit,
+  action : ((Result[T, DuckDBError]) -> Unit) -> Unit,
 ) -> Result[T, String] {
   let mut outcome : Result[T, String] = Err("DuckDB operation did not complete")
   action(fn(result) {
     outcome = match result {
       Ok(value) => Ok(value)
-      Err(@driver.DuckDBError::Message(message)) => Err(message)
+      Err(DuckDBError::Message(message)) => Err(message)
     }
   })
   outcome
@@ -31,7 +31,7 @@ pub fn DuckDBEngine::open(path : String) -> Result[DuckDBEngine, String] {
   }
   match
     native_callback(fn(complete) {
-      @driver.connect(path=database_path, on_ready=complete)
+      connect(path=database_path, on_ready=complete)
     }) {
     Ok(conn) => Ok({ conn, closed: false, })
     Err(error) => Err(error)
@@ -78,7 +78,7 @@ fn render_duckdb(
 
 ///|
 fn bind_duckdb_param(
-  statement : @driver.PreparedStatement,
+  statement : PreparedStatement,
   index : Int,
   value : @morm/engine.Param,
 ) -> Result[Unit, String] {
@@ -124,7 +124,7 @@ fn bind_duckdb_param(
   }
   match result {
     Ok(_) => Ok(())
-    Err(@driver.DuckDBError::Message(message)) => Err(message)
+    Err(DuckDBError::Message(message)) => Err(message)
   }
 }
 
@@ -144,7 +144,7 @@ fn duckdb_hex_digit(value : Byte) -> Int? {
 
 ///|
 fn duckdb_blob_from_text(value : String) -> Bytes {
-  let input = @utf8.encode(value)
+  let input = @encoding/utf8.encode(value)
   let output : Array[Byte] = []
   let mut offset = 0
   while offset < input.length() {
@@ -194,7 +194,7 @@ fn duckdb_timestamp_text(value : String, with_timezone : Bool) -> String {
 ///|
 fn duckdb_param_from_cell(
   value : String,
-  column_type : @driver.ColumnType,
+  column_type : ColumnType,
 ) -> @morm/engine.Param {
   match column_type {
     Boolean => Bool(value == "true")
@@ -215,7 +215,7 @@ fn duckdb_param_from_cell(
     Timestamp | TimestampS | TimestampMs | TimestampNs =>
       String(duckdb_timestamp_text(value, false))
     TimestampTz => String(duckdb_timestamp_text(value, true))
-    _ => String(value)
+    Unknown => String(value)
   }
 }
 
@@ -227,7 +227,7 @@ fn duckdb_failed(message : String) -> @morm/engine.QueryResult {
 ///|
 fn duckdb_result(
   sql : String,
-  result : @driver.QueryResult,
+  result : QueryResult,
 ) -> @morm/engine.QueryResult {
   let command = sql.trim().to_upper()
   let is_write = command.has_prefix("INSERT ") ||
@@ -285,7 +285,7 @@ fn DuckDBEngine::exec_sql(
   if self.closed {
     return duckdb_failed("DuckDB connection is closed")
   }
-  let response : Result[@driver.QueryResult, String] = if params.is_empty() {
+  let response : Result[QueryResult, String] = if params.is_empty() {
     native_callback(fn(complete) { self.conn.query(sql, on_done=complete) })
   } else {
     let statement = match

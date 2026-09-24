@@ -4,7 +4,8 @@ outline: deep
 
 # DuckDB Engine
 
-The native DuckDB engine uses the [`f4ah6o/duckdb`](https://github.com/f4ah6o/duckdb.mbt) MoonBit binding. Install `libduckdb` and its headers before compiling native code; the binding links against the system library.
+The native DuckDB engine embeds an [adapted copy](../engine/duckdb/README.md) of the [`f4ah6o/duckdb`](https://github.com/f4ah6o/duckdb.mbt) MoonBit binding in the adapter package. You do not need to add a separate `f4ah6o/duckdb` dependency. Install `libduckdb` and its headers before compiling native code; the binding links against the system library.
+
 In a consuming application's `moon.pkg`, provide linker flags pointing to the installed library (adjust the path for your platform):
 
 ```moonbit
@@ -49,4 +50,4 @@ The engine implements `exec`, `exec_raw`, `page`, `page_raw`, and `migrate_table
 
 Parameters use prepared statements. DuckDB's binding exposes values as text with column types, so integers, booleans, decimals, and blobs are decoded to `Param` values. For JSON values, the binding exposes text rather than a distinct JSON type; parse returned JSON strings when object values are needed. SQL execution errors are available in `QueryResult.error`.
 
-With the current binding, reading `TIMESTAMPTZ` directly yields an empty string. The engine reports this as an error instead of returning incorrect data. To read these values, select `CAST(column AS VARCHAR)` and handle the DuckDB-formatted timestamp string explicitly; `TIMESTAMP` values without a time zone decode normally.
+The embedded binding decodes `TIMESTAMPTZ` directly from the native result column and returns a UTC timestamp string, which `FromParam<ZonedDateTime>` can parse. Non-finite timestamps remain unsupported; cast these to `VARCHAR` and handle the resulting text explicitly. `TIMESTAMP` values without a time zone decode normally.

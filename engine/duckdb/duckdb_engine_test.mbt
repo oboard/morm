@@ -215,7 +215,7 @@ async test "duckdb keeps returning columns named Count" {
 }
 
 ///|
-async test "duckdb normalizes timestamps and reports unsupported timestamptz reads" {
+async test "duckdb decodes timestamps and timestamptz" {
   let engine = open_test_duckdb()
   let local_time = try! @time.PlainDateTime::from_string("2026-07-10T12:00:00")
   let zoned = try! @time.ZonedDateTime::from_string("2026-07-10T12:00:00Z")
@@ -239,8 +239,27 @@ async test "duckdb normalizes timestamps and reports unsupported timestamptz rea
   )
   inspect(decoded_local == local_time, content="true")
   let uncast = engine.exec_raw("SELECT zoned_time FROM temporal", [])
-  inspect(uncast.ok, content="false")
-  inspect(uncast.error is Some(_), content="true")
+  inspect(uncast.ok, content="true")
+  let decoded_zoned : @time.ZonedDateTime = try! @morm/engine.from_param(
+    uncast.rows[0]["zoned_time"],
+  )
+  inspect(decoded_zoned.to_string(), content="2026-07-10T12:00:00Z")
+  let offset = engine.exec_raw(
+    "SELECT TIMESTAMPTZ '2026-07-10 20:00:00.123456+08:00' AS zoned_time",
+    [],
+  )
+  inspect(offset.ok, content="true")
+  let normalized : @time.ZonedDateTime = try! @morm/engine.from_param(
+    offset.rows[0]["zoned_time"],
+  )
+  let expected = try! @time.ZonedDateTime::from_string(
+    "2026-07-10T20:00:00.123456+08:00",
+  )
+  inspect(
+    normalized.to_unix_second() == expected.to_unix_second(),
+    content="true",
+  )
+  inspect(normalized.nanosecond() == expected.nanosecond(), content="true")
   let cast = engine.exec_raw(
     "SELECT CAST(zoned_time AS VARCHAR) AS zoned_text FROM temporal",
     [],
