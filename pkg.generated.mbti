@@ -206,6 +206,12 @@ pub(all) struct Association {
   join_owner_key : String?
   join_target_key : String?
 } derive(Eq, ToJson, @json.FromJson)
+pub fn Association::equal(Self, Self) -> Bool
+pub fn Association::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Association::not_equal(Self, Self) -> Bool
+pub fn Association::output(Self, &Logger) -> Unit
+pub fn Association::to_json(Self) -> Json
+pub fn Association::to_string(Self) -> String
 pub impl Show for Association
 
 pub(all) enum AssociationKind {
@@ -214,6 +220,12 @@ pub(all) enum AssociationKind {
   HasMany
   ManyToMany
 } derive(Eq, ToJson, @json.FromJson)
+pub fn AssociationKind::equal(Self, Self) -> Bool
+pub fn AssociationKind::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn AssociationKind::not_equal(Self, Self) -> Bool
+pub fn AssociationKind::output(Self, &Logger) -> Unit
+pub fn AssociationKind::to_json(Self) -> Json
+pub fn AssociationKind::to_string(Self) -> String
 pub impl Show for AssociationKind
 
 pub(all) struct ColumnDiff {
@@ -221,17 +233,32 @@ pub(all) struct ColumnDiff {
   removed : FixedArray[@table.Column]
   changed : FixedArray[(String, @table.Column, @table.Column)]
 } derive(Eq, ToJson)
+pub fn ColumnDiff::equal(Self, Self) -> Bool
+pub fn ColumnDiff::not_equal(Self, Self) -> Bool
+pub fn ColumnDiff::output(Self, &Logger) -> Unit
+pub fn ColumnDiff::to_json(Self) -> Json
+pub fn ColumnDiff::to_string(Self) -> String
 pub impl Show for ColumnDiff
 
 pub(all) struct DbError {
   message : String
 } derive(ToJson)
+pub fn DbError::output(Self, &Logger) -> Unit
+pub fn DbError::to_json(Self) -> Json
+pub fn DbError::to_string(Self) -> String
 pub impl Show for DbError
 
 pub struct DeleteQuery {
   stmt : @engine.DeleteStatement
 } derive(Eq, ToJson, @json.FromJson)
+pub fn DeleteQuery::equal(Self, Self) -> Bool
 pub fn[E : Entity] DeleteQuery::from(Self, E) -> Self
+pub fn DeleteQuery::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn DeleteQuery::not_equal(Self, Self) -> Bool
+pub fn DeleteQuery::output(Self, &Logger) -> Unit
+pub fn DeleteQuery::to_json(Self) -> Json
+pub fn DeleteQuery::to_query(Self) -> @engine.Query
+pub fn DeleteQuery::to_string(Self) -> String
 pub fn[V : @engine.ToParam] DeleteQuery::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] DeleteQuery::where_gte(Self, String, V) -> Self
@@ -247,6 +274,12 @@ pub(all) struct ForeignKeyDiff {
   removed : FixedArray[@table.ForeignKey]
   changed : FixedArray[(String, @table.ForeignKey, @table.ForeignKey)]
 } derive(Eq, ToJson, @json.FromJson)
+pub fn ForeignKeyDiff::equal(Self, Self) -> Bool
+pub fn ForeignKeyDiff::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn ForeignKeyDiff::not_equal(Self, Self) -> Bool
+pub fn ForeignKeyDiff::output(Self, &Logger) -> Unit
+pub fn ForeignKeyDiff::to_json(Self) -> Json
+pub fn ForeignKeyDiff::to_string(Self) -> String
 pub impl Show for ForeignKeyDiff
 
 pub(all) struct IndexDiff {
@@ -254,14 +287,27 @@ pub(all) struct IndexDiff {
   removed : FixedArray[@table.Index]
   changed : FixedArray[(String, @table.Index, @table.Index)]
 } derive(Eq, ToJson, @json.FromJson)
+pub fn IndexDiff::equal(Self, Self) -> Bool
+pub fn IndexDiff::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn IndexDiff::not_equal(Self, Self) -> Bool
+pub fn IndexDiff::output(Self, &Logger) -> Unit
+pub fn IndexDiff::to_json(Self) -> Json
+pub fn IndexDiff::to_string(Self) -> String
 pub impl Show for IndexDiff
 
 pub struct InsertQuery {
   stmt : @engine.InsertStatement
 } derive(Eq, ToJson, @json.FromJson)
 pub fn InsertQuery::columns(Self, FixedArray[String]) -> Self
+pub fn InsertQuery::equal(Self, Self) -> Bool
 pub fn[E : Entity] InsertQuery::from(Self, E) -> Self
+pub fn InsertQuery::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn[E : Entity] InsertQuery::from_many(Self, FixedArray[E]) -> Self
+pub fn InsertQuery::not_equal(Self, Self) -> Bool
+pub fn InsertQuery::output(Self, &Logger) -> Unit
+pub fn InsertQuery::to_json(Self) -> Json
+pub fn InsertQuery::to_query(Self) -> @engine.Query
+pub fn InsertQuery::to_string(Self) -> String
 pub fn InsertQuery::values(Self, FixedArray[&@engine.ToParam]) -> Self
 pub fn InsertQuery::values_many(Self, FixedArray[FixedArray[&@engine.ToParam]]) -> Self
 pub impl Show for InsertQuery
@@ -275,11 +321,18 @@ pub(all) enum PreloadResult[T] {
 pub struct Query {
   stmt : @engine.SelectStatement
 } derive(Eq, ToJson, @json.FromJson)
+pub fn Query::equal(Self, Self) -> Bool
+pub fn Query::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Query::join(Self, String) -> Self
 pub fn Query::limit(Self, Int) -> Self
+pub fn Query::not_equal(Self, Self) -> Bool
 pub fn Query::offset(Self, Int) -> Self
 pub fn Query::order_by(Self, @engine.OrderBy) -> Self
+pub fn Query::output(Self, &Logger) -> Unit
 pub fn Query::to_count_sql(Self) -> String
+pub fn Query::to_json(Self) -> Json
+pub fn Query::to_query(Self) -> @engine.Query
+pub fn Query::to_string(Self) -> String
 pub fn[V : @engine.ToParam] Query::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] Query::where_gte(Self, String, V) -> Self
@@ -295,6 +348,11 @@ pub(all) struct TableDiff {
   indexes : IndexDiff
   foreign_keys : ForeignKeyDiff
 } derive(Eq, ToJson)
+pub fn TableDiff::equal(Self, Self) -> Bool
+pub fn TableDiff::not_equal(Self, Self) -> Bool
+pub fn TableDiff::output(Self, &Logger) -> Unit
+pub fn TableDiff::to_json(Self) -> Json
+pub fn TableDiff::to_string(Self) -> String
 pub impl Show for TableDiff
 
 pub struct TxBatch[E] {
@@ -309,14 +367,28 @@ pub async fn[E : @engine.Engine] TxBatch::savepoint(Self[E], String) -> @engine.
 pub struct TxQuery {
   op : @engine.TxOp
 } derive(Eq, ToJson, @json.FromJson)
+pub fn TxQuery::equal(Self, Self) -> Bool
+pub fn TxQuery::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn TxQuery::not_equal(Self, Self) -> Bool
+pub fn TxQuery::output(Self, &Logger) -> Unit
+pub fn TxQuery::to_json(Self) -> Json
+pub fn TxQuery::to_query(Self) -> @engine.Query
+pub fn TxQuery::to_string(Self) -> String
 pub impl Show for TxQuery
 pub impl @engine.QueryBuilder for TxQuery
 
 pub struct UpdateQuery {
   stmt : @engine.UpdateStatement
 } derive(Eq, ToJson, @json.FromJson)
+pub fn UpdateQuery::equal(Self, Self) -> Bool
 pub fn[E : Entity] UpdateQuery::from(Self, E) -> Self
+pub fn UpdateQuery::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn UpdateQuery::not_equal(Self, Self) -> Bool
+pub fn UpdateQuery::output(Self, &Logger) -> Unit
 pub fn[V : @engine.ToParam] UpdateQuery::set(Self, String, V) -> Self
+pub fn UpdateQuery::to_json(Self) -> Json
+pub fn UpdateQuery::to_query(Self) -> @engine.Query
+pub fn UpdateQuery::to_string(Self) -> String
 pub fn[V : @engine.ToParam] UpdateQuery::where_eq(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_gt(Self, String, V) -> Self
 pub fn[V : @engine.ToParam] UpdateQuery::where_gte(Self, String, V) -> Self
@@ -331,9 +403,16 @@ pub struct UpsertQuery {
   stmt : @engine.UpsertStatement
 } derive(Eq, ToJson, @json.FromJson)
 pub fn UpsertQuery::do_update_set(Self, String, @engine.Param) -> Self
+pub fn UpsertQuery::equal(Self, Self) -> Bool
 pub fn[E : Entity] UpsertQuery::from(Self, E) -> Self
+pub fn UpsertQuery::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn UpsertQuery::not_equal(Self, Self) -> Bool
 pub fn UpsertQuery::on_conflict(Self, FixedArray[String]) -> Self
+pub fn UpsertQuery::output(Self, &Logger) -> Unit
 pub fn UpsertQuery::set(Self, String, @engine.Param) -> Self
+pub fn UpsertQuery::to_json(Self) -> Json
+pub fn UpsertQuery::to_query(Self) -> @engine.Query
+pub fn UpsertQuery::to_string(Self) -> String
 pub impl Show for UpsertQuery
 pub impl @engine.QueryBuilder for UpsertQuery
 

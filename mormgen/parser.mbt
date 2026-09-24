@@ -478,8 +478,8 @@ fn recover_attr_raw(
   attr : @moonbitlang/parser/attribute.Attribute,
 ) -> String {
   let loc = attr.loc
-  let start_str = loc.start.to_string()
-  let end_str = loc.end.to_string()
+  let start_str = Show::to_string(loc.start)
+  let end_str = Show::to_string(loc.end)
 
   let parse_pos = fn(s : String) -> (Int, Int) {
     let mut s = s

@@ -16,6 +16,11 @@ pub fn to_document_bytes(Json) -> Bytes raise BsonError
 pub(all) suberror BsonError {
   BsonError(String)
 } derive(Eq, ToJson)
+pub fn BsonError::equal(Self, Self) -> Bool
+pub fn BsonError::not_equal(Self, Self) -> Bool
+pub fn BsonError::output(Self, &Logger) -> Unit
+pub fn BsonError::to_json(Self) -> Json
+pub fn BsonError::to_string(Self) -> String
 pub impl Show for BsonError
 
 // Types and methods

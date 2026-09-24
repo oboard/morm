@@ -19,6 +19,7 @@ pub(all) struct Post {
   status : PostStatus
 } derive(ToJson, @json.FromJson)
 pub fn Post::_from(Map[String, @engine.Param]) -> Self
+pub fn Post::from_param(@engine.Param) -> Self raise @engine.ParamDecodeError
 pub fn Post::table() -> @table.Table
 pub impl @morm.Entity for Post
 pub impl @engine.FromParam for Post
@@ -28,6 +29,8 @@ pub(all) enum PostStatus {
   Published
   Archived
 } derive(ToJson, @json.FromJson)
+pub fn PostStatus::from_param(@engine.Param) -> Self raise @engine.ParamDecodeError
+pub fn PostStatus::to_param(Self) -> @engine.Param
 pub impl Show for PostStatus
 pub impl @engine.FromParam for PostStatus
 pub impl @engine.ToParam for PostStatus

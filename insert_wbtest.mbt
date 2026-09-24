@@ -6,6 +6,12 @@ struct InsertAutoUser {
 } derive(ToJson, FromJson)
 
 ///|
+pub extend InsertAutoUser with ToJson::{to_json}
+
+///|
+pub extend InsertAutoUser with @json.FromJson::{from_json}
+
+///|
 impl Entity for InsertAutoUser with fn table(_self) -> Table {
   new_table("insert_auto_user", columns=[
     { ..new_column("id", Int), primary_key: true, auto_increment: true, },

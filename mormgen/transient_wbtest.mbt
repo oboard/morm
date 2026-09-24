@@ -19,6 +19,25 @@ test "transient field is not emitted as table column" {
 }
 
 ///|
+test "generated entity explicitly promotes from_param" {
+  let source =
+    #|///|
+    #|#morm.entity
+    #|pub(all) struct Demo {
+    #|  #morm.id
+    #|  id : Int
+    #|} derive(ToJson, FromJson)
+  let (ast, _) = @parser.parse_string(source)
+  let specs = parse_entities_from_ast(ast)
+  let table = transform_entity_to_table(specs[0], source, [])
+  let code = generate_entity_impl(specs[0], table, [])
+  inspect(
+    code.contains("pub extend Demo with @morm/engine.FromParam::{from_param}"),
+    content="true",
+  )
+}
+
+///|
 fn column_option_value(col : @morm.Column, key : String) -> String? {
   match col.engine_options.get(key) {
     Some([value, ..]) => Some(value)

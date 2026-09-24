@@ -57,7 +57,7 @@ pub impl UserMapper for UserMapperImpl with fn delete_by_id(self, id : Int) -> B
 }
 
 ///|
-extend UserMapperImpl with UserMapper::{
+pub extend UserMapperImpl with UserMapper::{
   save,
   find_user_by_id,
   update,

@@ -1,6 +1,6 @@
 ///|
 test "tns connect packet basic" {
-  let p = build_tns_connect_packet(
+  let p = @oracle.build_tns_connect_packet(
     "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))",
     0x2000, 0x2000, 317, 300,
   )

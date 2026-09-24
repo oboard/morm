@@ -14,6 +14,15 @@ pub impl Show for Status with fn output(self : Status, logger : &Logger) {
 }
 
 ///|
+pub extend Status with ToJson::{to_json}
+
+///|
+pub extend Status with @json.FromJson::{from_json}
+
+///|
+pub extend Status with Show::{to_string, output}
+
+///|
 test "enum param helpers round trip through JSON string form" {
   let param = try! enum_to_param(Status::Published)
   inspect(param.to_json().stringify(), content="\"Published\"")

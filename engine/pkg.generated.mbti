@@ -58,6 +58,11 @@ pub fn[T : ToParam] to_param(T) -> Param
 pub(all) suberror ParamDecodeError {
   ParamDecodeError(String)
 } derive(Eq, ToJson)
+pub fn ParamDecodeError::equal(Self, Self) -> Bool
+pub fn ParamDecodeError::not_equal(Self, Self) -> Bool
+pub fn ParamDecodeError::output(Self, &Logger) -> Unit
+pub fn ParamDecodeError::to_json(Self) -> Json
+pub fn ParamDecodeError::to_string(Self) -> String
 pub impl Show for ParamDecodeError
 
 // Types and methods
@@ -75,6 +80,12 @@ pub(all) struct DeleteStatement {
   from : String
   where_ : FixedArray[Where]
 } derive(Eq, ToJson, @json.FromJson)
+pub fn DeleteStatement::equal(Self, Self) -> Bool
+pub fn DeleteStatement::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn DeleteStatement::not_equal(Self, Self) -> Bool
+pub fn DeleteStatement::output(Self, &Logger) -> Unit
+pub fn DeleteStatement::to_json(Self) -> Json
+pub fn DeleteStatement::to_string(Self) -> String
 pub impl Show for DeleteStatement
 
 pub(all) struct InsertStatement {
@@ -83,12 +94,24 @@ pub(all) struct InsertStatement {
   values : FixedArray[Param]
   rows : FixedArray[FixedArray[Param]]
 } derive(Eq, ToJson, @json.FromJson)
+pub fn InsertStatement::equal(Self, Self) -> Bool
+pub fn InsertStatement::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn InsertStatement::not_equal(Self, Self) -> Bool
+pub fn InsertStatement::output(Self, &Logger) -> Unit
+pub fn InsertStatement::to_json(Self) -> Json
+pub fn InsertStatement::to_string(Self) -> String
 pub impl Show for InsertStatement
 
 pub(all) enum OrderBy {
   Asc(String)
   Desc(String)
 } derive(Eq, ToJson, @json.FromJson)
+pub fn OrderBy::equal(Self, Self) -> Bool
+pub fn OrderBy::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn OrderBy::not_equal(Self, Self) -> Bool
+pub fn OrderBy::output(Self, &Logger) -> Unit
+pub fn OrderBy::to_json(Self) -> Json
+pub fn OrderBy::to_string(Self) -> String
 pub impl Show for OrderBy
 
 pub(all) struct Page[T] {
@@ -101,6 +124,13 @@ pub(all) struct Page[T] {
   last : Bool
   empty : Bool
 } derive(Eq, ToJson, @json.FromJson)
+pub fn[T : Eq] Page::equal(Self[T], Self[T]) -> Bool
+pub fn[T : @json.FromJson] Page::from_json(Json, @json.JsonPath) -> Self[T] raise @json.JsonDecodeError
+pub fn[T : FromParam] Page::from_param(Param) -> Self[T] raise ParamDecodeError
+pub fn[T : Eq] Page::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T] Page::output(Self[T], &Logger) -> Unit
+pub fn[T : ToJson] Page::to_json(Self[T]) -> Json
+pub fn[T] Page::to_string(Self[T]) -> String
 pub impl[T] Show for Page[T]
 pub impl[T : FromParam] FromParam for Page[T]
 
@@ -109,6 +139,13 @@ pub(all) struct Pageable {
   size : Int
   sort : Sort?
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Pageable::equal(Self, Self) -> Bool
+pub fn Pageable::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Pageable::not_equal(Self, Self) -> Bool
+pub fn Pageable::output(Self, &Logger) -> Unit
+pub fn Pageable::to_json(Self) -> Json
+pub fn Pageable::to_repr(Self) -> @debug.Repr
+pub fn Pageable::to_string(Self) -> String
 pub impl Show for Pageable
 
 pub(all) enum Param {
@@ -135,6 +172,14 @@ pub(all) enum Param {
   String(String)
   Bytes(Bytes)
 }
+pub fn Param::equal(Self, Self) -> Bool
+pub fn Param::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Param::from_param(Self) -> Self raise ParamDecodeError
+pub fn Param::not_equal(Self, Self) -> Bool
+pub fn Param::output(Self, &Logger) -> Unit
+pub fn Param::to_json(Self) -> Json
+pub fn Param::to_param(Self) -> Self
+pub fn Param::to_string(Self) -> String
 pub impl Eq for Param
 pub impl Show for Param
 pub impl ToJson for Param
@@ -147,6 +192,13 @@ pub(all) enum Query {
   Raw(String, FixedArray[Param])
   Tx(TxOp)
 } derive(Eq, ToJson, @json.FromJson)
+pub fn Query::equal(Self, Self) -> Bool
+pub fn Query::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Query::not_equal(Self, Self) -> Bool
+pub fn Query::output(Self, &Logger) -> Unit
+pub fn Query::to_json(Self) -> Json
+pub fn Query::to_query(Self) -> Self
+pub fn Query::to_string(Self) -> String
 pub impl Show for Query
 pub impl QueryBuilder for Query
 
@@ -156,6 +208,12 @@ pub(all) struct QueryResult {
   rows : FixedArray[Map[String, Param]]
   error : String?
 } derive(Eq, ToJson, @json.FromJson)
+pub fn QueryResult::equal(Self, Self) -> Bool
+pub fn QueryResult::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn QueryResult::not_equal(Self, Self) -> Bool
+pub fn QueryResult::output(Self, &Logger) -> Unit
+pub fn QueryResult::to_json(Self) -> Json
+pub fn QueryResult::to_string(Self) -> String
 pub impl Show for QueryResult
 
 pub(all) struct SelectStatement {
@@ -167,24 +225,50 @@ pub(all) struct SelectStatement {
   limit : Int?
   offset : Int?
 } derive(Eq, ToJson, @json.FromJson)
+pub fn SelectStatement::equal(Self, Self) -> Bool
+pub fn SelectStatement::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn SelectStatement::not_equal(Self, Self) -> Bool
+pub fn SelectStatement::output(Self, &Logger) -> Unit
+pub fn SelectStatement::to_json(Self) -> Json
+pub fn SelectStatement::to_string(Self) -> String
 pub impl Show for SelectStatement
 
 pub(all) struct Set {
   col : String
   value : Param
 } derive(Eq, ToJson, @json.FromJson)
+pub fn Set::equal(Self, Self) -> Bool
+pub fn Set::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Set::not_equal(Self, Self) -> Bool
+pub fn Set::output(Self, &Logger) -> Unit
+pub fn Set::to_json(Self) -> Json
+pub fn Set::to_string(Self) -> String
 pub impl Show for Set
 
 pub(all) struct Sort {
   property : String
   direction : SortDirection
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Sort::equal(Self, Self) -> Bool
+pub fn Sort::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Sort::not_equal(Self, Self) -> Bool
+pub fn Sort::output(Self, &Logger) -> Unit
+pub fn Sort::to_json(Self) -> Json
+pub fn Sort::to_repr(Self) -> @debug.Repr
+pub fn Sort::to_string(Self) -> String
 pub impl Show for Sort
 
 pub(all) enum SortDirection {
   Asc
   Desc
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn SortDirection::equal(Self, Self) -> Bool
+pub fn SortDirection::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn SortDirection::not_equal(Self, Self) -> Bool
+pub fn SortDirection::output(Self, &Logger) -> Unit
+pub fn SortDirection::to_json(Self) -> Json
+pub fn SortDirection::to_repr(Self) -> @debug.Repr
+pub fn SortDirection::to_string(Self) -> String
 pub impl Show for SortDirection
 
 pub(all) enum Statement {
@@ -194,6 +278,12 @@ pub(all) enum Statement {
   Update(UpdateStatement)
   Delete(DeleteStatement)
 } derive(Eq, ToJson, @json.FromJson)
+pub fn Statement::equal(Self, Self) -> Bool
+pub fn Statement::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Statement::not_equal(Self, Self) -> Bool
+pub fn Statement::output(Self, &Logger) -> Unit
+pub fn Statement::to_json(Self) -> Json
+pub fn Statement::to_string(Self) -> String
 pub impl Show for Statement
 
 pub(all) enum TxOp {
@@ -203,6 +293,12 @@ pub(all) enum TxOp {
   Savepoint(String)
   RollbackToSavepoint(String)
 } derive(Eq, ToJson, @json.FromJson)
+pub fn TxOp::equal(Self, Self) -> Bool
+pub fn TxOp::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn TxOp::not_equal(Self, Self) -> Bool
+pub fn TxOp::output(Self, &Logger) -> Unit
+pub fn TxOp::to_json(Self) -> Json
+pub fn TxOp::to_string(Self) -> String
 pub impl Show for TxOp
 
 pub(all) struct UpdateStatement {
@@ -210,6 +306,12 @@ pub(all) struct UpdateStatement {
   sets : FixedArray[Set]
   where_ : FixedArray[Where]
 } derive(Eq, ToJson, @json.FromJson)
+pub fn UpdateStatement::equal(Self, Self) -> Bool
+pub fn UpdateStatement::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn UpdateStatement::not_equal(Self, Self) -> Bool
+pub fn UpdateStatement::output(Self, &Logger) -> Unit
+pub fn UpdateStatement::to_json(Self) -> Json
+pub fn UpdateStatement::to_string(Self) -> String
 pub impl Show for UpdateStatement
 
 pub(all) struct UpsertStatement {
@@ -218,6 +320,12 @@ pub(all) struct UpsertStatement {
   conflict_target : FixedArray[String]
   update_sets : FixedArray[Set]
 } derive(Eq, ToJson, @json.FromJson)
+pub fn UpsertStatement::equal(Self, Self) -> Bool
+pub fn UpsertStatement::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn UpsertStatement::not_equal(Self, Self) -> Bool
+pub fn UpsertStatement::output(Self, &Logger) -> Unit
+pub fn UpsertStatement::to_json(Self) -> Json
+pub fn UpsertStatement::to_string(Self) -> String
 pub impl Show for UpsertStatement
 
 pub(all) struct Where {
@@ -225,6 +333,12 @@ pub(all) struct Where {
   value : Param
   ty : WhereType
 } derive(Eq, ToJson, @json.FromJson)
+pub fn Where::equal(Self, Self) -> Bool
+pub fn Where::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Where::not_equal(Self, Self) -> Bool
+pub fn Where::output(Self, &Logger) -> Unit
+pub fn Where::to_json(Self) -> Json
+pub fn Where::to_string(Self) -> String
 pub impl Show for Where
 
 pub(all) enum WhereType {
@@ -236,6 +350,12 @@ pub(all) enum WhereType {
   Lte
   Like
 } derive(Eq, ToJson, @json.FromJson)
+pub fn WhereType::equal(Self, Self) -> Bool
+pub fn WhereType::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn WhereType::not_equal(Self, Self) -> Bool
+pub fn WhereType::output(Self, &Logger) -> Unit
+pub fn WhereType::to_json(Self) -> Json
+pub fn WhereType::to_string(Self) -> String
 pub impl Show for WhereType
 
 // Type aliases

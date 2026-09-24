@@ -90,6 +90,7 @@ pub suberror SqliteError {
   SqliteError((Int, SourceLoc))
 }
 pub fn SqliteError::message(Self) -> String
+pub fn SqliteError::to_repr(Self) -> @debug.Repr
 pub impl @debug.Debug for SqliteError
 
 // Types and methods
@@ -104,7 +105,13 @@ pub fn Connection::open(String, loc~ : SourceLoc) -> Self raise SqliteError
 pub fn Connection::prepare(Self, String, loc~ : SourceLoc) -> Statement raise SqliteError
 
 type SQLiteEngine
+pub fn SQLiteEngine::close(Self) -> Unit
+pub async fn SQLiteEngine::exec(Self, &@engine.QueryBuilder) -> @engine.QueryResult
+pub async fn SQLiteEngine::exec_raw(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
+pub async fn SQLiteEngine::migrate_table(Self, @table.Table) -> @engine.QueryResult
 pub fn SQLiteEngine::open(String) -> Self
+pub async fn SQLiteEngine::page(Self, &@engine.QueryBuilder, @engine.Pageable) -> @engine.QueryResult
+pub async fn SQLiteEngine::page_raw(Self, String, FixedArray[@engine.Param], @engine.Pageable) -> @engine.QueryResult
 pub impl @engine.Engine for SQLiteEngine
 
 pub(all) enum SQLiteValue {
@@ -114,6 +121,13 @@ pub(all) enum SQLiteValue {
   Text(String)
   Blob(Bytes)
 } derive(Eq)
+pub fn SQLiteValue::equal(Self, Self) -> Bool
+pub fn SQLiteValue::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn SQLiteValue::not_equal(Self, Self) -> Bool
+pub fn SQLiteValue::output(Self, &Logger) -> Unit
+pub fn SQLiteValue::to_json(Self) -> Json
+pub fn SQLiteValue::to_param(Self) -> @engine.Param
+pub fn SQLiteValue::to_string(Self) -> String
 pub impl Show for SQLiteValue
 pub impl ToJson for SQLiteValue
 pub impl @json.FromJson for SQLiteValue

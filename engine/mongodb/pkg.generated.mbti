@@ -24,6 +24,7 @@ pub(all) struct MongoDBEngine {
 }
 pub async fn MongoDBEngine::aggregate(Self, String, FixedArray[Json], allow_disk_use? : Bool, limit? : Int?) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::bulk_write(Self, String, FixedArray[Json], ordered? : Bool) -> Result[FixedArray[Json], String]
+pub fn MongoDBEngine::close(Self) -> Unit
 pub async fn MongoDBEngine::count_documents(Self, String, filter? : Json) -> Result[Int, String]
 pub async fn MongoDBEngine::create_index(Self, String, Json, name? : String?, unique? : Bool, sparse? : Bool) -> Result[Json, String]
 pub async fn MongoDBEngine::create_indexes(Self, String, FixedArray[Json]) -> Result[Json, String]
@@ -37,6 +38,8 @@ pub async fn MongoDBEngine::drop_index(Self, String, String) -> Result[Json, Str
 pub async fn MongoDBEngine::drop_indexes(Self, String) -> Result[Json, String]
 pub async fn MongoDBEngine::drop_search_index(Self, String, String) -> Result[Json, String]
 pub async fn MongoDBEngine::estimated_document_count(Self, String) -> Result[Int, String]
+pub async fn MongoDBEngine::exec(Self, &@engine.QueryBuilder) -> @engine.QueryResult
+pub async fn MongoDBEngine::exec_raw(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
 pub async fn MongoDBEngine::find(Self, String, Json, projection? : Json?, sort? : Json?, limit? : Int?, skip? : Int?) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::find_one(Self, String, Json, projection? : Json?, sort? : Json?) -> Result[Json?, String]
 pub async fn MongoDBEngine::find_one_and_delete(Self, String, Json) -> Result[Json?, String]
@@ -47,7 +50,10 @@ pub async fn MongoDBEngine::insert_one(Self, String, Json) -> Result[Json, Strin
 pub async fn MongoDBEngine::list_index_names(Self, String) -> Result[FixedArray[String], String]
 pub async fn MongoDBEngine::list_indexes(Self, String) -> Result[FixedArray[Json], String]
 pub async fn MongoDBEngine::list_search_indexes(Self, String, name? : String?) -> Result[FixedArray[Json], String]
+pub async fn MongoDBEngine::migrate_table(Self, @table.Table) -> @engine.QueryResult
 pub fn MongoDBEngine::open(String) -> Result[Self, String]
+pub async fn MongoDBEngine::page(Self, &@engine.QueryBuilder, @engine.Pageable) -> @engine.QueryResult
+pub async fn MongoDBEngine::page_raw(Self, String, FixedArray[@engine.Param], @engine.Pageable) -> @engine.QueryResult
 pub async fn MongoDBEngine::replace_one(Self, String, Json, Json, upsert? : Bool) -> Result[Json, String]
 pub async fn MongoDBEngine::run_command_json(Self, Json) -> Result[Json, String]
 pub async fn MongoDBEngine::update_many(Self, String, Json, Json, upsert? : Bool) -> Result[Json, String]

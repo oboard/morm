@@ -1,8 +1,6 @@
 import {
   "moonbitlang/async/socket",
-  "moonbitlang/core/buffer",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/json",
   "moonbitlang/core/string",
   "oboard/morm/engine" @morm/engine,
   "oboard/morm/table",

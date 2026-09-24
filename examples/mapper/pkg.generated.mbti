@@ -19,6 +19,7 @@ pub struct User {
   active : Int
 } derive(ToJson, @json.FromJson)
 pub fn User::_from(Map[String, @engine.Param]) -> Self
+pub fn User::from_param(@engine.Param) -> Self raise @engine.ParamDecodeError
 pub fn User::table() -> @table.Table
 pub impl @morm.Entity for User
 pub impl @engine.FromParam for User
@@ -27,6 +28,9 @@ pub struct UserMapperImpl {
   engine : &@engine.Engine
 }
 pub fn UserMapperImpl::UserMapperImpl(&@engine.Engine) -> Self
+pub async fn UserMapperImpl::find_user_by_id(Self, Int) -> User?
+pub async fn UserMapperImpl::find_users_by_active(Self, Int) -> FixedArray[User]
+pub async fn UserMapperImpl::find_users_page_by_active(Self, Int, @engine.Pageable) -> @engine.Page[User]
 pub impl UserMapper for UserMapperImpl
 
 // Type aliases

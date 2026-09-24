@@ -21,7 +21,13 @@ pub struct MySQLEngine {
   pool : @engine.ConnectionPool[@socket.Tcp]
   mut tx_conn : @socket.Tcp?
 }
+pub fn MySQLEngine::close(Self) -> Unit
+pub async fn MySQLEngine::exec(Self, &@engine.QueryBuilder) -> @engine.QueryResult
+pub async fn MySQLEngine::exec_raw(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
+pub async fn MySQLEngine::migrate_table(Self, @table.Table) -> @engine.QueryResult
 pub fn MySQLEngine::open(String) -> Result[Self, String]
+pub async fn MySQLEngine::page(Self, &@engine.QueryBuilder, @engine.Pageable) -> @engine.QueryResult
+pub async fn MySQLEngine::page_raw(Self, String, FixedArray[@engine.Param], @engine.Pageable) -> @engine.QueryResult
 pub async fn MySQLEngine::ping(Self) -> Bool
 pub impl @engine.Engine for MySQLEngine
 

@@ -9,6 +9,12 @@ pub impl @morm/engine.FromParam for PostStatus with fn from_param(value) {
 }
 
 ///|
+pub extend PostStatus with @morm/engine.ToParam::{to_param}
+
+///|
+pub extend PostStatus with @morm/engine.FromParam::{from_param}
+
+///|
 pub impl @morm.Entity for Post with fn table(_self) -> @morm.Table {
   Post::table()
 }
@@ -113,3 +119,6 @@ pub impl @morm/engine.FromParam for Post with fn from_param(value) {
     _ => raise ParamDecodeError("Post::from_param: expected Json object row")
   }
 }
+
+///|
+pub extend Post with @morm/engine.FromParam::{from_param}

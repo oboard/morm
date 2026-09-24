@@ -24,6 +24,11 @@ pub(all) struct Column {
   collation : String?
   engine_options : Map[String, Array[String]]
 } derive(Eq, ToJson)
+pub fn Column::equal(Self, Self) -> Bool
+pub fn Column::not_equal(Self, Self) -> Bool
+pub fn Column::output(Self, &Logger) -> Unit
+pub fn Column::to_json(Self) -> Json
+pub fn Column::to_string(Self) -> String
 pub impl Show for Column
 
 pub(all) enum ColumnType {
@@ -55,6 +60,19 @@ pub(all) enum ColumnType {
   Enum(String, FixedArray[String])
   Boolean
 } derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub fn ColumnType::compare(Self, Self) -> Int
+pub fn ColumnType::equal(Self, Self) -> Bool
+pub fn ColumnType::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn ColumnType::hash(Self) -> Int
+pub fn ColumnType::hash_combine(Self, Hasher) -> Unit
+pub fn ColumnType::not_equal(Self, Self) -> Bool
+pub fn ColumnType::op_ge(Self, Self) -> Bool
+pub fn ColumnType::op_gt(Self, Self) -> Bool
+pub fn ColumnType::op_le(Self, Self) -> Bool
+pub fn ColumnType::op_lt(Self, Self) -> Bool
+pub fn ColumnType::output(Self, &Logger) -> Unit
+pub fn ColumnType::to_json(Self) -> Json
+pub fn ColumnType::to_string(Self) -> String
 pub impl Show for ColumnType
 
 pub(all) struct ForeignKey {
@@ -65,6 +83,19 @@ pub(all) struct ForeignKey {
   on_delete : String
   on_update : String
 } derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub fn ForeignKey::compare(Self, Self) -> Int
+pub fn ForeignKey::equal(Self, Self) -> Bool
+pub fn ForeignKey::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn ForeignKey::hash(Self) -> Int
+pub fn ForeignKey::hash_combine(Self, Hasher) -> Unit
+pub fn ForeignKey::not_equal(Self, Self) -> Bool
+pub fn ForeignKey::op_ge(Self, Self) -> Bool
+pub fn ForeignKey::op_gt(Self, Self) -> Bool
+pub fn ForeignKey::op_le(Self, Self) -> Bool
+pub fn ForeignKey::op_lt(Self, Self) -> Bool
+pub fn ForeignKey::output(Self, &Logger) -> Unit
+pub fn ForeignKey::to_json(Self) -> Json
+pub fn ForeignKey::to_string(Self) -> String
 pub impl Show for ForeignKey
 
 pub(all) struct Index {
@@ -73,6 +104,19 @@ pub(all) struct Index {
   columns : FixedArray[String]
   comment : String
 } derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub fn Index::compare(Self, Self) -> Int
+pub fn Index::equal(Self, Self) -> Bool
+pub fn Index::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Index::hash(Self) -> Int
+pub fn Index::hash_combine(Self, Hasher) -> Unit
+pub fn Index::not_equal(Self, Self) -> Bool
+pub fn Index::op_ge(Self, Self) -> Bool
+pub fn Index::op_gt(Self, Self) -> Bool
+pub fn Index::op_le(Self, Self) -> Bool
+pub fn Index::op_lt(Self, Self) -> Bool
+pub fn Index::output(Self, &Logger) -> Unit
+pub fn Index::to_json(Self) -> Json
+pub fn Index::to_string(Self) -> String
 pub impl Show for Index
 
 pub(all) enum IndexType {
@@ -82,6 +126,19 @@ pub(all) enum IndexType {
   FullText
   Spatial
 } derive(Compare, Eq, Hash, ToJson, @json.FromJson)
+pub fn IndexType::compare(Self, Self) -> Int
+pub fn IndexType::equal(Self, Self) -> Bool
+pub fn IndexType::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn IndexType::hash(Self) -> Int
+pub fn IndexType::hash_combine(Self, Hasher) -> Unit
+pub fn IndexType::not_equal(Self, Self) -> Bool
+pub fn IndexType::op_ge(Self, Self) -> Bool
+pub fn IndexType::op_gt(Self, Self) -> Bool
+pub fn IndexType::op_le(Self, Self) -> Bool
+pub fn IndexType::op_lt(Self, Self) -> Bool
+pub fn IndexType::output(Self, &Logger) -> Unit
+pub fn IndexType::to_json(Self) -> Json
+pub fn IndexType::to_string(Self) -> String
 pub impl Show for IndexType
 
 pub(all) struct Table {
@@ -101,6 +158,11 @@ pub(all) struct Table {
   auto_increment : Int?
   engine_options : Map[String, Array[String]]
 } derive(Eq, ToJson)
+pub fn Table::equal(Self, Self) -> Bool
+pub fn Table::not_equal(Self, Self) -> Bool
+pub fn Table::output(Self, &Logger) -> Unit
+pub fn Table::to_json(Self) -> Json
+pub fn Table::to_string(Self) -> String
 pub impl Show for Table
 
 // Type aliases

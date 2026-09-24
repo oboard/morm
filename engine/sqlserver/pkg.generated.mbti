@@ -18,7 +18,13 @@ pub struct SQLServerEngine {
   password : String
   database : String
 }
+pub fn SQLServerEngine::close(Self) -> Unit
+pub async fn SQLServerEngine::exec(Self, &@engine.QueryBuilder) -> @engine.QueryResult
+pub async fn SQLServerEngine::exec_raw(Self, String, FixedArray[@engine.Param]) -> @engine.QueryResult
+pub async fn SQLServerEngine::migrate_table(Self, @table.Table) -> @engine.QueryResult
 pub fn SQLServerEngine::open(String) -> Result[Self, String]
+pub async fn SQLServerEngine::page(Self, &@engine.QueryBuilder, @engine.Pageable) -> @engine.QueryResult
+pub async fn SQLServerEngine::page_raw(Self, String, FixedArray[@engine.Param], @engine.Pageable) -> @engine.QueryResult
 pub async fn SQLServerEngine::ping(Self) -> Bool
 pub impl @engine.Engine for SQLServerEngine
 
