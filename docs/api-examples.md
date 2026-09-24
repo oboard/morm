@@ -487,8 +487,8 @@ This combines:
 Inside this repository:
 
 ```bash
-moon run mormgen -- example/entities.mbt -o example/entities.g.mbt
-moon run mormgen -- example/mapper.mbt -o example/mapper.g.mbt
+moonx oboard/morm/mormgen -- example/entities.mbt -o example/entities.g.mbt
+moonx oboard/morm/mormgen -- example/mapper.mbt -o example/mapper.g.mbt
 ```
 
 Inside a dependent project, the packaged binary is typically called by your `pre-build` hook:

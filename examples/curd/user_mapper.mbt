@@ -1,7 +1,7 @@
 ///|
 // Generate code:
-// moon run mormgen -- examples/curd/user.mbt -o examples/curd/user.g.mbt
-// moon run mormgen -- examples/curd/user_mapper.mbt -o examples/curd/user_mapper.g.mbt
+// moonx oboard/morm/mormgen -- examples/curd/user.mbt -o examples/curd/user.g.mbt
+// moonx oboard/morm/mormgen -- examples/curd/user_mapper.mbt -o examples/curd/user_mapper.g.mbt
 
 ///|
 #morm.mapper(table="user")

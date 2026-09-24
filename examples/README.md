@@ -29,8 +29,8 @@ moon run examples/curd
 To regenerate mapper code:
 
 ```bash
-moon run mormgen -- examples/enum/schema.mbt -o examples/enum/generated.mbt
-moon run mormgen -- examples/mapper/schema.mbt -o examples/mapper/generated.mbt
-moon run mormgen -- examples/curd/user.mbt -o examples/curd/user.g.mbt
-moon run mormgen -- examples/curd/user_mapper.mbt -o examples/curd/user_mapper.g.mbt
+moonx oboard/morm/mormgen -- examples/enum/schema.mbt -o examples/enum/generated.mbt
+moonx oboard/morm/mormgen -- examples/mapper/schema.mbt -o examples/mapper/generated.mbt
+moonx oboard/morm/mormgen -- examples/curd/user.mbt -o examples/curd/user.g.mbt
+moonx oboard/morm/mormgen -- examples/curd/user_mapper.mbt -o examples/curd/user_mapper.g.mbt
 ```
