@@ -1,0 +1,14 @@
+moon.mod
+  h_c7606fb8f0c97c 6-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "cc6963e21d7516ed17f928efe81bf7554267a790",
+  "prompts": {},
+  "humans": {
+    "h_c7606fb8f0c97c": {
+      "author": "oboard <oboard@outlook.com>"
+    }
+  }
+}
