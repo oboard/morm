@@ -1,0 +1,16 @@
+engine/postgres/pgsql_engine_test.mbt
+  h_c7606fb8f0c97c 4,50,114,162,182,186
+docs/engine-postgresql.md
+  h_c7606fb8f0c97c 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "7fc2940a91d8c36b0ed1c6f4ca04a77e9c0d3db3",
+  "prompts": {},
+  "humans": {
+    "h_c7606fb8f0c97c": {
+      "author": "oboard <oboard@outlook.com>"
+    }
+  }
+}
