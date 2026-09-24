@@ -20,6 +20,7 @@ The project deliberately avoids runtime reflection and hidden ORM state.
 - typed query builders for `select`, `insert`, `upsert`, `update`, and `delete`
 - page-based pagination helpers with sortable `Pageable` (`paginate` / `paginate_raw`)
 - multi-engine support through a shared `Engine` contract
+- native DuckDB support via `f4ah6o/duckdb` for embedded analytics
 - local time-type support for `PlainDate`, `PlainTime`, `PlainDateTime`, and `ZonedDateTime`
 - direct MoonBit enum support in generated `ToParam` / `FromParam` impls and schema metadata
 - generated auto timestamp handling for `created_at` / `updated_at` and explicit timestamp annotations
@@ -52,6 +53,8 @@ import {
 
 Add engine packages such as `"oboard/morm/engine/sqlite3"` as needed by your
 hand-written runtime code.
+For DuckDB, import `"oboard/morm/engine/duckdb"` and install the native
+`libduckdb` library; see [the DuckDB guide](docs/engine-duckdb.md).
 
 This is a breaking generated-code alias change. If your package still imports
 `"oboard/morm/engine"` as the old implicit `@engine` alias, update the alias

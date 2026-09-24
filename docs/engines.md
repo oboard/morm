@@ -28,6 +28,7 @@ This repository includes engine packages for:
 - MySQL
 - PostgreSQL
 - SQLite
+- DuckDB (native)
 - SQL Server
 - Oracle
 
@@ -46,6 +47,7 @@ See [Connection Pooling](./connection-pooling.md).
 Read the dedicated pages for implementation details and operational guidance:
 
 - [SQLite Engine](./engine-sqlite.md)
+- [DuckDB Engine](./engine-duckdb.md)
 - [MySQL Engine](./engine-mysql.md)
 - [PostgreSQL Engine](./engine-postgresql.md)
 - [SQL Server Engine](./engine-sqlserver.md)

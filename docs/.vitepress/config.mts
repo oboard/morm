@@ -57,6 +57,7 @@ export default defineConfig({
             text: 'SQL Engines',
             items: [
               { text: 'SQLite', link: '/engine-sqlite' },
+              { text: 'DuckDB', link: '/engine-duckdb' },
               { text: 'MySQL', link: '/engine-mysql' },
               { text: 'PostgreSQL', link: '/engine-postgresql' },
               { text: 'SQL Server', link: '/engine-sqlserver' },
@@ -131,6 +132,7 @@ export default defineConfig({
                 text: 'SQL 引擎',
                 items: [
                   { text: 'SQLite', link: '/zh/engine-sqlite' },
+                  { text: 'DuckDB', link: '/zh/engine-duckdb' },
                   { text: 'MySQL', link: '/zh/engine-mysql' },
                   { text: 'PostgreSQL', link: '/zh/engine-postgresql' },
                   { text: 'SQL Server', link: '/zh/engine-sqlserver' },

@@ -9,6 +9,7 @@ outline: deep
 ## 内置引擎
 
 - SQLite
+- DuckDB（原生）
 - MySQL
 - PostgreSQL
 - SQL Server
@@ -18,6 +19,7 @@ outline: deep
 ## 引擎专题
 
 - [SQLite 引擎](/zh/engine-sqlite)
+- [DuckDB 引擎](/zh/engine-duckdb)
 - [MySQL 引擎](/zh/engine-mysql)
 - [PostgreSQL 引擎](/zh/engine-postgresql)
 - [SQL Server 引擎](/zh/engine-sqlserver)

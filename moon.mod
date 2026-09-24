@@ -6,6 +6,7 @@ import {
   "moonbitlang/x@0.5.1",
   "moonbitlang/parser@0.3.17",
   "moonbitlang/async@0.21.0",
+  "f4ah6o/duckdb@0.6.3",
 }
 
 readme = "README.mbt.md"
