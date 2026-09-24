@@ -1880,6 +1880,7 @@ fn default_driver_registry() -> Map[String, String] {
   m.set("mssql", "sqlserver")
   m.set("oracle", "oracle")
   m.set("sqlite", "sqlite3")
+  m.set("duckdb", "duckdb")
   m
 }
 

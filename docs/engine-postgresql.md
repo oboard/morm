@@ -16,7 +16,7 @@ using @oboard/morm/engine/postgres as @pgsql
 
 ```moonbit
 let engine = match
-  @pgsql.PgSQLEngine::open("postgres://postgres@127.0.0.1:5432/app_db") {
+  @postgres.PgSQLEngine::open("postgres://postgres@127.0.0.1:5432/app_db") {
   Ok(e) => e
   Err(_) => panic()
 }

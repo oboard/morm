@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/morm/engine/duckdb"
+
+import {
+  "oboard/morm/engine",
+  "oboard/morm/table",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+#external
+pub type Connection
+
+pub struct DuckDBEngine {
+  conn : Connection
+  mut closed : Bool
+}
+pub fn DuckDBEngine::open(String) -> Result[Self, String]
+pub impl @engine.Engine for DuckDBEngine
+
+// Type aliases
+
+// Traits

@@ -231,8 +231,8 @@ These are the attributes you will use most often:
 Inside this repository, the direct commands are:
 
 ```bash
-moon run mormgen -- example/entities.mbt -o example/entities.g.mbt
-moon run mormgen -- example/mapper.mbt -o example/mapper.g.mbt
+moonx oboard/morm/mormgen -- example/entities.mbt -o example/entities.g.mbt
+moonx oboard/morm/mormgen -- example/mapper.mbt -o example/mapper.g.mbt
 ```
 
 Inside a consuming project, the `pre-build` hook usually handles this for you via the packaged `morm-gen` binary.

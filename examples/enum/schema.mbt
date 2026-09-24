@@ -1,6 +1,6 @@
 ///|
 // mormgen source file: run from repo root:
-// moon run mormgen -- examples/enum/schema.mbt -o examples/enum/generated.mbt
+// moonx oboard/morm/mormgen -- examples/enum/schema.mbt -o examples/enum/generated.mbt
 
 ///|
 pub(all) enum PostStatus {

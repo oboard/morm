@@ -6,7 +6,6 @@ MoonBit 生态下的轻量级 ORM。目标很直接：
 - 保持实现透明，允许随时绕过 ORM 手写 SQL
 - 不使用运行时反射，不隐式修改用户语义
 
-
 ## Quick Start
 
 1. 在你的应用 `moon.mod.json` 中添加依赖：
@@ -27,6 +26,8 @@ import {
 ```
 
 如果手写运行时代码还需要具体引擎，再按需导入例如 `"oboard/morm/engine/sqlite3"`。
+DuckDB 使用 `"oboard/morm/engine/duckdb"`，并且需要安装原生 `libduckdb`；
+详见 [DuckDB 引擎说明](docs/zh/engine-duckdb.md)。
 
 这是生成代码包别名的 breaking change；重新生成 `.g.mbt` 前，需要先把旧的隐式
 `@engine` alias 切到 `@morm/engine`。
@@ -66,10 +67,10 @@ pub(all) struct MyEntity {
 ```
 
 支持的注解：
+
 - `#morm.postgres.schema("schema_name")` - 设置 schema，可选 `authorization`
 - `#morm.postgres.table(owner="role", ...)` - 设置表 owner、tablespace、unlogged、on_commit
 - `#morm.postgres.grant(role="role", table="SELECT,INSERT", ...)` - 授予 table/sequence/schema 权限
-
 
 通过在 `struct` 上加少量 `#morm.*` 属性，可以自动生成：
 
@@ -81,7 +82,7 @@ pub(all) struct MyEntity {
 核心设计取舍：
 
 - **类型驱动**：字段的可空性由 `T` / `T?` 决定，而不是依赖大量注解
-- **方言内建**：支持 MySQL / PostgreSQL / Sqlite / SQLServer / Oracle 的建表和占位符差异
+- **方言内建**：支持 MySQL / PostgreSQL / SQLite / DuckDB / SQLServer / Oracle 的建表和占位符差异
 - **Enum 直连**：无 payload 的 MoonBit `enum` 可直接生成 `ToParam/FromParam`，并在支持的数据库上使用原生 enum 类型
 - **SQL 优先**：`Query/Insert/Update/Delete/Upsert` 只负责构造参数化 SQL，不绑定执行层
 - **生成代码**：所有内容都生成成普通 MoonBit 代码（见 `example/*.g.mbt`），可以直接查看和修改
@@ -94,7 +95,7 @@ pub(all) struct MyEntity {
 
 业务层的查询依然以显式 SQL 为主，由用户自己控制每一条语句。
 
-你还需要自己实现一个满足 `@morm/engine.Engine` 的驱动，用来真正连到 MySQL / PostgreSQL / Sqlite 等数据库。`example/generator_test.mbt` 里有一个简化版的 `MySQLEngine` 示例。
+运行时可直接使用内置驱动（如 `@duckdb.DuckDBEngine`）连接数据库，也可以自行实现满足 `@morm/engine.Engine` 的驱动。`example/generator_test.mbt` 里有一个简化版的 `MySQLEngine` 示例。
 
 ## 实体建模与可空性
 
@@ -129,7 +130,7 @@ pub(all) struct Teacher {
 下表列出当前支持的 `#morm` 属性、用法示例与效果说明。
 
 | 属性 | 示例 | 说明 |
-|---|---|---|
+| --- | --- | --- |
 | `#morm.entity` | 置于 `struct` 顶部 | 声明该结构体为 ORM 实体，生成 `impl @morm.Entity` |
 | `#morm.id` | 放在某字段上一行 | 将该列标记为主键；主键总是非空 |
 | `#morm.default(autoincrement())` | 放在主键字段上一行 | 将该列设置为自增，同时 `primary_key=true`、`nullable=false` |
@@ -170,17 +171,17 @@ pub(all) struct Teacher {
 仓库包含一个生成器二进制 `mormgen`（见 `main/main.mbt`），负责把带 `#morm.*` 的源码翻译成实体和 mapper 实现。用法：
 
 ```bash
-moon run mormgen -- <input_file> -o <output_file>
+moonx oboard/morm/mormgen -- <input_file> -o <output_file>
 ```
 
 典型流程（对应 `example/`）：
 
 ```bash
 # 生成实体的 table() 实现
-moon run mormgen -- example/entities.mbt -o example/entities.g.mbt
+moonx oboard/morm/mormgen -- example/entities.mbt -o example/entities.g.mbt
 
 # 生成 mapper 实现
-moon run mormgen -- example/mapper.mbt -o example/mapper.g.mbt
+moonx oboard/morm/mormgen -- example/mapper.mbt -o example/mapper.g.mbt
 ```
 
 `entities.g.mbt` 会包含每个实体的 `impl @morm.Entity` 和 `table()`，`mapper.g.mbt` 会包含 mapper struct、`Struct::new` 工厂函数以及基于 `#morm.query` 的方法实现。
