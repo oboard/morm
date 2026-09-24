@@ -1,0 +1,28 @@
+test.sh
+  h_c7606fb8f0c97c 2-3
+docs/get-started.md
+  h_c7606fb8f0c97c 234-235
+examples/enum/schema.mbt
+  h_c7606fb8f0c97c 3
+README.zh-CN.md
+  h_c7606fb8f0c97c 70,174,181,184
+docs/api-examples.md
+  h_c7606fb8f0c97c 490-491
+examples/mapper/schema.mbt
+  h_c7606fb8f0c97c 3
+examples/README.md
+  h_c7606fb8f0c97c 32-35
+examples/curd/user_mapper.mbt
+  h_c7606fb8f0c97c 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "62086669a234cd2abb00d8a7216ef43c82d4bf71",
+  "prompts": {},
+  "humans": {
+    "h_c7606fb8f0c97c": {
+      "author": "oboard <oboard@outlook.com>"
+    }
+  }
+}
