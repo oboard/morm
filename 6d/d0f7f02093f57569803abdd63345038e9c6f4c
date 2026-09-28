@@ -1,0 +1,22 @@
+docs/get-started.md
+  h_c7606fb8f0c97c 430-432
+docs/zh/query-builders.md
+  h_c7606fb8f0c97c 71-72
+examples/enum/main.mbt
+  h_c7606fb8f0c97c 4,6
+docs/query-builders.md
+  h_c7606fb8f0c97c 82-83
+engine/sqlite3/sqlite3_types_test.mbt
+  h_c7606fb8f0c97c 66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "6dd0f7f02093f57569803abdd63345038e9c6f4c",
+  "prompts": {},
+  "humans": {
+    "h_c7606fb8f0c97c": {
+      "author": "oboard <oboard@outlook.com>"
+    }
+  }
+}
