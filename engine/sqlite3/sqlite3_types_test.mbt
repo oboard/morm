@@ -63,6 +63,6 @@ test "sqlite value json and param conversion" {
     _ => panic()
   }
 
-  let p = @morm/engine.to_param(@sqlite3.SQLiteValue::Real(2.5))
+  let p = @sqlite3.SQLiteValue::Real(2.5)
   assert_eq(p.to_json().stringify(), "2.5")
 }

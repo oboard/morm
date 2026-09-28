@@ -427,9 +427,9 @@ Example:
 
 ```moonbit
 let params : FixedArray[@morm/engine.Param] = [
-  @morm/engine.to_param(1),
-  @morm/engine.to_param("Alice"),
-  @morm/engine.to_param(@morm.current_plain_date_time_utc()),
+ 1,
+ "Alice",
+ @morm.current_plain_date_time_utc(),
 ]
 ```
 

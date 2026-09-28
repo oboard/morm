@@ -140,8 +140,8 @@ let q = @morm.select_from("enrollment")
 let q = @morm.insert_into("student")
   .columns(["name", "age"])
   .values([
-    @morm/engine.to_param("Alice"),
-    @morm/engine.to_param(18),
+    "Alice",
+    18,
   ])
 ```
 
@@ -227,9 +227,9 @@ This helper applies the built-in boolean convention `deleted = false` before add
 ### Primitive Params
 
 ```moonbit
-let p1 = @morm/engine.to_param(1)
-let p2 = @morm/engine.to_param(true)
-let p3 = @morm/engine.to_param("Alice")
+let p1 = 1
+let p2 = true
+let p3 = "Alice"
 ```
 
 ### JSON Param
@@ -240,7 +240,7 @@ let payload = {
   "age": 18.to_json(),
 }.to_json()
 
-let p = @morm/engine.to_param(payload)
+let p = payload
 ```
 
 ### Time Params
@@ -248,9 +248,6 @@ let p = @morm/engine.to_param(payload)
 ```moonbit
 let created_at = @morm.current_plain_date_time_utc()
 let published_at = @morm.current_timestamp_utc()
-
-let p1 = @morm/engine.to_param(created_at)
-let p2 = @morm/engine.to_param(published_at)
 ```
 
 These become:

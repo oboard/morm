@@ -68,8 +68,8 @@ let q = @morm.select_raw("student", "count(*)")
 let q = @morm.insert_into("student")
   .columns(["name", "age"])
   .values([
-    @morm/engine.to_param("Alice"),
-    @morm/engine.to_param(18),
+   "Alice",
+   18,
   ])
 ```
 
